@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "collection": {
     "id": "meme-template-catalog",
     "name": "Meme Template Catalog",
@@ -37,6 +37,14 @@
         "routePattern": "/editor/:templateId",
         "prefetchFullResolutionImage": true
       }
+    },
+    "search": {
+      "enabled": true,
+      "position": "top-of-grid",
+      "placeholder": "Search meme templates by name or tag",
+      "matchFields": ["name", "tags"],
+      "filterMode": "hide-non-matches-realtime",
+      "maxFilterResponseMs": 500
     },
     "breakpoints": {
       "mobile": {
