@@ -1,0 +1,15 @@
+# Local secrets for `wrangler dev` only.
+# 1. Copy this file to `.dev.vars` in this directory (same folder as wrangler.jsonc).
+# 2. Replace placeholder values. Never commit `.dev.vars`.
+#
+# Production / preview: use `wrangler secret put <NAME>` instead of storing keys in the repo.
+# https://developers.cloudflare.com/workers/configuration/secrets/
+
+# API gateway upstream endpoints (non-secret URLs)
+FACE_SWAP_API_URL=https://face-swap.example.dev/api/face-swap
+IMAGE_GEN_API_URL=https://image-gen.example.dev/api/image
+# Optional override for extra_roast if it should not share IMAGE_GEN_API_URL.
+# EXTRA_ROAST_API_URL=https://image-gen.example.dev/api/extra-roast
+
+# API gateway secret. Keep real values in `.dev.vars` only.
+OPENAI_API_KEY=sk-your_development_key_here
