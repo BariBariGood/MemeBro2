@@ -5,7 +5,7 @@
 const catalog = require("./templates.json");
 
 const { templates, grid } = catalog;
-const { breakpoints, imageLoading } = grid;
+const { breakpoints, imageLoading, search } = grid;
 
 function setViewport(width, height = 800) {
   Object.defineProperty(window, "innerWidth", {
@@ -36,12 +36,54 @@ function getBreakpointConfig(width) {
   return { name: "desktop", ...breakpoints.desktop };
 }
 
+function matchesSearch(meme, query) {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  const searchableFields = [meme.name, ...meme.tags];
+
+  return searchableFields.some((field) =>
+    field.toLowerCase().includes(normalizedQuery)
+  );
+}
+
+function applySearchFilter(gridElement, query) {
+  const start = performance.now();
+  const cards = [
+    ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
+  ];
+
+  cards.forEach((card) => {
+    const meme = templates.find(
+      (entry) => entry.id === card.getAttribute("data-template-id")
+    );
+    const isMatch = matchesSearch(meme, query);
+
+    card.hidden = !isMatch;
+    card.setAttribute("aria-hidden", String(!isMatch));
+    card.style.display = isMatch ? "" : "none";
+  });
+
+  return performance.now() - start;
+}
+
 function renderGrid(width) {
   setViewport(width);
   document.body.innerHTML = "";
 
   const breakpoint = getBreakpointConfig(window.innerWidth);
   const start = performance.now();
+  const container = document.createElement("section");
+  container.setAttribute("data-testid", "meme-grid-container");
+
+  const searchInput = document.createElement("input");
+  searchInput.setAttribute("data-testid", "meme-search");
+  searchInput.type = "search";
+  searchInput.placeholder = search.placeholder;
+  searchInput.setAttribute("aria-label", "Search meme templates");
 
   const gridElement = document.createElement("section");
   gridElement.setAttribute("data-testid", "meme-grid");
@@ -77,12 +119,23 @@ function renderGrid(width) {
     gridElement.appendChild(card);
   });
 
-  document.body.appendChild(gridElement);
+  let lastFilterTimeMs = 0;
+
+  searchInput.addEventListener("input", (event) => {
+    lastFilterTimeMs = applySearchFilter(gridElement, event.target.value);
+  });
+
+  container.appendChild(searchInput);
+  container.appendChild(gridElement);
+  document.body.appendChild(container);
 
   return {
+    container,
+    searchInput,
     gridElement,
     renderTimeMs: performance.now() - start,
     breakpoint,
+    getLastFilterTimeMs: () => lastFilterTimeMs,
   };
 }
 
@@ -185,6 +238,71 @@ describe("Grid UI", () => {
       expect(caption.textContent).toBe(meme.name);
       expect(image.nextElementSibling).toBe(caption);
     });
+  });
+
+  test("renders the search bar at the top of the grid", () => {
+    const { container, searchInput, gridElement } = renderGrid(1440);
+
+    expect(search.enabled).toBe(true);
+    expect(container.firstElementChild).toBe(searchInput);
+    expect(searchInput.getAttribute("placeholder")).toBe(search.placeholder);
+    expect(searchInput.nextElementSibling).toBe(gridElement);
+  });
+
+  test("filters memes by name in real time by hiding non-matching results", () => {
+    const { gridElement, searchInput } = renderGrid(1440);
+
+    searchInput.value = "drake";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const visibleCards = [
+      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ].filter((card) => !card.hidden);
+
+    expect(visibleCards).toHaveLength(1);
+    expect(visibleCards[0].getAttribute("data-template-id")).toBe(
+      "drake-hotline-bling"
+    );
+  });
+
+  test("filters memes by tag in real time by hiding non-matching results", () => {
+    const { gridElement, searchInput } = renderGrid(1440);
+
+    searchInput.value = "pokemon";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const visibleCards = [
+      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ].filter((card) => !card.hidden);
+
+    expect(visibleCards).toHaveLength(1);
+    expect(visibleCards[0].getAttribute("data-template-id")).toBe(
+      "surprised-pikachu"
+    );
+  });
+
+  test("restores all memes when the search query is cleared", () => {
+    const { gridElement, searchInput } = renderGrid(1440);
+
+    searchInput.value = "reaction";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    searchInput.value = "";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const visibleCards = [
+      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ].filter((card) => !card.hidden);
+
+    expect(visibleCards).toHaveLength(templates.length);
+  });
+
+  test("applies search results in under 500ms", () => {
+    const { searchInput, getLastFilterTimeMs } = renderGrid(1440);
+
+    searchInput.value = "reaction";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(getLastFilterTimeMs()).toBeLessThanOrEqual(search.maxFilterResponseMs);
   });
 
   test("ensures none of the meme properties are empty", () => {

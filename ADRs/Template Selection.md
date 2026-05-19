@@ -9,7 +9,7 @@ Preface: To portion out the process, I will go through and prompt to build off o
 - At least 20 templates 
 - Tests: None (data task) 
 - Acceptance: JSON file valid, face regions documented for each
-### __Propmt__: 
+### __Propmt 1__: 
 Build a file templates.json data structure schema that can hold over 20 meme templates based on popular memes from the internet displayed in a scrollable grid. 
 The grid should allow for users to view from both desktops and mobile devices. 
 
@@ -34,7 +34,7 @@ I combined sub-issue 1 with parts of sub-issue 2 because I felt that a lot of wh
  - Mobile and desktop friendly
  - Tests: Custom (grid renders, lazy-loading works)
  - Acceptance: Grid loads <1.5 seconds, images lazy-load
-### __Propmt__: 
+### __Propmt 2__: 
 Adjust the grid structure so that the grid has the following properties: 
  - Each image should have the name of the meme template underneath each image and should not take more than 1.5 seconds to load.
  - The displayed images should work in the lazy-load style, showcasing a compressed version of the meme before actually displaying them.
@@ -47,7 +47,7 @@ I initially had the search bar implementation in this prompt, but I opted to exc
 ### __Task__: 
 Create tests for the UI
 
-### __Prompt__:
+### __Prompt 3__:
 Create a tests.js file that tests the functionality of the grid UI using jest. 
 
 Tests: 
@@ -69,7 +69,34 @@ After pushing the previous propmt, I wanted to make sure that there was a file t
 Filter by name/tags in real-time
 Returns results <500ms
 Tests: Custom (search filters correctly)
-### __Propmt__: 
+### __Propmt 4__: 
+Using the existing templates.json meme data structure, implement search functionality for the meme grid.
+- At the very top of the grid should be a search bar 
+- Users can input a meme name to look it up or search via their tags
+- Results are displayed by filtering out any memes that do not meet the search criteria in real time by hiding those memes
+- Results show up in less than 500ms
+
+Maintain the current grid structure, focusing only on the search filter. Do not redesign it.
 
 ### __Reasoning/Concerns__: 
+We want a way for users to look up a meme template if they know exactly what they want. Rather than reloading results that were only loaded on the page start up, it would be more intuitive to filter out the templates that do not have an exact match, reducing the loading time. After running the prompt, the tests.js file was also modified. It is nice that tests were automatically added, but also concerning since the focus shifted away from JUST writing code.
+
+## Implementation of Tabs - Sub Issue #4
+### __Task__: 
+ - Search bar at top of grid
+Filter by name/tags in real-time
+Returns results <500ms
+Tests: Custom (search filters correctly)
+### __Propmt__: 
+Using the existing templates.json meme data structure, implement search functionality for the meme grid.
+- At the very top of the grid should be a search bar 
+- Users can input a meme name to look it up or search via their tags
+- Results are displayed by filtering out any memes that do not meet the search criteria in real time by hiding those memes
+- Results show up in less than 500ms
+
+Maintain the current grid structure, focusing only on the search filter. Do not redesign it.
+
+### __Reasoning/Concerns__: 
+We want a way for users to look up a meme template if they know exactly what they want. Rather than reloading results that were only loaded on the page start up, it would be more intuitive to filter out the templates that do not have an exact match, reducing the loading time. After running the prompt, the tests.js file was also modified. It is nice that tests were automatically added, but also concerning since the focus shifted away from JUST writing code.
+
 
