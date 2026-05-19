@@ -23,5 +23,21 @@ Data for each meme template:
 - Popularity of use
 
 There should be no UI implementation yet, just placeholders and a structure.
-### __Reasoning__/Concerns: 
+### __Reasoning/Concerns__: 
 I combined sub-issue 1 with parts of sub-issue 2 because I felt that a lot of what was part of 2 was structural in nature, those parts being the scrollable feature and mobile/desktop portability. I also included the data, since the first templates would serve as a basis for what to do in the future.
+
+## Creating the UI - Sub Issue #2
+### __Task__: 
+ - Scrollable, lazy-load images
+ - Show template name + thumbnail
+ - Tap to select → immediately go to editor
+ - Mobile and desktop friendly
+ - Tests: Custom (grid renders, lazy-loading works)
+ - Acceptance: Grid loads <1.5 seconds, images lazy-load
+### __Propmt__: 
+Adjust the grid structure so that the grid has the following properties: 
+ - Each image should have the name of the meme template underneath each image and should not take more than 1.5 seconds to load.
+ - The displayed images should work in the lazy-load style, showcasing a compressed version of the meme before actually displaying them.
+ - Clicking on the meme should send the user to the editor page (the implementation of the editor page is beyond this current task), meaning clicking on a meme switches the page to an edit layout, where the full resolution of the image is displayed.
+### __Reasoning/Concerns__: 
+I initially had the search bar implementation in this prompt, but I opted to exclude it and save it for the next prompt so that the generation can focus on one aspect at a time. This can prevent causing more bugs, hence why I decided in the beginning to have several prompts instead of one incredibly long prompt, supporting what we found in the second tech warm up.
