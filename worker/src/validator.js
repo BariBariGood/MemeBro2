@@ -6,7 +6,7 @@
  */
 import { ErrorCodes } from "./errors.js";
 /** Maximum allowed file size: 10 MB */
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** Minimum image dimension in pixels */
 const MIN_DIMENSION = 100;
 /** Maximum image dimension in pixels */

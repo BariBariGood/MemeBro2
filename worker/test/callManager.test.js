@@ -7,6 +7,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   validateEnv,
+  routeRequest,
+  redactSecrets,
   fetchWithTimeout,
   fetchWithRetry,
   callAPI,
@@ -34,6 +36,36 @@ describe("validateEnv", () => {
     expect(() => validateEnv(env, ["OPENAI_API_KEY"])).toThrow(
       "Missing required environment variable: OPENAI_API_KEY"
     );
+  });
+});
+
+describe("routeRequest", () => {
+  it("routes face_swap to the face-swap endpoint", () => {
+    const env = {
+      OPENAI_API_KEY: "sk-test123",
+      FACE_SWAP_API_URL: "https://face.example/api/face-swap",
+      IMAGE_GEN_API_URL: "https://image.example/api/image",
+    };
+
+    expect(routeRequest("face_swap", env).url).toBe(
+      "https://face.example/api/face-swap"
+    );
+  });
+
+  it("routes extra_roast to the image-generation endpoint", () => {
+    const env = {
+      OPENAI_API_KEY: "sk-test123",
+      FACE_SWAP_API_URL: "https://face.example/api/face-swap",
+      IMAGE_GEN_API_URL: "https://image.example/api/image",
+    };
+
+    expect(routeRequest("extra_roast", env).url).toBe(
+      "https://image.example/api/image"
+    );
+  });
+
+  it("throws INVALID_MODE for unsupported modes", () => {
+    expect(() => routeRequest("unknown", {})).toThrow("Invalid mode: unknown");
   });
 });
 
@@ -144,6 +176,12 @@ describe("fetchWithRetry", () => {
 });
 
 describe("callAPI", () => {
+  const env = {
+    OPENAI_API_KEY: "sk-test123",
+    FACE_SWAP_API_URL: "https://face.example/api/face-swap",
+    IMAGE_GEN_API_URL: "https://image.example/api/image",
+  };
+
   it("returns parsed JSON on success", async () => {
     vi.stubGlobal(
       "fetch",
@@ -152,7 +190,7 @@ describe("callAPI", () => {
       )
     );
 
-    const result = await callAPI("http://example.com", {}, {});
+    const result = await callAPI("face_swap", {}, env);
     expect(result.result).toBe("ok");
   });
 
@@ -162,7 +200,7 @@ describe("callAPI", () => {
       vi.fn().mockResolvedValue(new Response("{}", { status: 502 }))
     );
 
-    await expect(callAPI("http://example.com", {}, {})).rejects.toMatchObject({
+    await expect(callAPI("face_swap", {}, env)).rejects.toMatchObject({
       code: "SERVER_ERROR",
       retryable: true,
     });
@@ -174,7 +212,7 @@ describe("callAPI", () => {
       vi.fn().mockResolvedValue(new Response("{}", { status: 400 }))
     );
 
-    await expect(callAPI("http://example.com", {}, {})).rejects.toMatchObject({
+    await expect(callAPI("face_swap", {}, env)).rejects.toMatchObject({
       code: "CLIENT_ERROR",
       retryable: false,
     });
@@ -188,8 +226,10 @@ describe("callAPI", () => {
       )
     );
 
-    const env = { AI_TIMEOUT_MS: "3000" };
-    const result = await callAPI("http://example.com", {}, env);
+    const result = await callAPI("face_swap", {}, {
+      ...env,
+      AI_TIMEOUT_MS: "3000",
+    });
     expect(result.ok).toBe(true);
   });
 
@@ -205,9 +245,56 @@ describe("callAPI", () => {
     );
 
     try {
-      await callAPI("http://example.com", {}, {});
+      await callAPI("face_swap", {}, env);
     } catch (err) {
       expect(err.message).not.toContain("sk-secret123");
     }
+  });
+
+  it("uses different upstream URLs for different modes", async () => {
+    const mockFetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ ok: true }), { status: 200 })
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    await callAPI("face_swap", { method: "POST" }, env);
+    await callAPI("extra_roast", { method: "POST" }, env);
+
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      "https://face.example/api/face-swap",
+      expect.any(Object)
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      "https://image.example/api/image",
+      expect.any(Object)
+    );
+  });
+
+  it("validates API keys before outbound fetch", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(
+      callAPI("face_swap", {}, { FACE_SWAP_API_URL: env.FACE_SWAP_API_URL })
+    ).rejects.toMatchObject({
+      code: "MISSING_API_KEY",
+      retryable: false,
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("redactSecrets", () => {
+  it("redacts OpenAI-style keys and env secret values", () => {
+    const message = "failed with sk-secret123 and custom-secret";
+    const result = redactSecrets(message, { SERVICE_TOKEN: "custom-secret" });
+
+    expect(result).not.toContain("sk-secret123");
+    expect(result).not.toContain("custom-secret");
+    expect(result).toContain("[REDACTED]");
   });
 });
