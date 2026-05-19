@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "collection": {
     "id": "meme-template-catalog",
     "name": "Meme Template Catalog",
@@ -45,6 +45,25 @@
       "matchFields": ["name", "tags"],
       "filterMode": "hide-non-matches-realtime",
       "maxFilterResponseMs": 500
+    },
+    "tabs": {
+      "enabled": true,
+      "defaultTab": "trending",
+      "items": [
+        {
+          "id": "recents",
+          "label": "Recents",
+          "maxItems": 3,
+          "storageKey": "meme-template-recents"
+        },
+        {
+          "id": "trending",
+          "label": "Trending",
+          "sortBy": "popularityScore",
+          "sortDirection": "desc",
+          "persistentAcrossSessions": true
+        }
+      ]
     },
     "breakpoints": {
       "mobile": {
