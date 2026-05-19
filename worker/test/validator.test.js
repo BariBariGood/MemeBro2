@@ -92,6 +92,32 @@ describe("validateUpload — accepted formats", () => {
 });
 
 describe("validateUpload — size checks", () => {
+  it("accepts a valid JPEG just under 9 MB", () => {
+    const size = 9 * 1024 * 1024 - 1;
+    const result = validateUpload({
+      buffer: fakeJpeg(size),
+      mimeType: "image/jpeg",
+      filename: "large-ok.jpg",
+      size,
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.format).toBe("jpeg");
+  });
+
+  it("rejects a file one byte over 10 MB", () => {
+    const size = 10 * 1024 * 1024 + 1;
+
+    expect(() =>
+      validateUpload({
+        buffer: fakeJpeg(size),
+        mimeType: "image/jpeg",
+        filename: "too-big.jpg",
+        size,
+      })
+    ).toThrow("File exceeds 10 MB upload limit");
+  });
+
   it("rejects a file over 10 MB", () => {
     expect(() =>
       validateUpload({
