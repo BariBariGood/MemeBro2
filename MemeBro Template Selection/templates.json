@@ -1,0 +1,685 @@
+{
+  "schemaVersion": "1.3.0",
+  "collection": {
+    "id": "meme-template-catalog",
+    "name": "Meme Template Catalog",
+    "description": "Placeholder-only meme template dataset for a future scrollable grid experience.",
+    "totalTemplates": 25,
+    "sourcePolicy": {
+      "imageAssets": "placeholder",
+      "notes": "Image URLs and pixel coordinates are placeholders until final assets are selected."
+    }
+  },
+  "grid": {
+    "type": "scrollable",
+    "scrollDirection": "vertical",
+    "responsive": true,
+    "itemCard": {
+      "clickable": true,
+      "labelPosition": "below-image",
+      "labelField": "name",
+      "tapTarget": "full-card",
+      "destinationView": "editor"
+    },
+    "imageLoading": {
+      "strategy": "lazy-progressive",
+      "thumbnailSourceField": "images.thumbnail",
+      "previewSourceField": "images.preview",
+      "fullResolutionSourceField": "images.main",
+      "maxInitialLoadMs": 1500,
+      "placeholderStyle": "compressed-preview-first",
+      "swapToFullThumbnailWhenReady": true
+    },
+    "interaction": {
+      "onTemplateClick": {
+        "action": "navigate",
+        "targetPage": "editor",
+        "routePattern": "/editor/:templateId",
+        "prefetchFullResolutionImage": true
+      }
+    },
+    "search": {
+      "enabled": true,
+      "position": "top-of-grid",
+      "placeholder": "Search meme templates by name or tag",
+      "matchFields": ["name", "tags"],
+      "filterMode": "hide-non-matches-realtime",
+      "maxFilterResponseMs": 500
+    },
+    "tabs": {
+      "enabled": true,
+      "defaultTab": "trending",
+      "items": [
+        {
+          "id": "recents",
+          "label": "Recents",
+          "maxItems": 3,
+          "storageKey": "meme-template-recents"
+        },
+        {
+          "id": "trending",
+          "label": "Trending",
+          "sortBy": "popularityScore",
+          "sortDirection": "desc",
+          "persistentAcrossSessions": true
+        }
+      ]
+    },
+    "breakpoints": {
+      "mobile": {
+        "maxWidth": 767,
+        "columns": 2,
+        "thumbnailAspectRatio": "1:1",
+        "gap": 12
+      },
+      "tablet": {
+        "minWidth": 768,
+        "maxWidth": 1023,
+        "columns": 3,
+        "thumbnailAspectRatio": "1:1",
+        "gap": 16
+      },
+      "desktop": {
+        "minWidth": 1024,
+        "columns": 5,
+        "thumbnailAspectRatio": "1:1",
+        "gap": 20
+      }
+    }
+  },
+  "templateSchema": {
+    "requiredFields": [
+      "id",
+      "name",
+      "popularityScore",
+      "tags",
+      "images",
+      "faceRegions",
+      "display",
+      "editorTarget"
+    ],
+    "fieldNotes": {
+      "id": "Stable unique identifier for each meme template.",
+      "name": "Display name shown to users.",
+      "popularityScore": "Relative usage score from 1-100.",
+      "tags": "Search and filter tags tied to the meme format.",
+      "images": "Placeholder paths for the compressed preview, grid thumbnail, and full image.",
+      "faceRegions": "Array of face bounding boxes relative to source image pixels.",
+      "display": "Card-level metadata for showing the meme name below the image in the grid.",
+      "editorTarget": "Navigation contract for opening the future editor page with the full-resolution image."
+    }
+  },
+  "templateDefaults": {
+    "display": {
+      "showNameBelowImage": true,
+      "showPopularityBadge": false
+    },
+    "editorTarget": {
+      "type": "route",
+      "layout": "edit",
+      "routePattern": "/editor/:templateId",
+      "loadFullResolutionOnOpen": true
+    }
+  },
+  "templates": [
+    {
+      "id": "drake-hotline-bling",
+      "name": "Drake Hotline Bling",
+      "popularityScore": 98,
+      "tags": ["reaction", "approval", "disapproval", "comparison", "drake"],
+      "images": {
+        "main": "/assets/memes/drake-hotline-bling/main.jpg",
+        "preview": "/assets/memes/drake-hotline-bling/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/drake-hotline-bling/thumb.jpg",
+        "width": 1200,
+        "height": 1200
+      },
+      "display": {
+        "caption": "Drake Hotline Bling"
+      },
+      "editorTarget": {
+        "route": "/editor/drake-hotline-bling"
+      },
+      "faceRegions": [
+        { "label": "drake-top", "x": 310, "y": 120, "width": 220, "height": 220 },
+        { "label": "drake-bottom", "x": 640, "y": 660, "width": 220, "height": 220 }
+      ]
+    },
+    {
+      "id": "distracted-boyfriend",
+      "name": "Distracted Boyfriend",
+      "popularityScore": 97,
+      "tags": ["relationship", "comparison", "temptation", "choice", "stock-photo"],
+      "images": {
+        "main": "/assets/memes/distracted-boyfriend/main.jpg",
+        "preview": "/assets/memes/distracted-boyfriend/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/distracted-boyfriend/thumb.jpg",
+        "width": 1200,
+        "height": 800
+      },
+      "display": {
+        "caption": "Distracted Boyfriend"
+      },
+      "editorTarget": {
+        "route": "/editor/distracted-boyfriend"
+      },
+      "faceRegions": [
+        { "label": "boyfriend", "x": 500, "y": 180, "width": 170, "height": 170 },
+        { "label": "girlfriend", "x": 820, "y": 150, "width": 180, "height": 180 },
+        { "label": "passing-woman", "x": 230, "y": 170, "width": 160, "height": 160 }
+      ]
+    },
+    {
+      "id": "two-buttons",
+      "name": "Two Buttons",
+      "popularityScore": 90,
+      "tags": ["decision", "panic", "choice", "pressure", "comic"],
+      "images": {
+        "main": "/assets/memes/two-buttons/main.jpg",
+        "preview": "/assets/memes/two-buttons/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/two-buttons/thumb.jpg",
+        "width": 1000,
+        "height": 908
+      },
+      "display": {
+        "caption": "Two Buttons"
+      },
+      "editorTarget": {
+        "route": "/editor/two-buttons"
+      },
+      "faceRegions": [
+        { "label": "sweating-man", "x": 320, "y": 230, "width": 180, "height": 180 }
+      ]
+    },
+    {
+      "id": "change-my-mind",
+      "name": "Change My Mind",
+      "popularityScore": 89,
+      "tags": ["opinion", "debate", "controversial", "table-sign", "discussion"],
+      "images": {
+        "main": "/assets/memes/change-my-mind/main.jpg",
+        "preview": "/assets/memes/change-my-mind/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/change-my-mind/thumb.jpg",
+        "width": 1280,
+        "height": 720
+      },
+      "display": {
+        "caption": "Change My Mind"
+      },
+      "editorTarget": {
+        "route": "/editor/change-my-mind"
+      },
+      "faceRegions": [
+        { "label": "speaker", "x": 790, "y": 140, "width": 170, "height": 170 }
+      ]
+    },
+    {
+      "id": "woman-yelling-at-cat",
+      "name": "Woman Yelling at Cat",
+      "popularityScore": 96,
+      "tags": ["argument", "reaction", "split-panel", "cat", "tv"],
+      "images": {
+        "main": "/assets/memes/woman-yelling-at-cat/main.jpg",
+        "preview": "/assets/memes/woman-yelling-at-cat/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/woman-yelling-at-cat/thumb.jpg",
+        "width": 1200,
+        "height": 675
+      },
+      "display": {
+        "caption": "Woman Yelling at Cat"
+      },
+      "editorTarget": {
+        "route": "/editor/woman-yelling-at-cat"
+      },
+      "faceRegions": [
+        { "label": "woman-left", "x": 180, "y": 160, "width": 160, "height": 160 },
+        { "label": "woman-right", "x": 340, "y": 150, "width": 150, "height": 150 },
+        { "label": "cat", "x": 900, "y": 260, "width": 120, "height": 120 }
+      ]
+    },
+    {
+      "id": "expanding-brain",
+      "name": "Expanding Brain",
+      "popularityScore": 88,
+      "tags": ["escalation", "intelligence", "irony", "tiers", "brain"],
+      "images": {
+        "main": "/assets/memes/expanding-brain/main.jpg",
+        "preview": "/assets/memes/expanding-brain/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/expanding-brain/thumb.jpg",
+        "width": 1000,
+        "height": 1333
+      },
+      "display": {
+        "caption": "Expanding Brain"
+      },
+      "editorTarget": {
+        "route": "/editor/expanding-brain"
+      },
+      "faceRegions": [
+        { "label": "brain-tier-1", "x": 620, "y": 60, "width": 130, "height": 130 },
+        { "label": "brain-tier-2", "x": 620, "y": 375, "width": 130, "height": 130 },
+        { "label": "brain-tier-3", "x": 620, "y": 690, "width": 130, "height": 130 },
+        { "label": "brain-tier-4", "x": 620, "y": 1005, "width": 130, "height": 130 }
+      ]
+    },
+    {
+      "id": "one-does-not-simply",
+      "name": "One Does Not Simply",
+      "popularityScore": 87,
+      "tags": ["warning", "boromir", "lord-of-the-rings", "impossible", "statement"],
+      "images": {
+        "main": "/assets/memes/one-does-not-simply/main.jpg",
+        "preview": "/assets/memes/one-does-not-simply/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/one-does-not-simply/thumb.jpg",
+        "width": 900,
+        "height": 900
+      },
+      "display": {
+        "caption": "One Does Not Simply"
+      },
+      "editorTarget": {
+        "route": "/editor/one-does-not-simply"
+      },
+      "faceRegions": [
+        { "label": "boromir", "x": 250, "y": 130, "width": 210, "height": 210 }
+      ]
+    },
+    {
+      "id": "success-kid",
+      "name": "Success Kid",
+      "popularityScore": 85,
+      "tags": ["success", "win", "celebration", "child", "determination"],
+      "images": {
+        "main": "/assets/memes/success-kid/main.jpg",
+        "preview": "/assets/memes/success-kid/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/success-kid/thumb.jpg",
+        "width": 1024,
+        "height": 1024
+      },
+      "display": {
+        "caption": "Success Kid"
+      },
+      "editorTarget": {
+        "route": "/editor/success-kid"
+      },
+      "faceRegions": [
+        { "label": "success-kid", "x": 380, "y": 260, "width": 180, "height": 180 }
+      ]
+    },
+    {
+      "id": "disaster-girl",
+      "name": "Disaster Girl",
+      "popularityScore": 84,
+      "tags": ["chaos", "fire", "smug", "child", "destruction"],
+      "images": {
+        "main": "/assets/memes/disaster-girl/main.jpg",
+        "preview": "/assets/memes/disaster-girl/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/disaster-girl/thumb.jpg",
+        "width": 1024,
+        "height": 682
+      },
+      "display": {
+        "caption": "Disaster Girl"
+      },
+      "editorTarget": {
+        "route": "/editor/disaster-girl"
+      },
+      "faceRegions": [
+        { "label": "disaster-girl", "x": 390, "y": 180, "width": 140, "height": 140 }
+      ]
+    },
+    {
+      "id": "this-is-fine",
+      "name": "This Is Fine",
+      "popularityScore": 93,
+      "tags": ["denial", "chaos", "fire", "reaction", "dog"],
+      "images": {
+        "main": "/assets/memes/this-is-fine/main.jpg",
+        "preview": "/assets/memes/this-is-fine/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/this-is-fine/thumb.jpg",
+        "width": 1200,
+        "height": 675
+      },
+      "display": {
+        "caption": "This Is Fine"
+      },
+      "editorTarget": {
+        "route": "/editor/this-is-fine"
+      },
+      "faceRegions": [
+        { "label": "dog", "x": 440, "y": 180, "width": 180, "height": 180 }
+      ]
+    },
+    {
+      "id": "gru-plan",
+      "name": "Gru's Plan",
+      "popularityScore": 86,
+      "tags": ["presentation", "plan", "backfire", "despicable-me", "comic"],
+      "images": {
+        "main": "/assets/memes/gru-plan/main.jpg",
+        "preview": "/assets/memes/gru-plan/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/gru-plan/thumb.jpg",
+        "width": 1200,
+        "height": 1200
+      },
+      "display": {
+        "caption": "Gru's Plan"
+      },
+      "editorTarget": {
+        "route": "/editor/gru-plan"
+      },
+      "faceRegions": [
+        { "label": "gru-panel-1", "x": 120, "y": 150, "width": 120, "height": 120 },
+        { "label": "gru-panel-2", "x": 650, "y": 140, "width": 120, "height": 120 },
+        { "label": "gru-panel-3", "x": 130, "y": 760, "width": 120, "height": 120 },
+        { "label": "gru-panel-4", "x": 650, "y": 760, "width": 120, "height": 120 }
+      ]
+    },
+    {
+      "id": "futurama-fry",
+      "name": "Futurama Fry",
+      "popularityScore": 83,
+      "tags": ["uncertainty", "suspicion", "fry", "futurama", "question"],
+      "images": {
+        "main": "/assets/memes/futurama-fry/main.jpg",
+        "preview": "/assets/memes/futurama-fry/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/futurama-fry/thumb.jpg",
+        "width": 900,
+        "height": 900
+      },
+      "display": {
+        "caption": "Futurama Fry"
+      },
+      "editorTarget": {
+        "route": "/editor/futurama-fry"
+      },
+      "faceRegions": [
+        { "label": "fry", "x": 260, "y": 180, "width": 230, "height": 230 }
+      ]
+    },
+    {
+      "id": "ancient-aliens",
+      "name": "Ancient Aliens",
+      "popularityScore": 80,
+      "tags": ["aliens", "explanation", "history-channel", "theory", "reaction"],
+      "images": {
+        "main": "/assets/memes/ancient-aliens/main.jpg",
+        "preview": "/assets/memes/ancient-aliens/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/ancient-aliens/thumb.jpg",
+        "width": 1280,
+        "height": 720
+      },
+      "display": {
+        "caption": "Ancient Aliens"
+      },
+      "editorTarget": {
+        "route": "/editor/ancient-aliens"
+      },
+      "faceRegions": [
+        { "label": "giorgio", "x": 540, "y": 120, "width": 170, "height": 170 }
+      ]
+    },
+    {
+      "id": "running-away-balloon",
+      "name": "Running Away Balloon",
+      "popularityScore": 79,
+      "tags": ["avoidance", "escaping", "personification", "choice", "comic"],
+      "images": {
+        "main": "/assets/memes/running-away-balloon/main.jpg",
+        "preview": "/assets/memes/running-away-balloon/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/running-away-balloon/thumb.jpg",
+        "width": 1024,
+        "height": 768
+      },
+      "display": {
+        "caption": "Running Away Balloon"
+      },
+      "editorTarget": {
+        "route": "/editor/running-away-balloon"
+      },
+      "faceRegions": [
+        { "label": "runner", "x": 220, "y": 310, "width": 120, "height": 120 }
+      ]
+    },
+    {
+      "id": "mocking-spongebob",
+      "name": "Mocking SpongeBob",
+      "popularityScore": 94,
+      "tags": ["mocking", "sarcasm", "spongebob", "text-style", "reaction"],
+      "images": {
+        "main": "/assets/memes/mocking-spongebob/main.jpg",
+        "preview": "/assets/memes/mocking-spongebob/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/mocking-spongebob/thumb.jpg",
+        "width": 1200,
+        "height": 900
+      },
+      "display": {
+        "caption": "Mocking SpongeBob"
+      },
+      "editorTarget": {
+        "route": "/editor/mocking-spongebob"
+      },
+      "faceRegions": [
+        { "label": "spongebob", "x": 470, "y": 260, "width": 210, "height": 210 }
+      ]
+    },
+    {
+      "id": "hide-the-pain-harold",
+      "name": "Hide the Pain Harold",
+      "popularityScore": 82,
+      "tags": ["pain", "smile", "awkward", "office", "reaction"],
+      "images": {
+        "main": "/assets/memes/hide-the-pain-harold/main.jpg",
+        "preview": "/assets/memes/hide-the-pain-harold/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/hide-the-pain-harold/thumb.jpg",
+        "width": 1024,
+        "height": 682
+      },
+      "display": {
+        "caption": "Hide the Pain Harold"
+      },
+      "editorTarget": {
+        "route": "/editor/hide-the-pain-harold"
+      },
+      "faceRegions": [
+        { "label": "harold", "x": 440, "y": 130, "width": 160, "height": 160 }
+      ]
+    },
+    {
+      "id": "left-exit-12-off-ramp",
+      "name": "Left Exit 12 Off Ramp",
+      "popularityScore": 91,
+      "tags": ["decision", "swerve", "unexpected", "choice", "highway"],
+      "images": {
+        "main": "/assets/memes/left-exit-12-off-ramp/main.jpg",
+        "preview": "/assets/memes/left-exit-12-off-ramp/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/left-exit-12-off-ramp/thumb.jpg",
+        "width": 1280,
+        "height": 720
+      },
+      "display": {
+        "caption": "Left Exit 12 Off Ramp"
+      },
+      "editorTarget": {
+        "route": "/editor/left-exit-12-off-ramp"
+      },
+      "faceRegions": []
+    },
+    {
+      "id": "is-this-a-pigeon",
+      "name": "Is This a Pigeon",
+      "popularityScore": 88,
+      "tags": ["misidentification", "anime", "question", "butterfly", "reaction"],
+      "images": {
+        "main": "/assets/memes/is-this-a-pigeon/main.jpg",
+        "preview": "/assets/memes/is-this-a-pigeon/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/is-this-a-pigeon/thumb.jpg",
+        "width": 1200,
+        "height": 675
+      },
+      "display": {
+        "caption": "Is This a Pigeon"
+      },
+      "editorTarget": {
+        "route": "/editor/is-this-a-pigeon"
+      },
+      "faceRegions": [
+        { "label": "man", "x": 330, "y": 150, "width": 150, "height": 150 }
+      ]
+    },
+    {
+      "id": "roll-safe-think-about-it",
+      "name": "Roll Safe Think About It",
+      "popularityScore": 86,
+      "tags": ["logic", "smug", "think", "advice", "reaction"],
+      "images": {
+        "main": "/assets/memes/roll-safe-think-about-it/main.jpg",
+        "preview": "/assets/memes/roll-safe-think-about-it/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/roll-safe-think-about-it/thumb.jpg",
+        "width": 900,
+        "height": 900
+      },
+      "display": {
+        "caption": "Roll Safe Think About It"
+      },
+      "editorTarget": {
+        "route": "/editor/roll-safe-think-about-it"
+      },
+      "faceRegions": [
+        { "label": "roll-safe", "x": 320, "y": 140, "width": 180, "height": 180 }
+      ]
+    },
+    {
+      "id": "surprised-pikachu",
+      "name": "Surprised Pikachu",
+      "popularityScore": 95,
+      "tags": ["shock", "pokemon", "reaction", "surprise", "consequence"],
+      "images": {
+        "main": "/assets/memes/surprised-pikachu/main.jpg",
+        "preview": "/assets/memes/surprised-pikachu/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/surprised-pikachu/thumb.jpg",
+        "width": 1200,
+        "height": 900
+      },
+      "display": {
+        "caption": "Surprised Pikachu"
+      },
+      "editorTarget": {
+        "route": "/editor/surprised-pikachu"
+      },
+      "faceRegions": [
+        { "label": "pikachu", "x": 450, "y": 200, "width": 190, "height": 190 }
+      ]
+    },
+    {
+      "id": "always-has-been",
+      "name": "Always Has Been",
+      "popularityScore": 84,
+      "tags": ["twist", "astronaut", "space", "truth", "reveal"],
+      "images": {
+        "main": "/assets/memes/always-has-been/main.jpg",
+        "preview": "/assets/memes/always-has-been/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/always-has-been/thumb.jpg",
+        "width": 1280,
+        "height": 720
+      },
+      "display": {
+        "caption": "Always Has Been"
+      },
+      "editorTarget": {
+        "route": "/editor/always-has-been"
+      },
+      "faceRegions": [
+        { "label": "astronaut-front", "x": 920, "y": 160, "width": 120, "height": 120 },
+        { "label": "astronaut-back", "x": 310, "y": 200, "width": 110, "height": 110 }
+      ]
+    },
+    {
+      "id": "waiting-skeleton",
+      "name": "Waiting Skeleton",
+      "popularityScore": 78,
+      "tags": ["waiting", "patience", "delay", "skeleton", "time"],
+      "images": {
+        "main": "/assets/memes/waiting-skeleton/main.jpg",
+        "preview": "/assets/memes/waiting-skeleton/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/waiting-skeleton/thumb.jpg",
+        "width": 1024,
+        "height": 768
+      },
+      "display": {
+        "caption": "Waiting Skeleton"
+      },
+      "editorTarget": {
+        "route": "/editor/waiting-skeleton"
+      },
+      "faceRegions": []
+    },
+    {
+      "id": "batman-slapping-robin",
+      "name": "Batman Slapping Robin",
+      "popularityScore": 87,
+      "tags": ["comic", "interruption", "correction", "batman", "robin"],
+      "images": {
+        "main": "/assets/memes/batman-slapping-robin/main.jpg",
+        "preview": "/assets/memes/batman-slapping-robin/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/batman-slapping-robin/thumb.jpg",
+        "width": 1200,
+        "height": 899
+      },
+      "display": {
+        "caption": "Batman Slapping Robin"
+      },
+      "editorTarget": {
+        "route": "/editor/batman-slapping-robin"
+      },
+      "faceRegions": [
+        { "label": "batman", "x": 610, "y": 170, "width": 160, "height": 160 },
+        { "label": "robin", "x": 360, "y": 150, "width": 150, "height": 150 }
+      ]
+    },
+    {
+      "id": "mega-mind-no-bitches",
+      "name": "Megamind No Bitches",
+      "popularityScore": 76,
+      "tags": ["taunt", "reaction", "megamind", "caption", "mocking"],
+      "images": {
+        "main": "/assets/memes/mega-mind-no-bitches/main.jpg",
+        "preview": "/assets/memes/mega-mind-no-bitches/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/mega-mind-no-bitches/thumb.jpg",
+        "width": 1080,
+        "height": 1080
+      },
+      "display": {
+        "caption": "Megamind No Bitches"
+      },
+      "editorTarget": {
+        "route": "/editor/mega-mind-no-bitches"
+      },
+      "faceRegions": [
+        { "label": "megamind", "x": 350, "y": 150, "width": 260, "height": 260 }
+      ]
+    },
+    {
+      "id": "awkward-look-monkey-puppet",
+      "name": "Awkward Look Monkey Puppet",
+      "popularityScore": 81,
+      "tags": ["awkward", "side-eye", "reaction", "monkey", "silence"],
+      "images": {
+        "main": "/assets/memes/awkward-look-monkey-puppet/main.jpg",
+        "preview": "/assets/memes/awkward-look-monkey-puppet/preview-compressed.jpg",
+        "thumbnail": "/assets/memes/awkward-look-monkey-puppet/thumb.jpg",
+        "width": 1200,
+        "height": 900
+      },
+      "display": {
+        "caption": "Awkward Look Monkey Puppet"
+      },
+      "editorTarget": {
+        "route": "/editor/awkward-look-monkey-puppet"
+      },
+      "faceRegions": [
+        { "label": "monkey-puppet", "x": 480, "y": 180, "width": 220, "height": 220 }
+      ]
+    }
+  ]
+}
