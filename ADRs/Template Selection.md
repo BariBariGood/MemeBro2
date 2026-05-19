@@ -41,3 +41,35 @@ Adjust the grid structure so that the grid has the following properties:
  - Clicking on the meme should send the user to the editor page (the implementation of the editor page is beyond this current task), meaning clicking on a meme switches the page to an edit layout, where the full resolution of the image is displayed.
 ### __Reasoning/Concerns__: 
 I initially had the search bar implementation in this prompt, but I opted to exclude it and save it for the next prompt so that the generation can focus on one aspect at a time. This can prevent causing more bugs, hence why I decided in the beginning to have several prompts instead of one incredibly long prompt, supporting what we found in the second tech warm up.
+
+## Tests for the UI - Sub-Issue #2
+
+### __Task__: 
+Create tests for the UI
+
+### __Prompt__:
+Create a tests.js file that tests the functionality of the grid UI using jest. 
+
+Tests: 
+- The grid renders properly in desktop through simulating the resolution
+- The grid renders properly in mobile through simulating the resolution
+- Time to render takes less than 1.5 seconds (in each format)
+- Correct images are loaded (preview images are loaded, not full resolution images)
+- Make sure that the correct name is loaded underneath the images
+- Ensure that none of the meme properties are empty
+
+Only create and modify the tests.js file.
+
+### __Resoining/Concerns__:
+After pushing the previous propmt, I wanted to make sure that there was a file that tests the functionality of the UI, as mentioned in the sub-issue. 
+
+## Implementation of Search - Sub Issue #3
+### __Task__: 
+ - Search bar at top of grid
+Filter by name/tags in real-time
+Returns results <500ms
+Tests: Custom (search filters correctly)
+### __Propmt__: 
+
+### __Reasoning/Concerns__: 
+
