@@ -118,28 +118,6 @@ Added tests for:
 - validator accepts a file just under 9 MB
 - validator rejects 10 MB + 1 byte
 
-## Environment Variables
-
-The local env example was updated to document:
-
-- `FACE_SWAP_API_URL`
-- `IMAGE_GEN_API_URL`
-- optional `EXTRA_ROAST_API_URL`
-- `OPENAI_API_KEY`
-
-`wrangler.jsonc` now includes commented examples for non-secret upstream URL vars. Real API keys should stay in `.dev.vars` for local development or be configured with `wrangler secret put` for deployed environments.
-
-## Files Changed
-
-- `worker/src/callManager.js`: added mode routing, env validation before fetch, gateway auth header injection, secret redaction, safer URL logging, and mode-based `callAPI()`.
-- `worker/src/index.js`: replaced Hello World with `/api/process`, JSON/image request parsing, payload-size enforcement, upload validation, and structured error responses.
-- `worker/src/validator.js`: exported `MAX_FILE_SIZE` so the Worker route uses the same 10 MB limit as the validator.
-- `worker/test/callManager.test.js`: added routing, invalid mode, env validation, and redaction tests.
-- `worker/test/index.spec.js`: replaced Hello World tests with Worker gateway and HTTP 413 tests.
-- `worker/test/validator.test.js`: added explicit 9 MB accepted and 10 MB + 1 byte rejected tests.
-- `worker/.dev.vars.example`: documented required local env vars.
-- `worker/wrangler.jsonc`: added commented non-secret upstream URL examples.
-
 ## Verification
 
 Ran the Worker test suite with Vitest:
