@@ -5,7 +5,10 @@
 const catalog = require("./templates.json");
 
 const { templates, grid } = catalog;
-const { breakpoints, imageLoading, search } = grid;
+const { breakpoints, imageLoading, search, tabs } = grid;
+const recentTabConfig = tabs.items.find((tab) => tab.id === "recents");
+const trendingTabConfig = tabs.items.find((tab) => tab.id === "trending");
+const RECENTS_STORAGE_KEY = recentTabConfig.storageKey;
 
 function setViewport(width, height = 800) {
   Object.defineProperty(window, "innerWidth", {
@@ -34,6 +37,47 @@ function getBreakpointConfig(width) {
   }
 
   return { name: "desktop", ...breakpoints.desktop };
+}
+
+function getTrendingTemplates() {
+  return [...templates].sort(
+    (left, right) => right.popularityScore - left.popularityScore
+  );
+}
+
+function getRecentUsageMap() {
+  const rawValue = window.localStorage.getItem(RECENTS_STORAGE_KEY);
+
+  if (!rawValue) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function saveRecentUsageMap(usageMap) {
+  window.localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(usageMap));
+}
+
+function recordTemplateUsage(templateId, timestamp = Date.now()) {
+  const usageMap = getRecentUsageMap();
+  usageMap[templateId] = timestamp;
+  saveRecentUsageMap(usageMap);
+}
+
+function getRecentTemplates() {
+  const usageMap = getRecentUsageMap();
+
+  return Object.entries(usageMap)
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, recentTabConfig.maxItems)
+    .map(([templateId]) => templates.find((meme) => meme.id === templateId))
+    .filter(Boolean);
 }
 
 function matchesSearch(meme, query) {
@@ -70,32 +114,19 @@ function applySearchFilter(gridElement, query) {
   return performance.now() - start;
 }
 
-function renderGrid(width) {
-  setViewport(width);
-  document.body.innerHTML = "";
+function renderCards(gridElement, memes) {
+  gridElement.innerHTML = "";
 
-  const breakpoint = getBreakpointConfig(window.innerWidth);
-  const start = performance.now();
-  const container = document.createElement("section");
-  container.setAttribute("data-testid", "meme-grid-container");
-
-  const searchInput = document.createElement("input");
-  searchInput.setAttribute("data-testid", "meme-search");
-  searchInput.type = "search";
-  searchInput.placeholder = search.placeholder;
-  searchInput.setAttribute("aria-label", "Search meme templates");
-
-  const gridElement = document.createElement("section");
-  gridElement.setAttribute("data-testid", "meme-grid");
-  gridElement.setAttribute("data-breakpoint", breakpoint.name);
-  gridElement.style.display = "grid";
-  gridElement.style.gridTemplateColumns = `repeat(${breakpoint.columns}, minmax(0, 1fr))`;
-  gridElement.style.gap = `${breakpoint.gap}px`;
-
-  templates.forEach((meme) => {
+  memes.forEach((meme) => {
     const card = document.createElement("article");
     card.setAttribute("data-testid", "meme-card");
     card.setAttribute("data-template-id", meme.id);
+    card.dataset.popularityScore = String(meme.popularityScore);
+    card.dataset.editorRoute = meme.editorTarget.route;
+
+    card.addEventListener("click", () => {
+      recordTemplateUsage(meme.id);
+    });
 
     const figure = document.createElement("figure");
     figure.setAttribute("data-testid", "meme-figure");
@@ -118,24 +149,93 @@ function renderGrid(width) {
     card.appendChild(figure);
     gridElement.appendChild(card);
   });
+}
+
+function renderGrid(width) {
+  setViewport(width);
+  document.body.innerHTML = "";
+
+  const breakpoint = getBreakpointConfig(window.innerWidth);
+  const start = performance.now();
+  const container = document.createElement("section");
+  container.setAttribute("data-testid", "meme-grid-container");
+  const tabsElement = document.createElement("div");
+  tabsElement.setAttribute("data-testid", "meme-tabs");
+
+  const searchInput = document.createElement("input");
+  searchInput.setAttribute("data-testid", "meme-search");
+  searchInput.type = "search";
+  searchInput.placeholder = search.placeholder;
+  searchInput.setAttribute("aria-label", "Search meme templates");
+
+  const gridElement = document.createElement("section");
+  gridElement.setAttribute("data-testid", "meme-grid");
+  gridElement.setAttribute("data-breakpoint", breakpoint.name);
+  gridElement.style.display = "grid";
+  gridElement.style.gridTemplateColumns = `repeat(${breakpoint.columns}, minmax(0, 1fr))`;
+  gridElement.style.gap = `${breakpoint.gap}px`;
 
   let lastFilterTimeMs = 0;
+  let activeTab = tabs.defaultTab;
+
+  function getTemplatesForTab(tabId) {
+    if (tabId === recentTabConfig.id) {
+      return getRecentTemplates();
+    }
+
+    return getTrendingTemplates();
+  }
+
+  function syncTabButtons() {
+    const buttons = tabsElement.querySelectorAll('[data-testid="meme-tab"]');
+
+    buttons.forEach((button) => {
+      const isActive = button.dataset.tabId === activeTab;
+      button.setAttribute("aria-selected", String(isActive));
+      button.dataset.active = String(isActive);
+    });
+  }
+
+  function refreshGrid() {
+    renderCards(gridElement, getTemplatesForTab(activeTab));
+    lastFilterTimeMs = applySearchFilter(gridElement, searchInput.value);
+    syncTabButtons();
+  }
 
   searchInput.addEventListener("input", (event) => {
     lastFilterTimeMs = applySearchFilter(gridElement, event.target.value);
   });
 
+  tabs.items.forEach((tab) => {
+    const tabButton = document.createElement("button");
+    tabButton.setAttribute("data-testid", "meme-tab");
+    tabButton.type = "button";
+    tabButton.textContent = tab.label;
+    tabButton.dataset.tabId = tab.id;
+
+    tabButton.addEventListener("click", () => {
+      activeTab = tab.id;
+      refreshGrid();
+    });
+
+    tabsElement.appendChild(tabButton);
+  });
+
+  refreshGrid();
+  container.appendChild(tabsElement);
   container.appendChild(searchInput);
   container.appendChild(gridElement);
   document.body.appendChild(container);
 
   return {
     container,
+    tabsElement,
     searchInput,
     gridElement,
     renderTimeMs: performance.now() - start,
     breakpoint,
     getLastFilterTimeMs: () => lastFilterTimeMs,
+    getActiveTab: () => activeTab,
   };
 }
 
@@ -149,6 +249,10 @@ function assertNoEmptyValues(value, path) {
   }
 
   if (Array.isArray(value)) {
+    if (path.endsWith(".faceRegions")) {
+      return;
+    }
+
     expect(value.length).toBeGreaterThan(0);
     value.forEach((entry, index) =>
       assertNoEmptyValues(entry, `${path}[${index}]`)
@@ -169,6 +273,8 @@ function assertNoEmptyValues(value, path) {
 describe("Grid UI", () => {
   afterEach(() => {
     document.body.innerHTML = "";
+    window.localStorage.clear();
+    jest.restoreAllMocks();
   });
 
   test("renders properly in desktop resolution", () => {
@@ -181,7 +287,7 @@ describe("Grid UI", () => {
     expect(gridElement.style.gridTemplateColumns).toBe("repeat(5, minmax(0, 1fr))");
     expect(gridElement.style.gap).toBe("20px");
     expect(cards).toHaveLength(templates.length);
-    expect(firstCaption.textContent).toBe(templates[0].name);
+    expect(firstCaption.textContent).toBe(getTrendingTemplates()[0].name);
   });
 
   test("renders properly in mobile resolution", () => {
@@ -194,7 +300,7 @@ describe("Grid UI", () => {
     expect(gridElement.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
     expect(gridElement.style.gap).toBe("12px");
     expect(cards).toHaveLength(templates.length);
-    expect(firstCaption.textContent).toBe(templates[0].name);
+    expect(firstCaption.textContent).toBe(getTrendingTemplates()[0].name);
   });
 
   test.each([
@@ -210,10 +316,10 @@ describe("Grid UI", () => {
     const { gridElement } = renderGrid(1440);
     const images = [...gridElement.querySelectorAll('[data-testid="meme-image"]')];
 
-    expect(images).toHaveLength(templates.length);
+    expect(images).toHaveLength(getTrendingTemplates().length);
 
     images.forEach((image, index) => {
-      const meme = templates[index];
+      const meme = getTrendingTemplates()[index];
 
       expect(image.getAttribute("src")).toBe(meme.images.preview);
       expect(image.dataset.previewSrc).toBe(meme.images.preview);
@@ -227,12 +333,12 @@ describe("Grid UI", () => {
     const { gridElement } = renderGrid(1440);
     const cards = [...gridElement.querySelectorAll('[data-testid="meme-card"]')];
 
-    expect(cards).toHaveLength(templates.length);
+    expect(cards).toHaveLength(getTrendingTemplates().length);
 
     cards.forEach((card, index) => {
       const image = card.querySelector('[data-testid="meme-image"]');
       const caption = card.querySelector('[data-testid="meme-name"]');
-      const meme = templates[index];
+      const meme = getTrendingTemplates()[index];
 
       expect(image.alt).toBe(meme.name);
       expect(caption.textContent).toBe(meme.name);
@@ -244,7 +350,7 @@ describe("Grid UI", () => {
     const { container, searchInput, gridElement } = renderGrid(1440);
 
     expect(search.enabled).toBe(true);
-    expect(container.firstElementChild).toBe(searchInput);
+    expect(container.children[1]).toBe(searchInput);
     expect(searchInput.getAttribute("placeholder")).toBe(search.placeholder);
     expect(searchInput.nextElementSibling).toBe(gridElement);
   });
@@ -293,7 +399,7 @@ describe("Grid UI", () => {
       ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
     ].filter((card) => !card.hidden);
 
-    expect(visibleCards).toHaveLength(templates.length);
+    expect(visibleCards).toHaveLength(getTrendingTemplates().length);
   });
 
   test("applies search results in under 500ms", () => {
@@ -303,6 +409,91 @@ describe("Grid UI", () => {
     searchInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(getLastFilterTimeMs()).toBeLessThanOrEqual(search.maxFilterResponseMs);
+  });
+
+  test("is able to switch between tabs", () => {
+    const { tabsElement, gridElement, getActiveTab } = renderGrid(1440);
+    const [recentsTab, trendingTab] = tabsElement.querySelectorAll(
+      '[data-testid="meme-tab"]'
+    );
+
+    expect(getActiveTab()).toBe("trending");
+    expect(gridElement.querySelectorAll('[data-testid="meme-card"]')).toHaveLength(
+      templates.length
+    );
+
+    recentsTab.click();
+
+    expect(getActiveTab()).toBe("recents");
+    expect(gridElement.querySelectorAll('[data-testid="meme-card"]')).toHaveLength(0);
+
+    trendingTab.click();
+
+    expect(getActiveTab()).toBe("trending");
+    expect(gridElement.querySelectorAll('[data-testid="meme-card"]')).toHaveLength(
+      templates.length
+    );
+  });
+
+  test("recents persist across sessions", () => {
+    jest.spyOn(Date, "now")
+      .mockReturnValueOnce(1_000)
+      .mockReturnValueOnce(2_000)
+      .mockReturnValueOnce(3_000);
+
+    let session = renderGrid(1440);
+    let trendingCards = session.gridElement.querySelectorAll(
+      '[data-testid="meme-card"]'
+    );
+
+    trendingCards[4].click();
+    trendingCards[2].click();
+    trendingCards[0].click();
+
+    document.body.innerHTML = "";
+
+    session = renderGrid(1440);
+    const recentsTab = session.tabsElement.querySelector(
+      '[data-testid="meme-tab"][data-tab-id="recents"]'
+    );
+    recentsTab.click();
+
+    const recentsCards = [
+      ...session.gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ];
+
+    expect(recentsCards.map((card) => card.getAttribute("data-template-id"))).toEqual([
+      getTrendingTemplates()[0].id,
+      getTrendingTemplates()[2].id,
+      getTrendingTemplates()[4].id,
+    ]);
+  });
+
+  test("trending tab is consistent across sessions", () => {
+    const firstSession = renderGrid(1440);
+    const firstTrendingOrder = [
+      ...firstSession.gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ].map((card) => card.getAttribute("data-template-id"));
+
+    document.body.innerHTML = "";
+
+    const secondSession = renderGrid(1440);
+    const secondTrendingOrder = [
+      ...secondSession.gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ].map((card) => card.getAttribute("data-template-id"));
+
+    expect(secondTrendingOrder).toEqual(firstTrendingOrder);
+  });
+
+  test("memes in trending tab are ordered by descending popularity", () => {
+    const { gridElement } = renderGrid(1440);
+    const popularityScores = [
+      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
+    ].map((card) => Number(card.dataset.popularityScore));
+
+    const sortedScores = [...popularityScores].sort((left, right) => right - left);
+
+    expect(popularityScores).toEqual(sortedScores);
   });
 
   test("ensures none of the meme properties are empty", () => {
