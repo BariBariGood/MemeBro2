@@ -1,0 +1,9 @@
+# Local secrets for `wrangler dev` only.
+# 1. Copy this file to `.dev.vars` in this directory (same folder as wrangler.jsonc).
+# 2. Replace placeholder values. Never commit `.dev.vars`.
+#
+# Production / preview: use `wrangler secret put <NAME>` instead of storing keys in the repo.
+# https://developers.cloudflare.com/workers/configuration/secrets/
+
+# Example — add real binding names when the API gateway issues land (#36+):
+# EXTERNAL_API_KEY=your_development_key_here
