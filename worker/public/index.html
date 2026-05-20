@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MemeBro Upload Flow</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="upload-page">
+      <header class="topbar">
+        <button class="back-btn" type="button" aria-label="Back">← back</button>
+        <p class="brand">MEMEBRO</p>
+      </header>
+
+      <section id="overlay-shell" class="image-shell editor-shell hidden" aria-label="Face overlay">
+        <img id="preview-image" class="preview" alt="Upload preview" draggable="false" />
+        <div id="overlay-layer" class="overlay-layer"></div>
+        <div id="manual-overlay" class="manual-overlay hidden" aria-label="Manual face oval fit">
+          <div id="manual-circle" class="manual-circle"></div>
+        </div>
+      </section>
+
+      <section id="camera-shell" class="camera-shell hidden" aria-label="Live camera preview">
+        <div class="camera-topbar">
+          <button id="camera-close-cta" class="camera-icon" type="button" aria-label="Close camera">×</button>
+          <button id="camera-flip-cta" class="camera-icon" type="button" aria-label="Flip camera">↻</button>
+        </div>
+        <video id="camera-video" class="camera-media" playsinline autoplay muted></video>
+        <div class="camera-bottom-bar">
+          <button id="camera-snap-cta" class="shutter-button" type="button" aria-label="Capture photo"></button>
+        </div>
+      </section>
+
+      <section id="review-shell" class="camera-shell hidden" aria-label="Review captured photo">
+        <div class="camera-topbar">
+          <button id="review-close-cta" class="camera-icon" type="button" aria-label="Close photo review">×</button>
+        </div>
+        <img id="review-image" class="camera-media" alt="Captured photo preview" draggable="false" />
+        <div class="review-bottom-bar">
+          <button id="retake-cta" class="review-secondary" type="button">↻ Retake</button>
+          <button id="use-photo-cta" class="review-primary" type="button">✓ Use Photo</button>
+        </div>
+      </section>
+
+      <section id="studio-screen" class="studio-screen hidden" aria-label="Selected template studio">
+        <article class="studio-template-card">
+          <div id="studio-template-art" class="studio-template-art">
+            <span id="studio-template-initials" class="studio-template-initials"></span>
+            <span id="studio-template-regions" class="studio-template-regions"></span>
+            <span class="studio-preview-pill">✧ Preview</span>
+          </div>
+        </article>
+
+        <div class="studio-sidebar">
+          <section class="vibe-panel" aria-label="Pick a vibe">
+            <p class="vibe-title">Pick a vibe</p>
+            <div class="vibe-options">
+              <button class="vibe-pill active" type="button">Normal</button>
+              <button class="vibe-pill roast" type="button">Extra Roast</button>
+              <button class="vibe-pill friendly" type="button">Friendly Roast</button>
+            </div>
+            <p class="vibe-copy">Face-swap into a meme template.</p>
+          </section>
+
+          <section class="studio-actions" aria-label="Template actions">
+            <button id="open-upload-modal-cta" class="primary studio-action" type="button">↥ Upload <span>→</span></button>
+            <button class="pink-action studio-action" type="button">✣ AI Prompt <span>→</span></button>
+          </section>
+        </div>
+      </section>
+
+      <section id="upload-modal" class="upload-modal hidden" aria-modal="true" aria-label="Add a photo">
+        <div id="upload-modal-backdrop" class="upload-modal-backdrop"></div>
+        <div class="upload-modal-card">
+          <button id="upload-modal-close" class="upload-modal-close" type="button" aria-label="Close add photo">×</button>
+          <h1>Add a Photo</h1>
+          <p>Snap a photo with the camera or pick one you already have.</p>
+          <section class="cta-row" aria-label="Upload actions">
+            <p id="selected-template-label" class="selected-template-label"></p>
+            <button id="camera-cta" class="primary" type="button">&#128248; Take Photo</button>
+            <button id="camera-cancel-cta" class="secondary hidden" type="button">Cancel Camera</button>
+            <button id="library-cta" class="secondary" type="button"><i class="fa-solid fa-images"></i> Choose from Library</button>
+          </section>
+        </div>
+      </section>
+
+      <input id="camera-input" type="file" accept="image/*" capture="user" hidden />
+      <input id="library-input" type="file" accept="image/*" hidden />
+
+      <section id="progress-wrap" class="progress-wrap hidden" aria-live="polite">
+        <progress id="progress-bar" max="100" value="0"></progress>
+        <p id="progress-label">Waiting...</p>
+      </section>
+
+      <p id="status-text" class="status-text"></p>
+      <section id="manual-controls" class="manual-controls hidden" aria-label="Manual fit controls">
+        <div class="fit-control">
+          <label for="manual-zoom">Zoom</label>
+          <input id="manual-zoom" type="range" min="0.5" max="2.2" value="1" step="0.01" />
+        </div>
+        <div class="fit-control">
+          <label for="manual-rotation">Rotation</label>
+          <input id="manual-rotation" type="range" min="-30" max="30" value="0" step="1" />
+        </div>
+        <p class="manual-hint">Drag the photo until the face fits inside the oval, then continue.</p>
+      </section>
+
+      <section id="error-state" class="error hidden" aria-live="assertive">
+        <p id="error-message"></p>
+      </section>
+
+      <section id="template-screen" class="template-screen hidden" aria-label="Choose a meme template">
+        <div class="template-controls">
+          <input id="template-search" class="template-search" type="search" placeholder="Search templates" aria-label="Search templates" />
+          <div id="template-tabs" class="template-tabs" role="tablist" aria-label="Template filters">
+            <button id="template-tab-trending" class="template-tab active" type="button" role="tab" aria-selected="true" data-tab="trending">Trending</button>
+            <button id="template-tab-recents" class="template-tab" type="button" role="tab" aria-selected="false" data-tab="recents">Recents</button>
+          </div>
+        </div>
+        <section id="template-grid" class="template-grid" aria-live="polite"></section>
+        <p id="template-empty" class="template-empty hidden">No matching templates.</p>
+      </section>
+
+      <p id="timing-metric" class="timing hidden"></p>
+      <button id="continue-btn" type="button" disabled>Add Face →</button>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
