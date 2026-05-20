@@ -17,6 +17,14 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 const DETECTION_TIMEOUT_MS = 5000;
+const FACE_BOX_TAP_TARGET = 48;
+
+const DETECTION_FAILURE_MESSAGES = {
+  DETECTOR_UNAVAILABLE: "Face detection is not available in this browser. Use manual fit to line up the face.",
+  DETECTION_FAILED: "Face detection could not find a usable face. Use manual fit or try another photo.",
+  DETECTION_TIMEOUT: "Face detection took too long. Use manual fit or try another photo.",
+  NO_FACE_DETECTED: "No face detected. Use manual fit or try another photo.",
+};
 
 const dom = {
   uploadPage: document.querySelector(".upload-page"),
@@ -118,8 +126,13 @@ function createFaceDetectionAdapter() {
         return;
       }
 
-      detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 8 });
-      available = true;
+      try {
+        detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 8 });
+        available = true;
+      } catch {
+        detector = null;
+        available = false;
+      }
     },
 
     async detect(imageBitmap) {
@@ -205,6 +218,33 @@ function resetState() {
 function setError(code, message) {
   state.error = { code, message };
   setStatus(STATES.ERROR);
+}
+
+function setDetectionRecoveryError(code) {
+  state.error = {
+    code,
+    message: DETECTION_FAILURE_MESSAGES[code] || DETECTION_FAILURE_MESSAGES.DETECTION_FAILED,
+  };
+}
+
+function clearFaceFitState() {
+  state.error = null;
+  state.timingMs = null;
+  state.faces = [];
+  state.selectedFaceId = null;
+  state.imageBitmap = null;
+  state.detectorAvailable = true;
+  state.detectedFaceCount = 0;
+  state.usedDetectedFace = false;
+  state.manualMode = false;
+  state.manualScale = 1;
+  state.manualRotation = 0;
+  state.manualOffsetX = 0;
+  state.manualOffsetY = 0;
+  state.dragPointerId = null;
+  dom.manualZoom.value = "1";
+  dom.manualRotation.value = "0";
+  dom.previewImage.style.transform = "";
 }
 
 function withTimeout(promise, ms) {
@@ -432,7 +472,9 @@ async function detectFaces(file) {
   state.sequence += 1;
   const mySequence = state.sequence;
   state.file = file;
-  state.error = null;
+  state.view = "fit";
+  state.uploadModalOpen = false;
+  clearFaceFitState();
 
   if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
     setError("UNSUPPORTED_FORMAT", "Unsupported format. Please use a standard image format.");
@@ -455,19 +497,8 @@ async function detectFaces(file) {
   state.imageBitmap = imageBitmap;
   setStatus(STATES.DETECTING);
 
-  await adapter.init();
-
   try {
-    let faces = [];
-    state.detectorAvailable = adapter.isAvailable();
-
-    if (state.detectorAvailable) {
-      faces = await withTimeout(adapter.detect(imageBitmap), DETECTION_TIMEOUT_MS);
-    } else {
-      enterManualMode();
-      setStatus(STATES.READY);
-      return;
-    }
+    const faces = await detectFacesForBitmap(imageBitmap);
 
     const timingMs = performance.now() - start;
     if (mySequence !== state.sequence) return;
@@ -483,14 +514,20 @@ async function detectFaces(file) {
     }));
 
     state.timingMs = timingMs;
+    state.detectedFaceCount = normalizedFaces.length;
+    state.usedDetectedFace = normalizedFaces.length > 0;
 
     if (normalizedFaces.length === 0) {
+      setDetectionRecoveryError(
+        state.detectorAvailable ? "NO_FACE_DETECTED" : "DETECTOR_UNAVAILABLE"
+      );
       enterManualMode();
       setStatus(STATES.READY);
       return;
     }
 
     state.faces = normalizedFaces;
+    state.error = null;
 
     if (normalizedFaces.length === 1) {
       state.manualMode = false;
@@ -505,6 +542,9 @@ async function detectFaces(file) {
   } catch (error) {
     if (mySequence !== state.sequence) return;
     state.timingMs = performance.now() - start;
+    state.detectedFaceCount = 0;
+    state.usedDetectedFace = false;
+    setDetectionRecoveryError(error.code || "DETECTION_FAILED");
     enterManualMode();
     setStatus(STATES.READY);
   }
@@ -516,18 +556,49 @@ function renderOverlay() {
 
   if (state.manualMode) return;
 
-  state.faces.forEach((face) => {
-    if (!face.boxRendered) return;
+  const rendered = getRenderedSize();
+
+  state.faces.forEach((face, index) => {
+    const boxRendered = face.boxNatural && state.imageBitmap
+      ? normalizeBox(
+        face.boxNatural,
+        { width: state.imageBitmap.width, height: state.imageBitmap.height },
+        rendered
+      )
+      : face.boxRendered;
+
+    if (!boxRendered) return;
+
+    const hitWidth = Math.max(boxRendered.width, FACE_BOX_TAP_TARGET);
+    const hitHeight = Math.max(boxRendered.height, FACE_BOX_TAP_TARGET);
+    const hitLeft = clamp(
+      boxRendered.x - (hitWidth - boxRendered.width) / 2,
+      0,
+      Math.max(0, rendered.width - hitWidth)
+    );
+    const hitTop = clamp(
+      boxRendered.y - (hitHeight - boxRendered.height) / 2,
+      0,
+      Math.max(0, rendered.height - hitHeight)
+    );
 
     const button = document.createElement("button");
     button.type = "button";
     button.className = `face-box ${state.selectedFaceId === face.id ? "selected" : ""}`;
-    button.style.left = `${face.boxRendered.x}px`;
-    button.style.top = `${face.boxRendered.y}px`;
-    button.style.width = `${face.boxRendered.width}px`;
-    button.style.height = `${face.boxRendered.height}px`;
+    button.style.left = `${hitLeft}px`;
+    button.style.top = `${hitTop}px`;
+    button.style.width = `${hitWidth}px`;
+    button.style.height = `${hitHeight}px`;
+    button.style.setProperty("--face-ring-left", `${boxRendered.x - hitLeft}px`);
+    button.style.setProperty("--face-ring-top", `${boxRendered.y - hitTop}px`);
+    button.style.setProperty("--face-ring-width", `${boxRendered.width}px`);
+    button.style.setProperty("--face-ring-height", `${boxRendered.height}px`);
     button.disabled = state.status !== STATES.FACES_FOUND;
-    button.setAttribute("aria-label", `Select ${face.id}`);
+    button.setAttribute("aria-label", `Select face ${index + 1} of ${state.faces.length}`);
+
+    const ring = document.createElement("span");
+    ring.className = "face-box-ring";
+    button.appendChild(ring);
 
     button.addEventListener("click", () => {
       if (state.status !== STATES.FACES_FOUND) return;
@@ -731,7 +802,10 @@ function render() {
     dom.progressLabel.textContent = "Detecting faces...";
   }
 
-  dom.errorState.classList.toggle("hidden", ![STATES.ERROR, STATES.NO_FACE].includes(state.status));
+  dom.errorState.classList.toggle(
+    "hidden",
+    !state.error && ![STATES.ERROR, STATES.NO_FACE].includes(state.status)
+  );
   dom.errorMessage.textContent = state.error?.message || "";
 
   if (state.previewUrl) {
@@ -739,9 +813,15 @@ function render() {
   }
 
   if (state.status === STATES.FACES_FOUND) {
-    dom.statusText.textContent = "Multiple faces found. Tap one face to continue.";
+    dom.statusText.textContent = `${state.faces.length} faces found. Tap or click one face to continue.`;
   } else if (state.status === STATES.READY) {
-    if (state.manualMode && state.usedDetectedFace) {
+    if (state.manualMode && state.error?.code === "NO_FACE_DETECTED") {
+      dom.statusText.textContent = "No face detected. Use the oval to choose the face manually.";
+    } else if (state.manualMode && state.error?.code === "DETECTOR_UNAVAILABLE") {
+      dom.statusText.textContent = "Face detection is unavailable here. Use the oval to choose the face manually.";
+    } else if (state.manualMode && state.error) {
+      dom.statusText.textContent = "Face detection had trouble. Use the oval to choose the face manually.";
+    } else if (state.manualMode && state.usedDetectedFace) {
       dom.statusText.textContent = "Face detected. Drag to fine tune the fit inside the oval.";
     } else if (state.manualMode) {
       dom.statusText.textContent = "Drag the photo until the face sits inside the oval.";
@@ -845,7 +925,7 @@ async function useReviewedPhoto() {
   state.previewUrl = URL.createObjectURL(file);
   clearCameraReview();
   render();
-  await openManualEditor(file);
+  await detectFaces(file);
 }
 
 async function flipCamera() {
@@ -978,7 +1058,7 @@ dom.cameraInput.addEventListener("change", async (event) => {
   if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
   state.previewUrl = URL.createObjectURL(file);
   render();
-  await openManualEditor(file);
+  await detectFaces(file);
 });
 
 dom.libraryInput.addEventListener("change", async (event) => {
@@ -987,7 +1067,7 @@ dom.libraryInput.addEventListener("change", async (event) => {
   if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
   state.previewUrl = URL.createObjectURL(file);
   render();
-  await openManualEditor(file);
+  await detectFaces(file);
 });
 
 dom.manualZoom.addEventListener("input", () => {

@@ -260,3 +260,94 @@ The worker backend tests passed fully. The template grid UI tests (`tests.test.j
 
 - Backend contract (`POST /api/process` with selected face metadata) is unchanged; this ADR covers only the client-side flow
 - If the team later moves detection to a Web Worker or adopts MediaPipe, TA approval is required and a new ADR must be added before implementation begins
+
+---
+
+## Face Detection Failure Handling — Sub-Issue #4
+
+### Task
+
+- Show recoverable error handling when face detection finds no face, is unavailable, times out, or throws
+- Keep manual fit available after recoverable detection failures so the user can still choose a face area
+- Route camera and library uploads through the detection flow instead of immediately opening manual fit
+
+### Reasoning/Concerns
+
+The upload callbacks were still using the manual editor entry point, which meant detected multi-face results could be skipped even though the overlay UI already had a `faces-found` state. Routing camera and library photos through `detectFaces()` keeps the intended detection-first flow active.
+
+Recoverable detection failures now surface as inline error messages while preserving manual fit. This avoids a dead end when the detector finds no face or the browser does not support `FaceDetector`, but still makes the failure clear to the user before they continue.
+
+### AI Summary
+
+Updated `app.js` so camera review, camera input fallback, and library input all call `detectFaces(file)`. The detection flow now resets stale face-fit state for each new file, catches `FaceDetector` constructor failures, and records recoverable detection errors for:
+- `NO_FACE_DETECTED`
+- `DETECTOR_UNAVAILABLE`
+- `DETECTION_TIMEOUT`
+- `DETECTION_FAILED`
+
+When detection returns zero faces or fails, `enterManualMode()` is still used and the app moves to `ready` with an error message visible. The continue button remains enabled because manual fit produces the selected face box.
+
+---
+
+## Multi-Face Selection — Sub-Issue #5
+
+### Task
+
+- Preserve the multi-face selection state when 2+ faces are detected
+- Render one selectable face box per detected face
+- Keep Continue disabled until the user picks a face
+- Make detected face boxes usable with click or tap targets
+
+### Reasoning/Concerns
+
+The existing overlay already knew how to render detected face boxes, but the upload path could bypass the `faces-found` state by entering manual fit immediately. Keeping detected multi-face results in `faces-found` makes the user explicitly choose which person should become the meme source.
+
+Face boxes now use a minimum 48px tap target while keeping the visible ring aligned to the detected bounding box. This makes small detected faces easier to select on mobile without changing the face coordinates sent forward.
+
+### AI Summary
+
+When 2+ faces are detected, the app stays in `faces-found`, renders one selectable face box per detected face, and keeps Continue disabled until the user taps or clicks a face. Selecting a face marks it selected and transitions to `ready`.
+
+Updated `styles.css` so `.face-box` has a larger invisible tap target, a nested `.face-box-ring` for the exact detected-face outline, selected styling, and focus styling for keyboard users.
+
+### Verification
+
+Ran JavaScript syntax validation:
+
+```bash
+node --check public/app.js
+```
+
+Result:
+- Passed
+
+Ran the project Vitest suite:
+
+```bash
+npm.cmd test
+```
+
+Result:
+- 3 test files passed (`index.spec.js`, `validator.test.js`, `callManager.test.js`)
+- 39 tests passed
+- 1 existing UI test suite failed before running its tests because `test/tests.test.js` references `afterEach` without importing it in the current Vitest setup
+
+Ran an isolated browser-DOM simulation for the face flow:
+
+| Scenario | Result |
+|---|---|
+| Two detected faces | 2 face boxes rendered, Continue disabled until selection |
+| Tap/click second face | 1 selected box, `ready` state, Continue enabled |
+| No detected faces | Error shown, manual oval visible, Continue enabled via manual fit |
+| `FaceDetector` unavailable | Error shown, manual oval visible, Continue enabled via manual fit |
+| Detection timeout error | Error shown, manual oval visible, Continue enabled via manual fit |
+
+Started the local development server for visual inspection:
+
+```bash
+cd worker
+npm run dev
+```
+
+Result:
+- `http://localhost:8787/` responded with HTTP 200
