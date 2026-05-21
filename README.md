@@ -2,10 +2,9 @@
 
 ## Project Links
 
-- Upload flow app (standards-based frontend): `web/index.html`
-- End-user documentation website: `docs/index.html`
-- Cloudflare Worker API gateway: `worker/`
-- Unified local run via Wrangler: from `worker/`, run `npm run dev` and open `/` (app), `/docs/` (docs), and `/api/process` (API)
+- Upload flow app: `worker/public/index.html`
+- Cloudflare Worker API gateway: `worker/src/index.js`
+- Unified local run via Wrangler: from `worker/`, run `npm install`, then `npm run dev`, and open `http://localhost:8787/`
 
 ## Architecture Decisions (MADR)
 
@@ -15,4 +14,4 @@
 
 ## Deployment Constraints
 
-Frontend assets are static and can be hosted on Cloudflare Pages or GitHub Pages. Backend API runs on Cloudflare Workers.
+Frontend assets are served by the Cloudflare Worker static asset binding. Backend API runs on Cloudflare Workers.

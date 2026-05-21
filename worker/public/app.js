@@ -1091,7 +1091,7 @@ async function submitSelectedFace() {
   if (!selectedFace) return;
   const selectedTemplate = getSelectedTemplate();
 
-  await fetch("/api/process", {
+  const response = await fetch("/api/process", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -1109,6 +1109,23 @@ async function submitSelectedFace() {
       selectedTemplate,
     }),
   });
+
+  if (response.ok) return;
+
+  let message = `Upload failed with HTTP ${response.status}.`;
+  let code = "UPLOAD_FAILED";
+
+  try {
+    const body = await response.json();
+    code = body?.code || code;
+    message = [body?.code, body?.message].filter(Boolean).join(": ") || message;
+  } catch {
+    // Keep the HTTP status fallback when the gateway does not return JSON.
+  }
+
+  const error = new Error(message);
+  error.code = code;
+  throw error;
 }
 
 async function startCameraCapture() {
@@ -1358,8 +1375,8 @@ dom.overlayShell.addEventListener("pointercancel", endDrag);
 dom.continueBtn.addEventListener("click", async () => {
   try {
     await submitSelectedFace();
-  } catch {
-    setError("UPLOAD_FAILED", "Upload failed.");
+  } catch (error) {
+    setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
   }
 });
 

@@ -3,9 +3,14 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "build:assets": "node scripts/build-mediapipe-assets.js",
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
+    "postinstall": "node scripts/build-mediapipe-assets.js",
+    "predev": "npm run build:assets",
+    "prestart": "npm run build:assets",
+    "pretest": "npm run build:assets",
+    "dev": "wrangler dev --port 8787",
+    "start": "wrangler dev --port 8787",
     "test": "npm run test:worker && npm run test:ui",
     "test:worker": "vitest --config vitest.config.js",
     "test:ui": "vitest --config vitest.ui.config.js"
