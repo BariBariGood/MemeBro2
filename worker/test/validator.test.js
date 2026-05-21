@@ -56,7 +56,7 @@ function corruptBuffer() {
   return buf;
 }
 
-describe("validateUpload — accepted formats", () => {
+describe("validateUpload - accepted formats", () => {
   it("accepts a valid JPEG", () => {
     const result = validateUpload({
       buffer: fakeJpeg(2 * 1024 * 1024),
@@ -91,7 +91,7 @@ describe("validateUpload — accepted formats", () => {
   });
 });
 
-describe("validateUpload — size checks", () => {
+describe("validateUpload - size checks", () => {
   it("accepts a valid JPEG just under 9 MB", () => {
     const size = 9 * 1024 * 1024 - 1;
     const result = validateUpload({
@@ -141,7 +141,7 @@ describe("validateUpload — size checks", () => {
   });
 });
 
-describe("validateUpload — MIME type checks", () => {
+describe("validateUpload - MIME type checks", () => {
   it("rejects an unsupported MIME type (BMP)", () => {
     expect(() =>
       validateUpload({
@@ -164,7 +164,7 @@ describe("validateUpload — MIME type checks", () => {
     ).toThrow("SVG uploads are not supported for security reasons");
   });
 
-  it("detects MIME spoofing — PDF disguised as JPEG", () => {
+  it("detects MIME spoofing - PDF disguised as JPEG", () => {
     // PDF magic bytes: %PDF
     const buf = new ArrayBuffer(100);
     const view = new Uint8Array(buf);
@@ -180,7 +180,7 @@ describe("validateUpload — MIME type checks", () => {
   });
 });
 
-describe("validateUpload — corrupt / unreadable files", () => {
+describe("validateUpload - corrupt / unreadable files", () => {
   it("rejects a corrupt image (invalid magic bytes)", () => {
     expect(() =>
       validateUpload({
