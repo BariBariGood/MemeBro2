@@ -1,7 +1,7 @@
 # cse110 project topic: memebro
 
 ## Project Links
-
+- youtube video:https://youtu.be/yxKbU6RzruE
 - Upload flow app: `worker/public/index.html`
 - Cloudflare Worker API gateway: `worker/src/index.js`
 - Unified local run via Wrangler: from `worker/`, run `npm install`, then `npm run dev`, and open `http://localhost:8787/`
