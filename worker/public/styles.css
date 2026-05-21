@@ -38,6 +38,7 @@ body {
 .upload-page.camera-mode .topbar,
 .upload-page.camera-mode .cta-row,
 .upload-page.camera-mode .status-text,
+.upload-page.camera-mode .manual-fit-cta,
 .upload-page.camera-mode .manual-controls,
 .upload-page.camera-mode .timing,
 .upload-page.camera-mode #continue-btn {
@@ -601,6 +602,13 @@ progress {
   color: rgba(233, 236, 245, 0.82);
 }
 
+.manual-fit-cta {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin: 10px auto 0;
+}
+
 .timing {
   margin: 8px auto 0;
   max-width: 720px;
@@ -845,6 +853,7 @@ progress {
   }
 
   .status-text,
+  .manual-fit-cta,
   .manual-controls,
   .timing,
   #continue-btn {
