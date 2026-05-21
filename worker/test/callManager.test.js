@@ -103,7 +103,7 @@ describe("fetchWithTimeout", () => {
     });
   });
 
-  it("timeout is configurable — fires at 3000ms not default 5000ms", async () => {
+  it("timeout is configurable - fires at 3000ms not default 5000ms", async () => {
     const start = Date.now();
     vi.stubGlobal(
       "fetch",
