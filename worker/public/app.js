@@ -8,7 +8,6 @@ const STATES = {
   LOADING_IMAGE: "loading-image",
   DETECTING: "detecting",
   FACES_FOUND: "faces-found",
-  NO_FACE: "no-face",
   ERROR: "error",
   READY: "ready",
 };
@@ -80,7 +79,6 @@ const dom = {
   templateTabs: document.getElementById("template-tabs"),
   templateGrid: document.getElementById("template-grid"),
   templateEmpty: document.getElementById("template-empty"),
-  timingMetric: document.getElementById("timing-metric"),
   continueBtn: document.getElementById("continue-btn"),
   manualOverlay: document.getElementById("manual-overlay"),
   manualCircle: document.getElementById("manual-circle"),
@@ -95,13 +93,11 @@ const state = {
   selectedFaceId: null,
   selectedFaceIds: [],
   error: null,
-  timingMs: null,
   imageBitmap: null,
   previewUrl: "",
   file: null,
   sequence: 0,
   detectorAvailable: true,
-  detectedFaceCount: 0,
   usedDetectedFace: false,
   manualMode: false,
   manualScale: 1,
@@ -406,13 +402,11 @@ function resetState() {
   state.selectedFaceId = null;
   state.selectedFaceIds = [];
   state.error = null;
-  state.timingMs = null;
   state.imageBitmap = null;
   state.previewUrl = "";
   state.file = null;
   state.sequence += 1;
   state.detectorAvailable = true;
-  state.detectedFaceCount = 0;
   state.usedDetectedFace = false;
   state.manualMode = false;
   state.manualScale = 1;
@@ -449,13 +443,11 @@ function setDetectionRecoveryError(code) {
 
 function clearFaceFitState() {
   state.error = null;
-  state.timingMs = null;
   state.faces = [];
   state.selectedFaceId = null;
   state.selectedFaceIds = [];
   state.imageBitmap = null;
   state.detectorAvailable = true;
-  state.detectedFaceCount = 0;
   state.usedDetectedFace = false;
   state.manualMode = false;
   state.manualScale = 1;
@@ -709,54 +701,6 @@ async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
   return withTimeout(adapter.detect(imageBitmap, { faceLimit }), DETECTION_TIMEOUT_MS);
 }
 
-async function openManualEditor(file) {
-  state.sequence += 1;
-  const mySequence = state.sequence;
-  state.file = file;
-  state.error = null;
-  state.timingMs = null;
-  state.detectedFaceCount = 0;
-  state.usedDetectedFace = false;
-  state.view = "fit";
-  state.uploadModalOpen = false;
-
-  if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
-    setError("UNSUPPORTED_FORMAT", "Unsupported format. Please use a standard image format.");
-    return;
-  }
-
-  const start = performance.now();
-  setStatus(STATES.LOADING_IMAGE);
-
-  try {
-    state.imageBitmap = await decodeImage(file);
-    if (mySequence !== state.sequence) return;
-  } catch (error) {
-    if (mySequence !== state.sequence) return;
-    setError(error.code || "CORRUPT_IMAGE", "Could not read this image. Please choose another photo.");
-    return;
-  }
-
-  setStatus(STATES.DETECTING);
-
-  let faces = [];
-  try {
-    faces = await detectFacesForBitmap(state.imageBitmap, getTemplateFaceCapacity());
-  } catch {
-    faces = [];
-  }
-
-  if (mySequence !== state.sequence) return;
-  state.timingMs = performance.now() - start;
-  state.detectedFaceCount = faces.length;
-  state.usedDetectedFace = faces.length > 0;
-  state.faces = faces;
-  selectSingleFace(faces[0]?.id || null);
-
-  enterManualMode(faces[0] || null);
-  setStatus(STATES.READY);
-}
-
 async function detectFaces(file) {
   state.sequence += 1;
   const mySequence = state.sequence;
@@ -770,7 +714,6 @@ async function detectFaces(file) {
     return;
   }
 
-  const start = performance.now();
   setStatus(STATES.LOADING_IMAGE);
 
   let imageBitmap;
@@ -789,7 +732,6 @@ async function detectFaces(file) {
   try {
     const faces = await detectFacesForBitmap(imageBitmap, getTemplateFaceCapacity());
 
-    const timingMs = performance.now() - start;
     if (mySequence !== state.sequence) return;
 
     const rendered = getRenderedSize();
@@ -802,8 +744,6 @@ async function detectFaces(file) {
       ),
     }));
 
-    state.timingMs = timingMs;
-    state.detectedFaceCount = normalizedFaces.length;
     state.usedDetectedFace = normalizedFaces.length > 0;
 
     if (normalizedFaces.length === 0) {
@@ -830,8 +770,6 @@ async function detectFaces(file) {
     setStatus(STATES.FACES_FOUND);
   } catch (error) {
     if (mySequence !== state.sequence) return;
-    state.timingMs = performance.now() - start;
-    state.detectedFaceCount = 0;
     state.usedDetectedFace = false;
     setDetectionRecoveryError(error.code || "DETECTION_FAILED");
     enterManualMode();
@@ -1058,15 +996,13 @@ async function showTemplateSelection() {
 function render() {
   const cameraActive = Boolean(state.cameraStream);
   const reviewingCameraPhoto = Boolean(state.cameraReviewUrl);
-  const editingPhoto = Boolean(state.previewUrl) && [STATES.FACES_FOUND, STATES.READY, STATES.NO_FACE].includes(state.status);
+  const editingPhoto = Boolean(state.previewUrl) && [STATES.FACES_FOUND, STATES.READY].includes(state.status);
   const showingTemplates = state.view === "templates";
   const showingStudio = state.view === "studio";
-  const choosingUpload = false;
   const selectedTemplate = getSelectedTemplate();
   const selectedFaceCount = getSelectedFaces().length;
   const selectableFaceLimit = getSelectableFaceLimit();
   dom.uploadPage.classList.toggle("camera-mode", cameraActive || reviewingCameraPhoto);
-  dom.uploadPage.classList.toggle("choice-mode", choosingUpload);
   dom.cameraShell.classList.toggle("hidden", !cameraActive);
   dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
   dom.templateScreen.classList.toggle("hidden", !showingTemplates);
@@ -1103,7 +1039,7 @@ function render() {
 
   dom.errorState.classList.toggle(
     "hidden",
-    !state.error && ![STATES.ERROR, STATES.NO_FACE].includes(state.status)
+    !state.error && state.status !== STATES.ERROR
   );
   dom.errorMessage.textContent = state.error?.message || "";
 
@@ -1135,8 +1071,6 @@ function render() {
     } else {
       dom.statusText.textContent = "Face selected and ready.";
     }
-  } else if (state.status === STATES.NO_FACE) {
-    dom.statusText.textContent = "No face detected.";
   } else {
     dom.statusText.textContent = "";
   }
@@ -1145,13 +1079,6 @@ function render() {
   dom.continueBtn.classList.toggle("hidden", !editingPhoto || showingTemplates);
   dom.manualOverlay.classList.toggle("hidden", !state.manualMode);
   dom.manualControls.classList.toggle("hidden", !state.manualMode);
-
-  if (typeof state.timingMs === "number") {
-    dom.timingMetric.classList.remove("hidden");
-  } else {
-    dom.timingMetric.classList.add("hidden");
-    dom.timingMetric.textContent = "";
-  }
 
   applyManualTransform();
   renderOverlay();
@@ -1278,13 +1205,11 @@ function goBackToUploadChoices() {
     state.selectedFaceId = null;
     state.selectedFaceIds = [];
     state.error = null;
-    state.timingMs = null;
     state.imageBitmap = null;
     state.previewUrl = "";
     state.file = null;
     state.sequence += 1;
     state.detectorAvailable = true;
-    state.detectedFaceCount = 0;
     state.usedDetectedFace = false;
     state.manualMode = false;
     state.manualScale = 1;

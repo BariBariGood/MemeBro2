@@ -1,10 +1,10 @@
 /**
- * @jest-environment jsdom
+ * @vitest-environment jsdom
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-const catalog = require("../public/templates.json");
+import catalog from "../public/templates.json";
 
 const { templates, grid } = catalog;
 const { breakpoints, imageLoading, search, tabs } = grid;
@@ -64,6 +64,20 @@ function getRecentUsageMap() {
 
 function saveRecentUsageMap(usageMap) {
   window.localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(usageMap));
+}
+
+function createMemoryStorage() {
+  const values = new Map();
+
+  return {
+    clear: vi.fn(() => values.clear()),
+    getItem: vi.fn((key) => {
+      const storageKey = String(key);
+      return values.has(storageKey) ? values.get(storageKey) : null;
+    }),
+    removeItem: vi.fn((key) => values.delete(String(key))),
+    setItem: vi.fn((key, value) => values.set(String(key), String(value))),
+  };
 }
 
 function recordTemplateUsage(templateId, timestamp = Date.now()) {
@@ -273,10 +287,16 @@ function assertNoEmptyValues(value, path) {
 }
 
 describe("Grid UI", () => {
+  beforeEach(() => {
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: createMemoryStorage(),
+    });
+  });
+
   afterEach(() => {
     document.body.innerHTML = "";
-    window.localStorage.clear();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   test("renders properly in desktop resolution", () => {
@@ -438,10 +458,11 @@ describe("Grid UI", () => {
   });
 
   test("recents persist across sessions", () => {
-    jest.spyOn(Date, "now")
-      .mockReturnValueOnce(1_000)
-      .mockReturnValueOnce(2_000)
-      .mockReturnValueOnce(3_000);
+    let currentTime = 1_000;
+    vi.spyOn(Date, "now").mockImplementation(() => {
+      currentTime += 1_000;
+      return currentTime;
+    });
 
     let session = renderGrid(1440);
     let trendingCards = session.gridElement.querySelectorAll(
