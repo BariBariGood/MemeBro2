@@ -236,6 +236,11 @@ export default {
       return handleGatewayRequest(request, env);
     }
 
+    // Serve static frontend/docs assets in dev and production deployments.
+    if (env.ASSETS?.fetch) {
+      return env.ASSETS.fetch(request);
+    }
+
     return jsonResponse({
       name: "MemeBro API gateway",
       route: GATEWAY_PATH,
