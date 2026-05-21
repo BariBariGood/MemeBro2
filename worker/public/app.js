@@ -1,3 +1,8 @@
+import {
+  FaceDetector as MediaPipeFaceDetector,
+  FilesetResolver,
+} from "./.generated/mediapipe/vision_bundle.mjs";
+
 const STATES = {
   IDLE: "idle",
   LOADING_IMAGE: "loading-image",
@@ -18,9 +23,15 @@ const ALLOWED_TYPES = new Set([
 
 const DETECTION_TIMEOUT_MS = 5000;
 const FACE_BOX_TAP_TARGET = 48;
+const DETECTION_TILE_OVERLAP = 0.18;
+const DETECTION_TILE_MAX_EDGE = 900;
+const DETECTION_TILE_MAX_PASSES = 12;
+const DETECTION_DUPLICATE_OVERLAP = 0.45;
+const MEDIAPIPE_WASM_PATH = "/.generated/mediapipe/wasm";
+const MEDIAPIPE_FACE_MODEL_PATH = "/.generated/mediapipe/models/blaze_face_short_range.tflite";
 
 const DETECTION_FAILURE_MESSAGES = {
-  DETECTOR_UNAVAILABLE: "Face detection is not available in this browser. Use manual fit to line up the face.",
+  DETECTOR_UNAVAILABLE: "Face detection could not load in this browser. Use manual fit to line up the face.",
   DETECTION_FAILED: "Face detection could not find a usable face. Use manual fit or try another photo.",
   DETECTION_TIMEOUT: "Face detection took too long. Use manual fit or try another photo.",
   NO_FACE_DETECTED: "No face detected. Use manual fit or try another photo.",
@@ -61,6 +72,7 @@ const dom = {
   previewImage: document.getElementById("preview-image"),
   overlayLayer: document.getElementById("overlay-layer"),
   statusText: document.getElementById("status-text"),
+  manualFitCta: document.getElementById("manual-fit-cta"),
   errorState: document.getElementById("error-state"),
   errorMessage: document.getElementById("error-message"),
   templateScreen: document.getElementById("template-screen"),
@@ -81,6 +93,7 @@ const state = {
   status: STATES.IDLE,
   faces: [],
   selectedFaceId: null,
+  selectedFaceIds: [],
   error: null,
   timingMs: null,
   imageBitmap: null,
@@ -116,43 +129,249 @@ const RECENTS_STORAGE_KEY = "meme-template-recents";
 
 function createFaceDetectionAdapter() {
   let detector = null;
+  let vision = null;
   let available = true;
+  let initPromise = null;
 
   return {
     async init() {
-      if (detector) return;
-      if (typeof window.FaceDetector !== "function") {
-        available = false;
-        return;
-      }
+      if (detector) return true;
+      if (initPromise) return initPromise;
 
-      try {
-        detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 8 });
-        available = true;
-      } catch {
-        detector = null;
-        available = false;
-      }
+      initPromise = (async () => {
+        try {
+          vision = vision || await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_PATH);
+          detector = await MediaPipeFaceDetector.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath: MEDIAPIPE_FACE_MODEL_PATH,
+              delegate: "CPU",
+            },
+            runningMode: "IMAGE",
+            minDetectionConfidence: 0.35,
+            minSuppressionThreshold: 0.3,
+          });
+          available = true;
+          return true;
+        } catch (error) {
+          console.warn("Face detection failed to initialize.", error);
+          detector = null;
+          available = false;
+          return false;
+        } finally {
+          initPromise = null;
+        }
+      })();
+
+      return initPromise;
     },
 
-    async detect(imageBitmap) {
+    async detect(decodedImage, options = {}) {
       if (!detector) return [];
-      const rawFaces = await detector.detect(imageBitmap);
-      return rawFaces.map((face, index) => ({
-        id: `face-${index}`,
-        score: Number(face?.confidence ?? 1),
-        boxNatural: {
-          x: face.boundingBox.x,
-          y: face.boundingBox.y,
-          width: face.boundingBox.width,
-          height: face.boundingBox.height,
-        },
-      }));
+
+      const targetFaceCount = Math.max(1, Number(options.faceLimit) || 1);
+      let faces = detectFacesInRegion(detector, decodedImage.source, {
+        x: 0,
+        y: 0,
+        width: decodedImage.width,
+        height: decodedImage.height,
+      });
+      faces = mergeDetectedFaces(faces, decodedImage);
+
+      if (targetFaceCount <= 1 || faces.length >= targetFaceCount) {
+        return assignFaceIds(faces);
+      }
+
+      const tilePlan = buildDetectionTiles(decodedImage, targetFaceCount);
+
+      for (let index = 0; index < tilePlan.length; index += 1) {
+        const tileCanvas = createDetectionTileCanvas(decodedImage.source, tilePlan[index]);
+        const tileFaces = detectFacesInRegion(detector, tileCanvas, tilePlan[index]);
+        faces = mergeDetectedFaces([...faces, ...tileFaces], decodedImage);
+
+        if (faces.length >= targetFaceCount) break;
+      }
+
+      return assignFaceIds(faces);
     },
 
     isAvailable() {
       return available;
     },
+  };
+}
+
+function detectFacesInRegion(detector, source, region) {
+  const result = detector.detect(source);
+  const detections = Array.isArray(result?.detections) ? result.detections : [];
+  const sourceWidth = source.naturalWidth || source.width || region.width;
+  const sourceHeight = source.naturalHeight || source.height || region.height;
+  const scaleX = region.width / sourceWidth;
+  const scaleY = region.height / sourceHeight;
+
+  return detections
+    .filter((face) => face.boundingBox)
+    .map((face) => {
+      const box = face.boundingBox;
+      const x = region.x + box.originX * scaleX;
+      const y = region.y + box.originY * scaleY;
+      const width = box.width * scaleX;
+      const height = box.height * scaleY;
+
+      return {
+        score: Number(face.categories?.[0]?.score ?? 1),
+        boxNatural: {
+          x,
+          y,
+          width,
+          height,
+        },
+      };
+    });
+}
+
+function buildDetectionTiles(decodedImage, targetFaceCount) {
+  const tiles = [];
+  const seen = new Set();
+  const gridPlans = targetFaceCount >= 3
+    ? [[2, 1], [1, 2], [2, 2], [3, 2]]
+    : [[2, 1], [1, 2], [2, 2]];
+
+  gridPlans.forEach(([columns, rows]) => {
+    const tileWidth = decodedImage.width / (columns - (columns - 1) * DETECTION_TILE_OVERLAP);
+    const tileHeight = decodedImage.height / (rows - (rows - 1) * DETECTION_TILE_OVERLAP);
+    const stepX = columns === 1 ? 0 : (decodedImage.width - tileWidth) / (columns - 1);
+    const stepY = rows === 1 ? 0 : (decodedImage.height - tileHeight) / (rows - 1);
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const x = Math.round(column * stepX);
+        const y = Math.round(row * stepY);
+        const width = Math.round(Math.min(tileWidth, decodedImage.width - x));
+        const height = Math.round(Math.min(tileHeight, decodedImage.height - y));
+        const key = `${x}:${y}:${width}:${height}`;
+
+        if (seen.has(key)) continue;
+        seen.add(key);
+        tiles.push({ x, y, width, height });
+      }
+    }
+  });
+
+  return tiles.slice(0, DETECTION_TILE_MAX_PASSES);
+}
+
+function createDetectionTileCanvas(source, tile) {
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(1, DETECTION_TILE_MAX_EDGE / Math.max(tile.width, tile.height));
+  canvas.width = Math.max(1, Math.round(tile.width * scale));
+  canvas.height = Math.max(1, Math.round(tile.height * scale));
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(
+    source,
+    tile.x,
+    tile.y,
+    tile.width,
+    tile.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+  return canvas;
+}
+
+function mergeDetectedFaces(faces, decodedImage) {
+  const candidates = faces
+    .map((face) => {
+      const box = face.boxNatural;
+      const x = clamp(box.x, 0, decodedImage.width);
+      const y = clamp(box.y, 0, decodedImage.height);
+      const right = clamp(box.x + box.width, x, decodedImage.width);
+      const bottom = clamp(box.y + box.height, y, decodedImage.height);
+
+      return {
+        ...face,
+        boxNatural: {
+          x,
+          y,
+          width: right - x,
+          height: bottom - y,
+        },
+      };
+    })
+    .filter((face) => face.boxNatural.width >= 8 && face.boxNatural.height >= 8)
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      return getFaceArea(right) - getFaceArea(left);
+    });
+
+  const merged = [];
+
+  candidates.forEach((candidate) => {
+    const duplicateIndex = merged.findIndex((face) => areDuplicateFaces(face, candidate));
+
+    if (duplicateIndex === -1) {
+      merged.push(candidate);
+      return;
+    }
+
+    const existing = merged[duplicateIndex];
+    if (
+      candidate.score > existing.score ||
+      (candidate.score >= existing.score - 0.08 && getFaceArea(candidate) > getFaceArea(existing) * 1.35)
+    ) {
+      merged[duplicateIndex] = candidate;
+    }
+  });
+
+  return merged.sort((left, right) => (
+    left.boxNatural.y - right.boxNatural.y || left.boxNatural.x - right.boxNatural.x
+  ));
+}
+
+function assignFaceIds(faces) {
+  return faces.map((face, index) => ({
+    ...face,
+    id: `face-${index}`,
+  }));
+}
+
+function getFaceArea(face) {
+  return face.boxNatural.width * face.boxNatural.height;
+}
+
+function areDuplicateFaces(left, right) {
+  const overlap = getFaceOverlap(left.boxNatural, right.boxNatural);
+  const leftCenter = getBoxCenter(left.boxNatural);
+  const rightCenter = getBoxCenter(right.boxNatural);
+  const centerDistance = Math.hypot(leftCenter.x - rightCenter.x, leftCenter.y - rightCenter.y);
+  const smallerFaceEdge = Math.min(
+    left.boxNatural.width,
+    left.boxNatural.height,
+    right.boxNatural.width,
+    right.boxNatural.height
+  );
+
+  return overlap >= DETECTION_DUPLICATE_OVERLAP || (overlap >= 0.18 && centerDistance <= smallerFaceEdge * 0.45);
+}
+
+function getFaceOverlap(left, right) {
+  const x1 = Math.max(left.x, right.x);
+  const y1 = Math.max(left.y, right.y);
+  const x2 = Math.min(left.x + left.width, right.x + right.width);
+  const y2 = Math.min(left.y + left.height, right.y + right.height);
+  const width = Math.max(0, x2 - x1);
+  const height = Math.max(0, y2 - y1);
+  const intersection = width * height;
+  const smallerArea = Math.min(left.width * left.height, right.width * right.height);
+
+  return smallerArea ? intersection / smallerArea : 0;
+}
+
+function getBoxCenter(box) {
+  return {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
   };
 }
 
@@ -185,6 +404,7 @@ function resetState() {
   state.status = STATES.IDLE;
   state.faces = [];
   state.selectedFaceId = null;
+  state.selectedFaceIds = [];
   state.error = null;
   state.timingMs = null;
   state.imageBitmap = null;
@@ -232,6 +452,7 @@ function clearFaceFitState() {
   state.timingMs = null;
   state.faces = [];
   state.selectedFaceId = null;
+  state.selectedFaceIds = [];
   state.imageBitmap = null;
   state.detectorAvailable = true;
   state.detectedFaceCount = 0;
@@ -278,25 +499,86 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function getSelectedTemplate() {
+  return state.templateCatalog.find((template) => template.id === state.selectedTemplateId);
+}
+
+function getTemplateFaceCapacity() {
+  const selectedTemplate = getSelectedTemplate();
+  return Math.max(1, selectedTemplate?.faceRegions?.length || 1);
+}
+
+function getSelectableFaceLimit() {
+  return Math.max(1, Math.min(getTemplateFaceCapacity(), state.faces.length || 1));
+}
+
+function setSelectedFaceIds(faceIds) {
+  const knownFaceIds = new Set(state.faces.map((face) => face.id));
+  state.selectedFaceIds = faceIds.filter((faceId, index) => (
+    faceId && knownFaceIds.has(faceId) && faceIds.indexOf(faceId) === index
+  ));
+  state.selectedFaceId = state.selectedFaceIds[0] || null;
+}
+
+function selectSingleFace(faceId) {
+  setSelectedFaceIds(faceId ? [faceId] : []);
+}
+
+function getSelectedFaces() {
+  return state.selectedFaceIds
+    .map((faceId) => state.faces.find((face) => face.id === faceId))
+    .filter(Boolean);
+}
+
+function toggleDetectedFaceSelection(faceId) {
+  const faceCapacity = getTemplateFaceCapacity();
+
+  if (faceCapacity <= 1) {
+    selectSingleFace(faceId);
+    return;
+  }
+
+  if (state.selectedFaceIds.includes(faceId)) {
+    setSelectedFaceIds(state.selectedFaceIds.filter((selectedFaceId) => selectedFaceId !== faceId));
+    return;
+  }
+
+  const nextFaceIds = [...state.selectedFaceIds, faceId];
+  const selectableLimit = getSelectableFaceLimit();
+
+  if (nextFaceIds.length > selectableLimit) {
+    nextFaceIds.shift();
+  }
+
+  setSelectedFaceIds(nextFaceIds);
+}
+
 async function decodeImage(file) {
+  const url = state.previewUrl || URL.createObjectURL(file);
+  const shouldRevokeUrl = !state.previewUrl;
+
   try {
-    return await createImageBitmap(file);
-  } catch {
-    try {
-      const url = URL.createObjectURL(file);
-      const image = await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = url;
-      });
-      URL.revokeObjectURL(url);
-      return await createImageBitmap(image);
-    } catch {
-      const err = new Error("Image cannot be decoded.");
-      err.code = "CORRUPT_IMAGE";
-      throw err;
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.decoding = "async";
+      img.src = url;
+    });
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+
+    if (!width || !height) {
+      throw new Error("Decoded image has no dimensions.");
     }
+
+    return { source: image, width, height };
+  } catch {
+    const err = new Error("Image cannot be decoded.");
+    err.code = "CORRUPT_IMAGE";
+    throw err;
+  } finally {
+    if (shouldRevokeUrl) URL.revokeObjectURL(url);
   }
 }
 
@@ -352,7 +634,7 @@ function updateManualFaceSelection() {
       rendered
     ),
   }];
-  state.selectedFaceId = "face-manual-0";
+  selectSingleFace("face-manual-0");
 }
 
 function applyManualTransform() {
@@ -412,12 +694,19 @@ function enterManualMode(faceToAlign = null) {
   });
 }
 
-async function detectFacesForBitmap(imageBitmap) {
+function startManualFitFromSelection() {
+  const faceToAlign = getSelectedFaces()[0] || state.faces[0] || null;
+  state.usedDetectedFace = Boolean(faceToAlign);
+  enterManualMode(faceToAlign);
+  setStatus(STATES.READY);
+}
+
+async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
   await adapter.init();
   state.detectorAvailable = adapter.isAvailable();
 
   if (!state.detectorAvailable) return [];
-  return withTimeout(adapter.detect(imageBitmap), DETECTION_TIMEOUT_MS);
+  return withTimeout(adapter.detect(imageBitmap, { faceLimit }), DETECTION_TIMEOUT_MS);
 }
 
 async function openManualEditor(file) {
@@ -452,7 +741,7 @@ async function openManualEditor(file) {
 
   let faces = [];
   try {
-    faces = await detectFacesForBitmap(state.imageBitmap);
+    faces = await detectFacesForBitmap(state.imageBitmap, getTemplateFaceCapacity());
   } catch {
     faces = [];
   }
@@ -462,7 +751,7 @@ async function openManualEditor(file) {
   state.detectedFaceCount = faces.length;
   state.usedDetectedFace = faces.length > 0;
   state.faces = faces;
-  state.selectedFaceId = faces[0]?.id || null;
+  selectSingleFace(faces[0]?.id || null);
 
   enterManualMode(faces[0] || null);
   setStatus(STATES.READY);
@@ -498,7 +787,7 @@ async function detectFaces(file) {
   setStatus(STATES.DETECTING);
 
   try {
-    const faces = await detectFacesForBitmap(imageBitmap);
+    const faces = await detectFacesForBitmap(imageBitmap, getTemplateFaceCapacity());
 
     const timingMs = performance.now() - start;
     if (mySequence !== state.sequence) return;
@@ -531,12 +820,12 @@ async function detectFaces(file) {
 
     if (normalizedFaces.length === 1) {
       state.manualMode = false;
-      state.selectedFaceId = normalizedFaces[0].id;
+      selectSingleFace(normalizedFaces[0].id);
       setStatus(STATES.READY);
       return;
     }
 
-    state.selectedFaceId = null;
+    setSelectedFaceIds([]);
     state.manualMode = false;
     setStatus(STATES.FACES_FOUND);
   } catch (error) {
@@ -582,9 +871,12 @@ function renderOverlay() {
       Math.max(0, rendered.height - hitHeight)
     );
 
+    const isSelected = state.selectedFaceIds.includes(face.id);
+    const canSelectDetectedFaces = [STATES.FACES_FOUND, STATES.READY].includes(state.status);
+
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `face-box ${state.selectedFaceId === face.id ? "selected" : ""}`;
+    button.className = `face-box ${isSelected ? "selected" : ""}`;
     button.style.left = `${hitLeft}px`;
     button.style.top = `${hitTop}px`;
     button.style.width = `${hitWidth}px`;
@@ -593,7 +885,8 @@ function renderOverlay() {
     button.style.setProperty("--face-ring-top", `${boxRendered.y - hitTop}px`);
     button.style.setProperty("--face-ring-width", `${boxRendered.width}px`);
     button.style.setProperty("--face-ring-height", `${boxRendered.height}px`);
-    button.disabled = state.status !== STATES.FACES_FOUND;
+    button.disabled = !canSelectDetectedFaces;
+    button.setAttribute("aria-pressed", String(isSelected));
     button.setAttribute("aria-label", `Select face ${index + 1} of ${state.faces.length}`);
 
     const ring = document.createElement("span");
@@ -601,9 +894,9 @@ function renderOverlay() {
     button.appendChild(ring);
 
     button.addEventListener("click", () => {
-      if (state.status !== STATES.FACES_FOUND) return;
-      state.selectedFaceId = face.id;
-      state.status = STATES.READY;
+      if (![STATES.FACES_FOUND, STATES.READY].includes(state.status)) return;
+      toggleDetectedFaceSelection(face.id);
+      state.status = state.selectedFaceIds.length ? STATES.READY : STATES.FACES_FOUND;
       render();
     });
 
@@ -615,7 +908,7 @@ async function loadTemplateCatalog() {
   if (state.templateCatalog.length) return;
 
   try {
-    const response = await fetch("/MemeBro Template Selection/templates.json");
+    const response = await fetch("/templates.json");
     const catalog = await response.json();
     state.templateCatalog = Array.isArray(catalog.templates) ? catalog.templates : [];
   } catch {
@@ -769,7 +1062,9 @@ function render() {
   const showingTemplates = state.view === "templates";
   const showingStudio = state.view === "studio";
   const choosingUpload = false;
-  const selectedTemplate = state.templateCatalog.find((template) => template.id === state.selectedTemplateId);
+  const selectedTemplate = getSelectedTemplate();
+  const selectedFaceCount = getSelectedFaces().length;
+  const selectableFaceLimit = getSelectableFaceLimit();
   dom.uploadPage.classList.toggle("camera-mode", cameraActive || reviewingCameraPhoto);
   dom.uploadPage.classList.toggle("choice-mode", choosingUpload);
   dom.cameraShell.classList.toggle("hidden", !cameraActive);
@@ -782,6 +1077,10 @@ function render() {
   dom.ctaRow.classList.toggle("hidden", !state.uploadModalOpen || cameraActive || reviewingCameraPhoto || editingPhoto);
   dom.cameraCta.classList.toggle("hidden", cameraActive || reviewingCameraPhoto || editingPhoto);
   dom.libraryCta.classList.toggle("hidden", cameraActive || reviewingCameraPhoto || editingPhoto);
+  dom.manualFitCta.classList.toggle(
+    "hidden",
+    !editingPhoto || showingTemplates || showingStudio || state.manualMode || !state.imageBitmap
+  );
   dom.overlayShell.classList.toggle("manual-active", state.manualMode);
   dom.overlayShell.classList.toggle("dragging", state.dragPointerId !== null);
   dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
@@ -813,18 +1112,26 @@ function render() {
   }
 
   if (state.status === STATES.FACES_FOUND) {
-    dom.statusText.textContent = `${state.faces.length} faces found. Tap or click one face to continue.`;
+    dom.statusText.textContent = selectableFaceLimit > 1
+      ? `${state.faces.length} faces found. Select up to ${selectableFaceLimit} faces for this template.`
+      : `${state.faces.length} faces found. Tap or click one face to continue.`;
   } else if (state.status === STATES.READY) {
     if (state.manualMode && state.error?.code === "NO_FACE_DETECTED") {
       dom.statusText.textContent = "No face detected. Use the oval to choose the face manually.";
     } else if (state.manualMode && state.error?.code === "DETECTOR_UNAVAILABLE") {
-      dom.statusText.textContent = "Face detection is unavailable here. Use the oval to choose the face manually.";
+      dom.statusText.textContent = "Face detection could not load. Use the oval to choose the face manually.";
     } else if (state.manualMode && state.error) {
       dom.statusText.textContent = "Face detection had trouble. Use the oval to choose the face manually.";
     } else if (state.manualMode && state.usedDetectedFace) {
       dom.statusText.textContent = "Face detected. Drag to fine tune the fit inside the oval.";
     } else if (state.manualMode) {
       dom.statusText.textContent = "Drag the photo until the face sits inside the oval.";
+    } else if (selectableFaceLimit > 1 && selectedFaceCount === 0) {
+      dom.statusText.textContent = "Select a face to continue.";
+    } else if (selectableFaceLimit > 1 && selectedFaceCount > 1) {
+      dom.statusText.textContent = `${selectedFaceCount} faces selected and ready.`;
+    } else if (selectableFaceLimit > 1) {
+      dom.statusText.textContent = `${selectedFaceCount || 1} face selected. Select another face or continue.`;
     } else {
       dom.statusText.textContent = "Face selected and ready.";
     }
@@ -834,7 +1141,7 @@ function render() {
     dom.statusText.textContent = "";
   }
 
-  dom.continueBtn.disabled = state.status !== STATES.READY;
+  dom.continueBtn.disabled = state.status !== STATES.READY || (!state.manualMode && selectedFaceCount === 0);
   dom.continueBtn.classList.toggle("hidden", !editingPhoto || showingTemplates);
   dom.manualOverlay.classList.toggle("hidden", !state.manualMode);
   dom.manualControls.classList.toggle("hidden", !state.manualMode);
@@ -852,9 +1159,10 @@ function render() {
 
 async function submitSelectedFace() {
   if (state.status !== STATES.READY) return;
-  const selectedFace = state.faces.find((face) => face.id === state.selectedFaceId);
+  const selectedFaces = getSelectedFaces();
+  const selectedFace = selectedFaces[0];
   if (!selectedFace) return;
-  const selectedTemplate = state.templateCatalog.find((template) => template.id === state.selectedTemplateId);
+  const selectedTemplate = getSelectedTemplate();
 
   await fetch("/api/process", {
     method: "POST",
@@ -862,11 +1170,14 @@ async function submitSelectedFace() {
       "Content-Type": "application/json",
       "X-MemeBro-Mode": "face_swap",
       "X-MemeBro-Selected-Face": JSON.stringify(selectedFace),
+      "X-MemeBro-Selected-Faces": JSON.stringify(selectedFaces),
       "X-MemeBro-Template": state.selectedTemplateId || "",
     },
     body: JSON.stringify({
       mode: "face_swap",
       selectedFace,
+      selectedFaces,
+      selectedFaceIds: state.selectedFaceIds,
       selectedTemplateId: state.selectedTemplateId,
       selectedTemplate,
     }),
@@ -965,6 +1276,7 @@ function goBackToUploadChoices() {
     state.status = STATES.IDLE;
     state.faces = [];
     state.selectedFaceId = null;
+    state.selectedFaceIds = [];
     state.error = null;
     state.timingMs = null;
     state.imageBitmap = null;
@@ -1030,6 +1342,9 @@ dom.uploadModalBackdrop.addEventListener("click", () => {
 dom.uploadModalClose.addEventListener("click", () => {
   state.uploadModalOpen = false;
   render();
+});
+dom.manualFitCta.addEventListener("click", () => {
+  startManualFitFromSelection();
 });
 dom.libraryCta.addEventListener("click", () => {
   state.uploadModalOpen = false;

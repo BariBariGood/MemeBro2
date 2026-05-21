@@ -267,25 +267,32 @@ The worker backend tests passed fully. The template grid UI tests (`tests.test.j
 
 ### Task
 
-- Show recoverable error handling when face detection finds no face, is unavailable, times out, or throws
-- Keep manual fit available after recoverable detection failures so the user can still choose a face area
-- Route camera and library uploads through the detection flow instead of immediately opening manual fit
+- Handle no-face, detector load, timeout, corrupt image, and unsupported format failures
+- Show clear inline error messages without trapping the user on a dead end
+- Keep manual fit available after detection failures and after successful detection
+- Route camera and library uploads through the detection-first flow
+
+### Prompt
+
+Update the upload flow in `app.js`, `index.html`, and `styles.css` so camera and library photos run face detection before the user continues. If detection fails because no face is found, the detector cannot load, detection times out, or detection throws, show a recoverable error and enter manual fit. If a detected face exists but the user wants to adjust it manually, provide a Manual Fit button that opens the oval fit flow using the selected detected face as the starting alignment.
 
 ### Reasoning/Concerns
 
-The upload callbacks were still using the manual editor entry point, which meant detected multi-face results could be skipped even though the overlay UI already had a `faces-found` state. Routing camera and library photos through `detectFaces()` keeps the intended detection-first flow active.
+The upload callbacks were still able to bypass detection by opening manual fit directly. Routing every photo source through `detectFaces()` keeps the intended detection-first flow active.
 
-Recoverable detection failures now surface as inline error messages while preserving manual fit. This avoids a dead end when the detector finds no face or the browser does not support `FaceDetector`, but still makes the failure clear to the user before they continue.
+Manual fit is the recovery path for detector failures, no-face results, and user adjustments after detection succeeds. This keeps the flow usable even when the detector misses a face.
+
+The native browser `FaceDetector` path was replaced with a locally served MediaPipe detector because the local browser did not expose `window.FaceDetector`. Keeping the adapter shape isolated the runtime swap from the overlay and state flow.
 
 ### AI Summary
 
-Updated `app.js` so camera review, camera input fallback, and library input all call `detectFaces(file)`. The detection flow now resets stale face-fit state for each new file, catches `FaceDetector` constructor failures, and records recoverable detection errors for:
+Updated `app.js` so camera review, camera input fallback, and library input all call `detectFaces(file)`. Each new file clears stale face-fit state, decodes through a loaded `Image` element, runs MediaPipe from `worker/public/.generated/mediapipe`, and records recoverable detection errors for:
 - `NO_FACE_DETECTED`
 - `DETECTOR_UNAVAILABLE`
 - `DETECTION_TIMEOUT`
 - `DETECTION_FAILED`
 
-When detection returns zero faces or fails, `enterManualMode()` is still used and the app moves to `ready` with an error message visible. The continue button remains enabled because manual fit produces the selected face box.
+When detection returns zero faces or fails, `enterManualMode()` shows the manual oval and produces a synthetic selected face box. `index.html` and `styles.css` also received `#manual-fit-cta`, which lets users switch from a detected face into manual fit without uploading a different photo.
 
 ---
 
@@ -293,22 +300,32 @@ When detection returns zero faces or fails, `enterManualMode()` is still used an
 
 ### Task
 
-- Preserve the multi-face selection state when 2+ faces are detected
-- Render one selectable face box per detected face
-- Keep Continue disabled until the user picks a face
-- Make detected face boxes usable with click or tap targets
+- Detect and render multiple faces when the selected template has multiple face regions
+- Let users select, deselect, or change detected faces with click or tap
+- Preserve multiple selected faces for multi-face templates
+- Keep the existing single-face backend contract while also sending the full selected face list
+
+### Prompt
+
+Update the multi-face flow in `app.js` and `styles.css` so templates with multiple face regions can use more than one detected person. Face boxes should remain tappable after the first selection, selected faces should be toggleable, and Continue should only be enabled when at least one valid face is selected. If full-image detection returns too few faces for a multi-face template, improve detection without changing the overlay UI.
 
 ### Reasoning/Concerns
 
-The existing overlay already knew how to render detected face boxes, but the upload path could bypass the `faces-found` state by entering manual fit immediately. Keeping detected multi-face results in `faces-found` makes the user explicitly choose which person should become the meme source.
+The previous state only stored one `selectedFaceId`, which worked for single-face templates but blocked templates with multiple face slots. Adding `selectedFaceIds` preserves the current primary face while allowing multi-face templates to carry several selected people forward.
 
-Face boxes now use a minimum 48px tap target while keeping the visible ring aligned to the detected bounding box. This makes small detected faces easier to select on mobile without changing the face coordinates sent forward.
+The MediaPipe detector can return only the strongest face when the whole photo is processed at once. For templates with multiple face regions, the detector now runs the full-image pass first, then scans overlapping image tiles and merges duplicates. Single-face templates avoid the extra detection work.
+
+Face boxes use a minimum 48px tap target while keeping the visible ring aligned to the detected bounding box, which makes small faces easier to select on mobile without changing the coordinates sent forward.
 
 ### AI Summary
 
-When 2+ faces are detected, the app stays in `faces-found`, renders one selectable face box per detected face, and keeps Continue disabled until the user taps or clicks a face. Selecting a face marks it selected and transitions to `ready`.
+Updated `app.js` with `selectedFaceIds`, template face-capacity helpers, and toggle selection behavior. For one-face templates, tapping a detected face replaces the current selection. For multi-face templates, tapping additional detected faces builds a selection up to the template's `faceRegions` count; tapping an already selected face removes it.
+
+`renderOverlay()` keeps detected face boxes clickable in both `faces-found` and `ready`, applies selected styling from `selectedFaceIds`, and keeps Continue disabled when no face is selected. `submitSelectedFace()` still sends `selectedFace` and now also sends `selectedFaces`, `selectedFaceIds`, and `X-MemeBro-Selected-Faces`.
 
 Updated `styles.css` so `.face-box` has a larger invisible tap target, a nested `.face-box-ring` for the exact detected-face outline, selected styling, and focus styling for keyboard users.
+
+The MediaPipe adapter now uses a lower detection confidence threshold, scans overlapping tiles for multi-face templates, maps tile detections back into natural image coordinates, merges duplicate boxes, and returns stable `face-0`, `face-1`, etc. ids after merging.
 
 ### Verification
 
@@ -351,3 +368,4 @@ npm run dev
 
 Result:
 - `http://localhost:8787/` responded with HTTP 200
+- Browser reload showed the template grid and no console errors
