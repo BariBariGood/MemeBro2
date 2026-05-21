@@ -128,9 +128,9 @@
       "popularityScore": 98,
       "tags": ["reaction", "approval", "disapproval", "comparison", "drake"],
       "images": {
-        "main": "/assets/memes/drake-hotline-bling/main.jpg",
-        "preview": "/assets/memes/drake-hotline-bling/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/drake-hotline-bling/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 1200
       },
@@ -151,9 +151,9 @@
       "popularityScore": 97,
       "tags": ["relationship", "comparison", "temptation", "choice", "stock-photo"],
       "images": {
-        "main": "/assets/memes/distracted-boyfriend/main.jpg",
-        "preview": "/assets/memes/distracted-boyfriend/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/distracted-boyfriend/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 800
       },
@@ -175,9 +175,9 @@
       "popularityScore": 90,
       "tags": ["decision", "panic", "choice", "pressure", "comic"],
       "images": {
-        "main": "/assets/memes/two-buttons/main.jpg",
-        "preview": "/assets/memes/two-buttons/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/two-buttons/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1000,
         "height": 908
       },
@@ -197,9 +197,9 @@
       "popularityScore": 89,
       "tags": ["opinion", "debate", "controversial", "table-sign", "discussion"],
       "images": {
-        "main": "/assets/memes/change-my-mind/main.jpg",
-        "preview": "/assets/memes/change-my-mind/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/change-my-mind/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1280,
         "height": 720
       },
@@ -219,9 +219,9 @@
       "popularityScore": 96,
       "tags": ["argument", "reaction", "split-panel", "cat", "tv"],
       "images": {
-        "main": "/assets/memes/woman-yelling-at-cat/main.jpg",
-        "preview": "/assets/memes/woman-yelling-at-cat/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/woman-yelling-at-cat/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 675
       },
@@ -243,9 +243,9 @@
       "popularityScore": 88,
       "tags": ["escalation", "intelligence", "irony", "tiers", "brain"],
       "images": {
-        "main": "/assets/memes/expanding-brain/main.jpg",
-        "preview": "/assets/memes/expanding-brain/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/expanding-brain/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1000,
         "height": 1333
       },
@@ -268,9 +268,9 @@
       "popularityScore": 87,
       "tags": ["warning", "boromir", "lord-of-the-rings", "impossible", "statement"],
       "images": {
-        "main": "/assets/memes/one-does-not-simply/main.jpg",
-        "preview": "/assets/memes/one-does-not-simply/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/one-does-not-simply/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 900,
         "height": 900
       },
@@ -290,9 +290,9 @@
       "popularityScore": 85,
       "tags": ["success", "win", "celebration", "child", "determination"],
       "images": {
-        "main": "/assets/memes/success-kid/main.jpg",
-        "preview": "/assets/memes/success-kid/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/success-kid/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1024,
         "height": 1024
       },
@@ -312,9 +312,9 @@
       "popularityScore": 84,
       "tags": ["chaos", "fire", "smug", "child", "destruction"],
       "images": {
-        "main": "/assets/memes/disaster-girl/main.jpg",
-        "preview": "/assets/memes/disaster-girl/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/disaster-girl/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1024,
         "height": 682
       },
@@ -334,9 +334,9 @@
       "popularityScore": 93,
       "tags": ["denial", "chaos", "fire", "reaction", "dog"],
       "images": {
-        "main": "/assets/memes/this-is-fine/main.jpg",
-        "preview": "/assets/memes/this-is-fine/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/this-is-fine/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 675
       },
@@ -356,9 +356,9 @@
       "popularityScore": 86,
       "tags": ["presentation", "plan", "backfire", "despicable-me", "comic"],
       "images": {
-        "main": "/assets/memes/gru-plan/main.jpg",
-        "preview": "/assets/memes/gru-plan/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/gru-plan/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 1200
       },
@@ -381,9 +381,9 @@
       "popularityScore": 83,
       "tags": ["uncertainty", "suspicion", "fry", "futurama", "question"],
       "images": {
-        "main": "/assets/memes/futurama-fry/main.jpg",
-        "preview": "/assets/memes/futurama-fry/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/futurama-fry/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 900,
         "height": 900
       },
@@ -403,9 +403,9 @@
       "popularityScore": 80,
       "tags": ["aliens", "explanation", "history-channel", "theory", "reaction"],
       "images": {
-        "main": "/assets/memes/ancient-aliens/main.jpg",
-        "preview": "/assets/memes/ancient-aliens/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/ancient-aliens/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1280,
         "height": 720
       },
@@ -425,9 +425,9 @@
       "popularityScore": 79,
       "tags": ["avoidance", "escaping", "personification", "choice", "comic"],
       "images": {
-        "main": "/assets/memes/running-away-balloon/main.jpg",
-        "preview": "/assets/memes/running-away-balloon/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/running-away-balloon/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1024,
         "height": 768
       },
@@ -447,9 +447,9 @@
       "popularityScore": 94,
       "tags": ["mocking", "sarcasm", "spongebob", "text-style", "reaction"],
       "images": {
-        "main": "/assets/memes/mocking-spongebob/main.jpg",
-        "preview": "/assets/memes/mocking-spongebob/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/mocking-spongebob/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 900
       },
@@ -469,9 +469,9 @@
       "popularityScore": 82,
       "tags": ["pain", "smile", "awkward", "office", "reaction"],
       "images": {
-        "main": "/assets/memes/hide-the-pain-harold/main.jpg",
-        "preview": "/assets/memes/hide-the-pain-harold/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/hide-the-pain-harold/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1024,
         "height": 682
       },
@@ -491,9 +491,9 @@
       "popularityScore": 91,
       "tags": ["decision", "swerve", "unexpected", "choice", "highway"],
       "images": {
-        "main": "/assets/memes/left-exit-12-off-ramp/main.jpg",
-        "preview": "/assets/memes/left-exit-12-off-ramp/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/left-exit-12-off-ramp/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1280,
         "height": 720
       },
@@ -511,9 +511,9 @@
       "popularityScore": 88,
       "tags": ["misidentification", "anime", "question", "butterfly", "reaction"],
       "images": {
-        "main": "/assets/memes/is-this-a-pigeon/main.jpg",
-        "preview": "/assets/memes/is-this-a-pigeon/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/is-this-a-pigeon/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 675
       },
@@ -533,9 +533,9 @@
       "popularityScore": 86,
       "tags": ["logic", "smug", "think", "advice", "reaction"],
       "images": {
-        "main": "/assets/memes/roll-safe-think-about-it/main.jpg",
-        "preview": "/assets/memes/roll-safe-think-about-it/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/roll-safe-think-about-it/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 900,
         "height": 900
       },
@@ -555,9 +555,9 @@
       "popularityScore": 95,
       "tags": ["shock", "pokemon", "reaction", "surprise", "consequence"],
       "images": {
-        "main": "/assets/memes/surprised-pikachu/main.jpg",
-        "preview": "/assets/memes/surprised-pikachu/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/surprised-pikachu/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 900
       },
@@ -577,9 +577,9 @@
       "popularityScore": 84,
       "tags": ["twist", "astronaut", "space", "truth", "reveal"],
       "images": {
-        "main": "/assets/memes/always-has-been/main.jpg",
-        "preview": "/assets/memes/always-has-been/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/always-has-been/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1280,
         "height": 720
       },
@@ -600,9 +600,9 @@
       "popularityScore": 78,
       "tags": ["waiting", "patience", "delay", "skeleton", "time"],
       "images": {
-        "main": "/assets/memes/waiting-skeleton/main.jpg",
-        "preview": "/assets/memes/waiting-skeleton/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/waiting-skeleton/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1024,
         "height": 768
       },
@@ -620,9 +620,9 @@
       "popularityScore": 87,
       "tags": ["comic", "interruption", "correction", "batman", "robin"],
       "images": {
-        "main": "/assets/memes/batman-slapping-robin/main.jpg",
-        "preview": "/assets/memes/batman-slapping-robin/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/batman-slapping-robin/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 899
       },
@@ -643,9 +643,9 @@
       "popularityScore": 76,
       "tags": ["taunt", "reaction", "megamind", "caption", "mocking"],
       "images": {
-        "main": "/assets/memes/mega-mind-no-bitches/main.jpg",
-        "preview": "/assets/memes/mega-mind-no-bitches/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/mega-mind-no-bitches/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1080,
         "height": 1080
       },
@@ -665,9 +665,9 @@
       "popularityScore": 81,
       "tags": ["awkward", "side-eye", "reaction", "monkey", "silence"],
       "images": {
-        "main": "/assets/memes/awkward-look-monkey-puppet/main.jpg",
-        "preview": "/assets/memes/awkward-look-monkey-puppet/preview-compressed.jpg",
-        "thumbnail": "/assets/memes/awkward-look-monkey-puppet/thumb.jpg",
+        "main": "/assets/memes/placeholder.svg",
+        "preview": "/assets/memes/placeholder-preview.svg",
+        "thumbnail": "/assets/memes/placeholder-thumb.svg",
         "width": 1200,
         "height": 900
       },
