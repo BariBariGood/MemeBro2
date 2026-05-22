@@ -7,9 +7,16 @@
 
 import { callAPI, redactSecrets } from "./callManager.js";
 import { ErrorCodes } from "./errors.js";
+import { handleCaptionRequest } from "./openai/caption.js";
+import {
+  buildImageResponseFromBody,
+  handleImageRequest,
+} from "./openai/image.js";
 import { MAX_FILE_SIZE, sanitizeFilename, validateUpload } from "./validator.js";
 
 const GATEWAY_PATH = "/api/process";
+const CAPTION_PATH = "/api/caption";
+const IMAGE_PATH = "/api/image";
 
 /**
  * Builds a JSON Response with the gateway's common content type.
@@ -131,6 +138,8 @@ function prepareJsonOutbound(request, buffer) {
 
   return {
     mode,
+    payload,
+    isJson: true,
     options: {
       method: "POST",
       headers: {
@@ -160,6 +169,8 @@ function prepareImageOutbound(request, buffer) {
 
   return {
     mode: getMode(request),
+    payload: null,
+    isJson: false,
     options: {
       method: "POST",
       headers: {
@@ -197,6 +208,24 @@ async function prepareOutboundRequest(request) {
 }
 
 /**
+ * Determines whether the old `extra_roast` gateway mode should run against
+ * the worker-local /api/image implementation instead of an external URL.
+ * We only use the local path when neither EXTRA_ROAST_API_URL nor
+ * IMAGE_GEN_API_URL is configured, so existing deployments keep their
+ * current upstream behavior without any changes.
+ *
+ * @param {string|undefined} mode - Requested gateway mode
+ * @param {Object} env - Cloudflare Workers env object
+ * @returns {boolean}
+ */
+function shouldUseLocalImageGeneration(mode, env) {
+  if (mode !== "extra_roast") return false;
+  const hasExtraRoastUrl = Boolean(String(env?.EXTRA_ROAST_API_URL ?? "").trim());
+  const hasImageGenUrl = Boolean(String(env?.IMAGE_GEN_API_URL ?? "").trim());
+  return !hasExtraRoastUrl && !hasImageGenUrl;
+}
+
+/**
  * Handles the MemeBro API gateway route.
  *
  * @param {Request} request - Incoming Worker request
@@ -212,7 +241,12 @@ export async function handleGatewayRequest(request, env) {
       );
     }
 
-    const { mode, options } = await prepareOutboundRequest(request);
+    const { mode, options, payload, isJson } = await prepareOutboundRequest(request);
+
+    if (isJson && shouldUseLocalImageGeneration(mode, env)) {
+      return buildImageResponseFromBody(payload ?? {}, env);
+    }
+
     const data = await callAPI(mode, options, env);
 
     return jsonResponse(data);
@@ -231,6 +265,14 @@ export default {
    */
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === CAPTION_PATH) {
+      return handleCaptionRequest(request, env);
+    }
+
+    if (url.pathname === IMAGE_PATH) {
+      return handleImageRequest(request, env);
+    }
 
     if (url.pathname === GATEWAY_PATH) {
       return handleGatewayRequest(request, env);

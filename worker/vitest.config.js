@@ -4,6 +4,7 @@ export default defineWorkersConfig({
 	test: {
 		include: [
 			"test/index.spec.js",
+			"test/openaiRoutes.spec.js",
 			"test/callManager.test.js",
 			"test/validator.test.js",
 		],
