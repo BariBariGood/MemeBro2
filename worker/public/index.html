@@ -48,6 +48,11 @@
           <div id="studio-template-art" class="studio-template-art">
             <span id="studio-template-initials" class="studio-template-initials"></span>
             <span id="studio-template-regions" class="studio-template-regions"></span>
+            <button id="meme-text-preview" class="meme-text-preview" type="button" aria-label="Edit meme text">Tap to edit text</button>
+            <div id="meme-text-editor" class="meme-text-editor hidden" aria-label="Inline text editor">
+              <input id="meme-text-input" type="text" maxlength="140" autocomplete="off" />
+              <button id="meme-text-done" type="button">Done</button>
+            </div>
             <span class="studio-preview-pill">✧ Preview</span>
           </div>
         </article>
@@ -124,6 +129,16 @@
       </section>
 
       <button id="continue-btn" type="button" disabled>Add Face →</button>
+
+      <section id="face-swap-loader" class="face-swap-loader hidden" aria-live="polite" aria-label="Face swap loading">
+        <div class="face-swap-loader-card">
+          <div class="face-swap-loader-skeleton" aria-hidden="true"></div>
+          <p class="face-swap-loader-copy">Cooking your meme...</p>
+          <p id="face-swap-loader-time" class="face-swap-loader-time">Estimated wait time: ~3 seconds</p>
+          <p id="face-swap-loader-delay" class="face-swap-loader-delay hidden">Taking longer than usual...</p>
+          <button id="face-swap-loader-cancel" class="secondary" type="button">Cancel</button>
+        </div>
+      </section>
     </main>
 
     <script type="module" src="./app.js"></script>

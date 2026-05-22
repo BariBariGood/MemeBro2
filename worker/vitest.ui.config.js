@@ -8,6 +8,10 @@ export default defineConfig({
 				url: "http://localhost/",
 			},
 		},
-		include: ["test/tests.test.js", "test/frontendAssets.test.js"],
+		include: [
+			"test/tests.test.js",
+			"test/frontendAssets.test.js",
+			"test/app.inline-edit-loader.test.js",
+		],
 	},
 });

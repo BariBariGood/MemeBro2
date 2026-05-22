@@ -45,6 +45,10 @@ const dom = {
   studioTemplateArt: document.getElementById("studio-template-art"),
   studioTemplateInitials: document.getElementById("studio-template-initials"),
   studioTemplateRegions: document.getElementById("studio-template-regions"),
+  memeTextPreview: document.getElementById("meme-text-preview"),
+  memeTextEditor: document.getElementById("meme-text-editor"),
+  memeTextInput: document.getElementById("meme-text-input"),
+  memeTextDone: document.getElementById("meme-text-done"),
   openUploadModalCta: document.getElementById("open-upload-modal-cta"),
   uploadModal: document.getElementById("upload-modal"),
   uploadModalBackdrop: document.getElementById("upload-modal-backdrop"),
@@ -85,6 +89,9 @@ const dom = {
   manualControls: document.getElementById("manual-controls"),
   manualZoom: document.getElementById("manual-zoom"),
   manualRotation: document.getElementById("manual-rotation"),
+  faceSwapLoader: document.getElementById("face-swap-loader"),
+  faceSwapLoaderDelay: document.getElementById("face-swap-loader-delay"),
+  faceSwapLoaderCancel: document.getElementById("face-swap-loader-cancel"),
 };
 
 const state = {
@@ -119,6 +126,12 @@ const state = {
   templateSearchQuery: "",
   uploadModalOpen: false,
   view: "templates",
+  memeText: "Tap to edit text",
+  isEditingMemeText: false,
+  isSubmittingFaceSwap: false,
+  showSlowFaceSwapMessage: false,
+  faceSwapAbortController: null,
+  faceSwapSlowTimer: null,
 };
 
 const RECENTS_STORAGE_KEY = "meme-template-recents";
@@ -420,6 +433,13 @@ function resetState() {
   state.templateSearchQuery = "";
   state.uploadModalOpen = false;
   state.view = "templates";
+  state.memeText = "Tap to edit text";
+  state.isEditingMemeText = false;
+  state.isSubmittingFaceSwap = false;
+  state.showSlowFaceSwapMessage = false;
+  state.faceSwapAbortController = null;
+  if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
+  state.faceSwapSlowTimer = null;
   dom.cameraInput.value = "";
   dom.libraryInput.value = "";
   dom.templateSearch.value = "";
@@ -707,6 +727,7 @@ async function detectFaces(file) {
   state.file = file;
   state.view = "fit";
   state.uploadModalOpen = false;
+  state.isEditingMemeText = false;
   clearFaceFitState();
 
   if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
@@ -908,6 +929,14 @@ function renderTemplates() {
 
     const art = document.createElement("span");
     art.className = "template-art";
+    const previewImage = document.createElement("img");
+    previewImage.className = "template-art-image";
+    previewImage.alt = template.name;
+    previewImage.loading = "lazy";
+    previewImage.src = template.images?.preview || template.images?.thumbnail || template.images?.main || "";
+    previewImage.addEventListener("error", () => {
+      previewImage.src = "/assets/memes/placeholder-preview.svg";
+    });
 
     const initials = document.createElement("span");
     initials.className = "template-initials";
@@ -933,7 +962,7 @@ function renderTemplates() {
     name.className = "template-name";
     name.textContent = template.name;
 
-    art.append(initials, regions);
+    art.append(previewImage, initials, regions);
     card.append(art, name);
 
     card.addEventListener("click", () => {
@@ -942,6 +971,7 @@ function renderTemplates() {
       state.status = STATES.IDLE;
       state.view = "studio";
       state.uploadModalOpen = false;
+      state.isEditingMemeText = false;
       render();
     });
 
@@ -966,6 +996,9 @@ function renderStudioTemplate(template) {
     .map((word) => word[0])
     .join("");
   dom.studioTemplateRegions.innerHTML = "";
+  dom.studioTemplateArt.style.backgroundImage = `url("${template.images?.main || template.images?.preview || "/assets/memes/placeholder.svg"}")`;
+  dom.studioTemplateArt.style.backgroundSize = "cover";
+  dom.studioTemplateArt.style.backgroundPosition = "center";
 
   (template.faceRegions || []).slice(0, 4).forEach((region) => {
     const marker = document.createElement("span");
@@ -976,6 +1009,38 @@ function renderStudioTemplate(template) {
     marker.style.height = `${Math.max(10, (region.height / template.images.height) * 100)}%`;
     dom.studioTemplateRegions.appendChild(marker);
   });
+}
+
+function beginInlineTextEdit() {
+  state.isEditingMemeText = true;
+  render();
+  dom.memeTextInput.focus();
+  dom.memeTextInput.select();
+}
+
+function finishInlineTextEdit() {
+  state.isEditingMemeText = false;
+  render();
+}
+
+function startFaceSwapLoadingState() {
+  state.isSubmittingFaceSwap = true;
+  state.showSlowFaceSwapMessage = false;
+  if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
+  state.faceSwapSlowTimer = setTimeout(() => {
+    state.showSlowFaceSwapMessage = true;
+    render();
+  }, 5000);
+  render();
+}
+
+function stopFaceSwapLoadingState() {
+  state.isSubmittingFaceSwap = false;
+  state.showSlowFaceSwapMessage = false;
+  state.faceSwapAbortController = null;
+  if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
+  state.faceSwapSlowTimer = null;
+  render();
 }
 
 async function showTemplateSelection() {
@@ -1021,6 +1086,12 @@ function render() {
   dom.overlayShell.classList.toggle("dragging", state.dragPointerId !== null);
   dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
   if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
+  dom.memeTextPreview.textContent = state.memeText;
+  dom.memeTextInput.value = state.memeText;
+  dom.memeTextPreview.classList.toggle("hidden", state.isEditingMemeText);
+  dom.memeTextEditor.classList.toggle("hidden", !state.isEditingMemeText);
+  dom.faceSwapLoader.classList.toggle("hidden", !state.isSubmittingFaceSwap);
+  dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
 
   dom.progressWrap.classList.toggle(
     "hidden",
@@ -1091,6 +1162,8 @@ async function submitSelectedFace() {
   if (!selectedFace) return;
   const selectedTemplate = getSelectedTemplate();
 
+  state.faceSwapAbortController = new AbortController();
+  startFaceSwapLoadingState();
   const response = await fetch("/api/process", {
     method: "POST",
     headers: {
@@ -1107,7 +1180,11 @@ async function submitSelectedFace() {
       selectedFaceIds: state.selectedFaceIds,
       selectedTemplateId: state.selectedTemplateId,
       selectedTemplate,
+      memeText: state.memeText,
     }),
+    signal: state.faceSwapAbortController.signal,
+  }).finally(() => {
+    stopFaceSwapLoadingState();
   });
 
   if (response.ok) return;
@@ -1308,6 +1385,23 @@ dom.templateTabs.addEventListener("click", (event) => {
   });
   renderTemplates();
 });
+dom.memeTextPreview.addEventListener("click", beginInlineTextEdit);
+dom.memeTextInput.addEventListener("input", () => {
+  state.memeText = dom.memeTextInput.value;
+  dom.memeTextPreview.textContent = state.memeText;
+});
+dom.memeTextInput.addEventListener("blur", finishInlineTextEdit);
+dom.memeTextInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    finishInlineTextEdit();
+  }
+});
+dom.memeTextDone.addEventListener("click", finishInlineTextEdit);
+dom.faceSwapLoaderCancel.addEventListener("click", () => {
+  if (state.faceSwapAbortController) state.faceSwapAbortController.abort();
+  stopFaceSwapLoadingState();
+});
 
 dom.cameraInput.addEventListener("change", async (event) => {
   const file = event.target.files?.[0];
@@ -1376,9 +1470,25 @@ dom.continueBtn.addEventListener("click", async () => {
   try {
     await submitSelectedFace();
   } catch (error) {
+    if (error?.name === "AbortError") {
+      return;
+    }
     setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
   }
 });
+
+export const __testHooks = {
+  dom,
+  state,
+  render,
+  setStatus,
+  selectSingleFace,
+  submitSelectedFace,
+  beginInlineTextEdit,
+  finishInlineTextEdit,
+  startFaceSwapLoadingState,
+  stopFaceSwapLoadingState,
+};
 
 async function init() {
   await showTemplateSelection();
