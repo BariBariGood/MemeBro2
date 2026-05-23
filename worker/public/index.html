@@ -70,7 +70,16 @@
 
           <section class="studio-actions" aria-label="Template actions">
             <button id="open-upload-modal-cta" class="primary studio-action" type="button">↥ Upload <span>→</span></button>
+            <button id="undo-cta" class="secondary studio-action" type="button" disabled>Undo</button>
+            <button id="reset-cta" class="secondary studio-action" type="button">Reset</button>
             <button class="pink-action studio-action" type="button">✣ AI Prompt <span>→</span></button>
+          </section>
+          <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite">
+            <p>Warning: Reset cannot be undone</p>
+            <div class="reset-confirmation-actions">
+              <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
+              <button id="reset-confirm-cta" class="primary" type="button">Reset</button>
+            </div>
           </section>
         </div>
       </section>

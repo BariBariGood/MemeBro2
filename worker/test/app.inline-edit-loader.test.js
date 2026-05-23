@@ -43,7 +43,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
       if (url === "/templates.json") {
         return { json: async () => ({ templates: catalog.templates }) };
       }
-      return { ok: true, json: async () => ({}) };
+      return { ok: true, json: async () => ({ generatedImageUrl: "/generated/default.png" }) };
     }));
   });
 
@@ -102,9 +102,88 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     vi.advanceTimersByTime(5001);
     expect(dom.faceSwapLoaderDelay.classList.contains("hidden")).toBe(false);
 
-    resolveRequest({ ok: true, json: async () => ({}) });
+    resolveRequest({ ok: true, json: async () => ({ generatedImageUrl: "/generated/slow.png" }) });
     await pending;
 
     expect(dom.faceSwapLoader.classList.contains("hidden")).toBe(true);
+  });
+
+  test("custom: face swap result replaces the template image and stays editable", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/swapped.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    const { state, dom, render, submitSelectedFace } = __testHooks;
+
+    state.view = "studio";
+    state.selectedTemplateId = catalog.templates[0].id;
+    state.status = "ready";
+    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
+    state.selectedFaceIds = ["face-0"];
+    state.selectedFaceId = "face-0";
+    render();
+
+    await submitSelectedFace();
+    expect(dom.studioTemplateArt.style.backgroundImage).toContain("/generated/swapped.png");
+
+    dom.memeTextPreview.click();
+    dom.memeTextInput.value = "fresh text";
+    dom.memeTextInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(state.editor.overlayText).toBe("fresh text");
+    expect(dom.memeTextPreview.textContent).toBe("fresh text");
+  });
+
+  test("custom: undo restores the previous snapshot and reset clears history", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/undoable.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    const { state, dom, render, submitSelectedFace } = __testHooks;
+
+    state.view = "studio";
+    state.selectedTemplateId = catalog.templates[0].id;
+    state.status = "ready";
+    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
+    state.selectedFaceIds = ["face-0"];
+    state.selectedFaceId = "face-0";
+    render();
+
+    await submitSelectedFace();
+    dom.memeTextPreview.click();
+    dom.memeTextInput.value = "edited once";
+    dom.memeTextInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    const historyLengthAfterEdit = state.editor.historyStack.length;
+    dom.undoCta.click();
+    expect(state.editor.overlayText).toBe("Tap to edit text");
+    expect(state.editor.generatedImage).toBe("/generated/undoable.png");
+    expect(state.editor.historyStack.length).toBe(historyLengthAfterEdit - 1);
+
+    dom.resetCta.click();
+    expect(dom.resetConfirmation.classList.contains("hidden")).toBe(false);
+    dom.resetCancelCta.click();
+    expect(dom.resetConfirmation.classList.contains("hidden")).toBe(true);
+
+    dom.resetCta.click();
+    dom.resetConfirmCta.click();
+    expect(state.editor.generatedImage).toBe("");
+    expect(state.editor.overlayText).toBe("Tap to edit text");
+    expect(state.editor.historyStack).toEqual([]);
+    expect(localStorage.getItem("meme-editor-history")).toBeNull();
   });
 });

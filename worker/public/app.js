@@ -36,6 +36,9 @@ const DETECTION_FAILURE_MESSAGES = {
   NO_FACE_DETECTED: "No face detected. Use manual fit or try another photo.",
 };
 
+const DEFAULT_MEME_TEXT = "Tap to edit text";
+const EDITOR_HISTORY_STORAGE_KEY = "meme-editor-history";
+
 const dom = {
   uploadPage: document.querySelector(".upload-page"),
   backBtn: document.querySelector(".back-btn"),
@@ -49,6 +52,11 @@ const dom = {
   memeTextEditor: document.getElementById("meme-text-editor"),
   memeTextInput: document.getElementById("meme-text-input"),
   memeTextDone: document.getElementById("meme-text-done"),
+  undoCta: document.getElementById("undo-cta"),
+  resetCta: document.getElementById("reset-cta"),
+  resetConfirmation: document.getElementById("reset-confirmation"),
+  resetCancelCta: document.getElementById("reset-cancel-cta"),
+  resetConfirmCta: document.getElementById("reset-confirm-cta"),
   openUploadModalCta: document.getElementById("open-upload-modal-cta"),
   uploadModal: document.getElementById("upload-modal"),
   uploadModalBackdrop: document.getElementById("upload-modal-backdrop"),
@@ -126,12 +134,19 @@ const state = {
   templateSearchQuery: "",
   uploadModalOpen: false,
   view: "templates",
-  memeText: "Tap to edit text",
   isEditingMemeText: false,
   isSubmittingFaceSwap: false,
   showSlowFaceSwapMessage: false,
   faceSwapAbortController: null,
   faceSwapSlowTimer: null,
+  showResetConfirmation: false,
+  editor: {
+    templateImage: "",
+    generatedImage: "",
+    overlayText: DEFAULT_MEME_TEXT,
+    historyStack: [],
+    initialSnapshot: null,
+  },
 };
 
 const RECENTS_STORAGE_KEY = "meme-template-recents";
@@ -433,13 +448,15 @@ function resetState() {
   state.templateSearchQuery = "";
   state.uploadModalOpen = false;
   state.view = "templates";
-  state.memeText = "Tap to edit text";
   state.isEditingMemeText = false;
   state.isSubmittingFaceSwap = false;
   state.showSlowFaceSwapMessage = false;
   state.faceSwapAbortController = null;
   if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
   state.faceSwapSlowTimer = null;
+  state.showResetConfirmation = false;
+  initializeEditorState();
+  clearEditorHistoryPersistence();
   dom.cameraInput.value = "";
   dom.libraryInput.value = "";
   dom.templateSearch.value = "";
@@ -475,6 +492,7 @@ function clearFaceFitState() {
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
   state.dragPointerId = null;
+  state.showResetConfirmation = false;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
   dom.previewImage.style.transform = "";
@@ -509,6 +527,162 @@ function getRenderedSize() {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function cloneSnapshot(snapshot) {
+  return JSON.parse(JSON.stringify(snapshot));
+}
+
+function getTemplatePreviewImage(template = getSelectedTemplate()) {
+  return template?.images?.main || template?.images?.preview || "/assets/memes/placeholder.svg";
+}
+
+function createEditorSnapshot(overrides = {}) {
+  return {
+    selectedTemplateId: overrides.selectedTemplateId ?? state.selectedTemplateId ?? null,
+    templateImage: overrides.templateImage ?? state.editor.templateImage,
+    generatedImage: overrides.generatedImage ?? state.editor.generatedImage,
+    overlayText: overrides.overlayText ?? state.editor.overlayText,
+  };
+}
+
+function applyEditorSnapshot(snapshot) {
+  if (!snapshot) return;
+  state.editor.templateImage = snapshot.templateImage || getTemplatePreviewImage();
+  state.editor.generatedImage = snapshot.generatedImage || "";
+  state.editor.overlayText = snapshot.overlayText ?? DEFAULT_MEME_TEXT;
+}
+
+function editorSnapshotsEqual(left, right) {
+  return Boolean(left && right)
+    && left.selectedTemplateId === right.selectedTemplateId
+    && left.templateImage === right.templateImage
+    && left.generatedImage === right.generatedImage
+    && left.overlayText === right.overlayText;
+}
+
+function persistEditorHistory() {
+  try {
+    localStorage.setItem(EDITOR_HISTORY_STORAGE_KEY, JSON.stringify({
+      selectedTemplateId: state.selectedTemplateId,
+      initialSnapshot: state.editor.initialSnapshot,
+      historyStack: state.editor.historyStack,
+      currentSnapshot: createEditorSnapshot(),
+    }));
+  } catch {
+    // Ignore storage errors to preserve core editing behavior.
+  }
+}
+
+function clearEditorHistoryPersistence() {
+  try {
+    localStorage.removeItem(EDITOR_HISTORY_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors to preserve core editing behavior.
+  }
+}
+
+function initializeEditorState(template = getSelectedTemplate()) {
+  state.editor.initialSnapshot = createEditorSnapshot({
+    selectedTemplateId: state.selectedTemplateId,
+    templateImage: getTemplatePreviewImage(template),
+    generatedImage: "",
+    overlayText: DEFAULT_MEME_TEXT,
+  });
+  state.editor.historyStack = [];
+  state.showResetConfirmation = false;
+  applyEditorSnapshot(state.editor.initialSnapshot);
+}
+
+function ensureHistorySeed() {
+  if (!state.editor.initialSnapshot) {
+    initializeEditorState();
+  }
+
+  if (state.editor.historyStack.length === 0) {
+    state.editor.historyStack = [cloneSnapshot(state.editor.initialSnapshot)];
+  }
+}
+
+function recordEditorSnapshot(snapshot = createEditorSnapshot()) {
+  ensureHistorySeed();
+  const nextSnapshot = cloneSnapshot(snapshot);
+  const lastSnapshot = state.editor.historyStack[state.editor.historyStack.length - 1];
+
+  if (editorSnapshotsEqual(lastSnapshot, nextSnapshot)) return;
+
+  state.editor.historyStack.push(nextSnapshot);
+  persistEditorHistory();
+}
+
+function restoreEditorSession() {
+  try {
+    const raw = localStorage.getItem(EDITOR_HISTORY_STORAGE_KEY);
+    if (!raw) return false;
+
+    const parsed = JSON.parse(raw);
+    if (parsed?.selectedTemplateId !== state.selectedTemplateId) return false;
+
+    state.editor.initialSnapshot = parsed.initialSnapshot || null;
+    state.editor.historyStack = Array.isArray(parsed.historyStack)
+      ? parsed.historyStack.filter(Boolean)
+      : [];
+
+    const snapshot = parsed.currentSnapshot
+      || state.editor.historyStack[state.editor.historyStack.length - 1]
+      || state.editor.initialSnapshot;
+
+    if (!snapshot) return false;
+
+    applyEditorSnapshot(snapshot);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function openStudioForTemplate(templateId) {
+  state.selectedTemplateId = templateId;
+  recordTemplateUsage(templateId);
+  state.status = STATES.IDLE;
+  state.view = "studio";
+  state.uploadModalOpen = false;
+  state.isEditingMemeText = false;
+  state.showResetConfirmation = false;
+
+  initializeEditorState();
+  if (!restoreEditorSession()) {
+    persistEditorHistory();
+  }
+
+  render();
+}
+
+function undoEditorSnapshot() {
+  if (state.editor.historyStack.length <= 1) return;
+  state.editor.historyStack.pop();
+  applyEditorSnapshot(state.editor.historyStack[state.editor.historyStack.length - 1]);
+  state.showResetConfirmation = false;
+  state.isEditingMemeText = false;
+  persistEditorHistory();
+  render();
+}
+
+function resetEditorToTemplate() {
+  initializeEditorState();
+  state.isEditingMemeText = false;
+  clearEditorHistoryPersistence();
+  render();
+}
+
+function extractGeneratedImageUrl(payload) {
+  return payload?.generatedImageUrl
+    || payload?.imageUrl
+    || payload?.compositedImageUrl
+    || payload?.compositedImage
+    || payload?.outputUrl
+    || payload?.url
+    || "";
 }
 
 function getSelectedTemplate() {
@@ -966,13 +1140,7 @@ function renderTemplates() {
     card.append(art, name);
 
     card.addEventListener("click", () => {
-      state.selectedTemplateId = template.id;
-      recordTemplateUsage(template.id);
-      state.status = STATES.IDLE;
-      state.view = "studio";
-      state.uploadModalOpen = false;
-      state.isEditingMemeText = false;
-      render();
+      openStudioForTemplate(template.id);
     });
 
     if (state.selectedTemplateId === template.id) {
@@ -996,7 +1164,7 @@ function renderStudioTemplate(template) {
     .map((word) => word[0])
     .join("");
   dom.studioTemplateRegions.innerHTML = "";
-  dom.studioTemplateArt.style.backgroundImage = `url("${template.images?.main || template.images?.preview || "/assets/memes/placeholder.svg"}")`;
+  dom.studioTemplateArt.style.backgroundImage = `url("${state.editor.generatedImage || state.editor.templateImage || getTemplatePreviewImage(template)}")`;
   dom.studioTemplateArt.style.backgroundSize = "cover";
   dom.studioTemplateArt.style.backgroundPosition = "center";
 
@@ -1073,6 +1241,7 @@ function render() {
   dom.templateScreen.classList.toggle("hidden", !showingTemplates);
   dom.studioScreen.classList.toggle("hidden", !showingStudio);
   dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
+  dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
   dom.overlayShell.classList.toggle("hidden", !editingPhoto || showingTemplates || showingStudio);
   dom.cameraCancelCta.classList.toggle("hidden", !cameraActive);
   dom.ctaRow.classList.toggle("hidden", !state.uploadModalOpen || cameraActive || reviewingCameraPhoto || editingPhoto);
@@ -1086,12 +1255,14 @@ function render() {
   dom.overlayShell.classList.toggle("dragging", state.dragPointerId !== null);
   dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
   if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
-  dom.memeTextPreview.textContent = state.memeText;
-  dom.memeTextInput.value = state.memeText;
+  dom.memeTextPreview.textContent = state.editor.overlayText;
+  dom.memeTextInput.value = state.editor.overlayText;
   dom.memeTextPreview.classList.toggle("hidden", state.isEditingMemeText);
   dom.memeTextEditor.classList.toggle("hidden", !state.isEditingMemeText);
   dom.faceSwapLoader.classList.toggle("hidden", !state.isSubmittingFaceSwap);
   dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
+  dom.undoCta.disabled = state.editor.historyStack.length <= 1;
+  dom.resetCta.disabled = !selectedTemplate;
 
   dom.progressWrap.classList.toggle(
     "hidden",
@@ -1180,14 +1351,29 @@ async function submitSelectedFace() {
       selectedFaceIds: state.selectedFaceIds,
       selectedTemplateId: state.selectedTemplateId,
       selectedTemplate,
-      memeText: state.memeText,
+      memeText: state.editor.overlayText,
     }),
     signal: state.faceSwapAbortController.signal,
   }).finally(() => {
     stopFaceSwapLoadingState();
   });
 
-  if (response.ok) return;
+  if (response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    const generatedImage = extractGeneratedImageUrl(payload);
+
+    if (!generatedImage) {
+      const error = new Error("Face swap completed, but no composited image URL was returned.");
+      error.code = "MISSING_GENERATED_IMAGE";
+      throw error;
+    }
+
+    state.editor.generatedImage = generatedImage;
+    state.showResetConfirmation = false;
+    recordEditorSnapshot();
+    render();
+    return payload;
+  }
 
   let message = `Upload failed with HTTP ${response.status}.`;
   let code = "UPLOAD_FAILED";
@@ -1272,6 +1458,12 @@ function goBackToUploadChoices() {
 
   if (state.uploadModalOpen) {
     state.uploadModalOpen = false;
+    render();
+    return;
+  }
+
+  if (state.showResetConfirmation) {
+    state.showResetConfirmation = false;
     render();
     return;
   }
@@ -1387,8 +1579,10 @@ dom.templateTabs.addEventListener("click", (event) => {
 });
 dom.memeTextPreview.addEventListener("click", beginInlineTextEdit);
 dom.memeTextInput.addEventListener("input", () => {
-  state.memeText = dom.memeTextInput.value;
-  dom.memeTextPreview.textContent = state.memeText;
+  state.editor.overlayText = dom.memeTextInput.value;
+  state.showResetConfirmation = false;
+  recordEditorSnapshot();
+  dom.memeTextPreview.textContent = state.editor.overlayText;
 });
 dom.memeTextInput.addEventListener("blur", finishInlineTextEdit);
 dom.memeTextInput.addEventListener("keydown", (event) => {
@@ -1398,6 +1592,21 @@ dom.memeTextInput.addEventListener("keydown", (event) => {
   }
 });
 dom.memeTextDone.addEventListener("click", finishInlineTextEdit);
+dom.undoCta.addEventListener("click", () => {
+  undoEditorSnapshot();
+});
+dom.resetCta.addEventListener("click", () => {
+  state.showResetConfirmation = !state.showResetConfirmation;
+  state.isEditingMemeText = false;
+  render();
+});
+dom.resetCancelCta.addEventListener("click", () => {
+  state.showResetConfirmation = false;
+  render();
+});
+dom.resetConfirmCta.addEventListener("click", () => {
+  resetEditorToTemplate();
+});
 dom.faceSwapLoaderCancel.addEventListener("click", () => {
   if (state.faceSwapAbortController) state.faceSwapAbortController.abort();
   stopFaceSwapLoadingState();
@@ -1484,6 +1693,8 @@ export const __testHooks = {
   setStatus,
   selectSingleFace,
   submitSelectedFace,
+  undoEditorSnapshot,
+  resetEditorToTemplate,
   beginInlineTextEdit,
   finishInlineTextEdit,
   startFaceSwapLoadingState,
