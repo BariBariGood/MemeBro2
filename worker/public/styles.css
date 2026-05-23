@@ -149,6 +149,7 @@ body {
   background: rgba(12, 13, 20, 0.44);
   color: #fff;
   border: 2px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
   font-size: clamp(1.15rem, 4vw, 1.75rem);
   line-height: 1.15;
   text-transform: uppercase;
@@ -158,6 +159,19 @@ body {
     1px -1px 0 #000,
     -1px 1px 0 #000,
     1px 1px 0 #000;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 180ms ease,
+    color 160ms ease;
+}
+
+.meme-text-preview:not(:disabled):hover,
+.meme-text-preview:not(:disabled):active {
+  transform: translateX(-50%);
+  background: rgba(12, 13, 20, 0.68);
+  border-color: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
 }
 
 .meme-text-editor {
