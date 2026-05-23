@@ -128,3 +128,12 @@ The canvas now uses a single state.editor source of truth for templateImage, gen
 I also added non-modal Undo and Reset controls in the studio area. Undo restores the previous persisted snapshot without recording the undo itself. Reset now shows an inline confirmation message, not a modal, with the exact warning text and Cancel / Reset actions. Confirming reset restores the original template image and default text, and clears persisted undo history.
 I updated `app.inline-edit-loader.test.js` to cover the generated-image render path plus undo/reset behavior. I wasn’t able to actually run the tests here because the workspace doesn’t have installed vitest dependencies and network access is blocked, so npx vitest could not fetch them.
 
+## Remove the gliding from hovering over the textbox while maintaining the highlight
+### __Task__
+When the user hovers over the inline text editor, remove the feature that slides the textbox
+Keep the darkening when it is hovered over
+
+### __Prompt__
+
+### __Reasoning/Concerns__
+The gliding was an unintentional feature that was added in previous prompting. Because it was unintentional, it had to be removed. I did like the color changing when hovered over, so that should be kept.
