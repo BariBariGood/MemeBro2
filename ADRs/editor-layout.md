@@ -182,6 +182,69 @@ Added the new text settings under the studio action buttons and wired them into 
 I also changed the inline edit experience so the preview stays visible while typing, and added an automatic fit pass that gently shrinks the preview text when it would spill outside the meme canvas. That fit logic runs on text changes, setting changes, and window resize for live feedback.
 Verified with npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js from worker, and the updated UI spec passes. There was already an unrelated modified file in the repo: ADRs/editor-layout.md.
 
+## Replace template with the original memes
+### __Task__
+Replace the placeholders with the original memes
+
+### __Prompt__
+Replace the placeholders with the original memes
+- Find an API with the exisiting memes that match the names currently used and create two folders with the memes in `worker/public/assets/`
+  - First folder is `preview-images`, which holds the compressed images for the lazy-load style
+  - Second folder is the `meme-templates`, which contains the original full meme.
+- Download the images from the API and make compressed versions (stored in `preview-images`)
+- Store the regular images in `meme-templates`
+- Replace the placeholder images created in `templates.json` with images from the folders
+  - Update templates.json so each template contains:
+    - a preview image path from `preview-images/`
+    - a full template image path from `meme-templates/`
+  - In place of the preview image placeholders, use the images from `preview-images` that match the name
+  - When displaying the images in the editor page, use the images from `meme-templates`
+
+### __Reasoning/Concerns__
+Right now it is hard to figure out if face swap works. We need to make sure that the memes and their face recognition are in the correct place. After running the prompt, I noticed that the images are not properly cropped. and as a result the face detection is off. Additionally, the preview images are not properly loaded.
+
+### __AI Summary__
+Replaced the placeholder meme assets with local copies of the real templates and updated the catalog to point at them.
+templates.json now uses compressed previews from worker/public/assets/preview-images and full-resolution templates from worker/public/assets/meme-templates. I also added worker/scripts/import-meme-assets.ps1, which pulls matches from Imgflip’s get_memes API, downloads the originals, generates preview JPEGs, and rewrites worker/public/templates.json (line 127).
+A few names needed explicit mapping during import, like Awkward Look Monkey Puppet -> Monkey Puppet and Megamind No Bitches -> Megamind no bitches, but all 25 templates were matched and every referenced asset exists locally.
+Verified with:
+npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
+There’s still one unrelated pre-existing modified file in the repo: ADRs/editor-layout.md.
+
+## Fix Issue with image loading
+### __Task__
+Fix the preview image loading
+Fix the cropping in the editor
+
+### __Prompt__
+Fix issues with preview image loading and meme cropping in the editor.
+
+__Preview Image Loading__
+Fix the preview image behavior in the meme gallery/grid.
+- Ensure preview images load correctly from: `worker/public/assets/preview-images/`
+- Use the previewImage field from templates.json.
+- Preserve lazy-loading behavior.
+- Prevent layout shifting while images load.
+- Ensure images render with the correct aspect ratio.
+- Prevent broken image placeholders or flashing during load.
+- Add fallback handling for missing preview images if needed. 
+
+__Meme Editor Cropping__
+Fix the meme template rendering/cropping behavior in the editor.
+- Use the full-resolution image from: `worker/public/assets/meme-templates/`
+- Ensure the meme template is fully visible inside the editor canvas/container.
+- Prevent unintended cropping or clipping of the meme image.
+- Preserve the original image aspect ratio.
+- Scale the image responsively to fit within the editor viewport.
+- Ensure text positioning still aligns correctly after scaling changes.
+- Avoid stretching or distortion.
+- Make sure that the face location data matches properly with the image.
+
+### __Reasoning/Concerns__
+
+
+### __AI Summary__
+
 ## Improve Undo Button
 ### __Task__
 __PR Review: Sanjana__
