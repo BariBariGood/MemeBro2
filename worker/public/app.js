@@ -40,8 +40,9 @@ const DEFAULT_MEME_TEXT = "TAP TO EDIT TEXT";
 const EDITOR_HISTORY_STORAGE_KEY = "meme-editor-history";
 const DEFAULT_MEME_FONT_KEY = "arial";
 const DEFAULT_MEME_FONT_SIZE_MODE = "default";
-const DEFAULT_MEME_TEXT_COLOR = "white";
+const DEFAULT_MEME_TEXT_COLOR = "black";
 const DEFAULT_MEME_OUTLINE_ENABLED = false;
+const DEFAULT_MEME_OUTLINE_COLOR = "#ffffff";
 
 const MEME_FONT_OPTIONS = {
   arial: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
@@ -61,7 +62,7 @@ const MEME_FONT_OPTIONS = {
 };
 
 const MEME_TEXT_COLORS = {
-  black: "#111111",
+  black: "#000000",
   white: "#ffffff",
   red: "#d62828",
   blue: "#2563eb",
@@ -227,7 +228,7 @@ const state = {
     overlayFontPx: 22,
     overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
     overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
-    overlayOutlineColor: "#000000",
+    overlayOutlineColor: DEFAULT_MEME_OUTLINE_COLOR,
     overlayBold: false,
     overlayItalic: false,
     overlayUnderline: false,
@@ -726,7 +727,7 @@ function applyEditorSnapshot(snapshot) {
   state.editor.overlayFontPx = Number.isFinite(snapshot.overlayFontPx) ? snapshot.overlayFontPx : 22;
   state.editor.overlayTextColor = snapshot.overlayTextColor || DEFAULT_MEME_TEXT_COLOR;
   state.editor.overlayOutlineEnabled = snapshot.overlayOutlineEnabled ?? DEFAULT_MEME_OUTLINE_ENABLED;
-  state.editor.overlayOutlineColor = snapshot.overlayOutlineColor || "#000000";
+  state.editor.overlayOutlineColor = snapshot.overlayOutlineColor || DEFAULT_MEME_OUTLINE_COLOR;
   state.editor.overlayBold = snapshot.overlayBold ?? false;
   state.editor.overlayItalic = snapshot.overlayItalic ?? false;
   state.editor.overlayUnderline = snapshot.overlayUnderline ?? false;
@@ -795,7 +796,7 @@ function initializeEditorState(template = getSelectedTemplate()) {
     overlayFontPx: 22,
     overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
     overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
-    overlayOutlineColor: "#000000",
+    overlayOutlineColor: DEFAULT_MEME_OUTLINE_COLOR,
     overlayBold: false,
     overlayItalic: false,
     overlayUnderline: false,
@@ -949,6 +950,7 @@ function getMemeBaseScale(sizeMode = DEFAULT_MEME_FONT_SIZE_MODE) {
 function syncMemeTextAppearance() {
   const preview = dom.memeTextPreview;
   if (!preview) return 1;
+  const textColor = getMemeTextColor(state.editor.overlayTextColor);
 
   preview.style.left = `${clamp(state.editor.overlayX, 5, 95)}%`;
   preview.style.top = `${clamp(state.editor.overlayY, 5, 95)}%`;
@@ -959,7 +961,8 @@ function syncMemeTextAppearance() {
   preview.style.fontWeight = state.editor.overlayBold ? "700" : "400";
   preview.style.fontStyle = state.editor.overlayItalic ? "italic" : "normal";
   preview.style.textDecoration = state.editor.overlayUnderline ? "underline" : "none";
-  preview.style.color = getMemeTextColor(state.editor.overlayTextColor);
+  preview.style.color = textColor;
+  preview.style.caretColor = textColor;
   preview.style.textShadow = state.editor.overlayOutlineEnabled
     ? [
       `-2px -2px 0 ${state.editor.overlayOutlineColor}`,
@@ -1085,7 +1088,7 @@ function renderFrozenTextItems() {
     node.style.fontStyle = item.italic ? "italic" : "normal";
     node.style.textDecoration = item.underline ? "underline" : "none";
     node.style.textShadow = item.outline
-      ? `-2px -2px 0 ${item.outlineColor || "#000000"}, 2px -2px 0 ${item.outlineColor || "#000000"}, -2px 2px 0 ${item.outlineColor || "#000000"}, 2px 2px 0 ${item.outlineColor || "#000000"}`
+      ? `-2px -2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}, 2px -2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}, -2px 2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}, 2px 2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}`
       : "none";
     node.style.cursor = "text";
     dom.studioTemplateArt.appendChild(node);
@@ -1103,7 +1106,7 @@ function selectFrozenTextItem(index) {
   state.editor.overlayFontPx = Number(item.fontPx) || 22;
   state.editor.overlayTextColor = item.color;
   state.editor.overlayOutlineEnabled = item.outline ?? false;
-  state.editor.overlayOutlineColor = item.outlineColor || "#000000";
+  state.editor.overlayOutlineColor = item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR;
   state.editor.overlayBold = item.bold ?? false;
   state.editor.overlayItalic = item.italic ?? false;
   state.editor.overlayUnderline = item.underline ?? false;
@@ -1132,7 +1135,7 @@ function createOrSelectTextAtPointer(event) {
   state.editor.overlayFontPx = 22;
   state.editor.overlayTextColor = DEFAULT_MEME_TEXT_COLOR;
   state.editor.overlayOutlineEnabled = DEFAULT_MEME_OUTLINE_ENABLED;
-  state.editor.overlayOutlineColor = "#000000";
+  state.editor.overlayOutlineColor = DEFAULT_MEME_OUTLINE_COLOR;
   state.editor.overlayBold = false;
   state.editor.overlayItalic = false;
   state.editor.overlayUnderline = false;
