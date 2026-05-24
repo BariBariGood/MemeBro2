@@ -71,6 +71,7 @@ const dom = {
   selectedTemplateLabel: document.getElementById("selected-template-label"),
   studioScreen: document.getElementById("studio-screen"),
   studioTemplateArt: document.getElementById("studio-template-art"),
+  studioTemplateImage: document.getElementById("studio-template-image"),
   studioTemplateInitials: document.getElementById("studio-template-initials"),
   studioTemplateRegions: document.getElementById("studio-template-regions"),
   memeTextPreview: document.getElementById("meme-text-preview"),
@@ -568,7 +569,67 @@ function cloneSnapshot(snapshot) {
 }
 
 function getTemplatePreviewImage(template = getSelectedTemplate()) {
-  return template?.images?.main || template?.images?.preview || "/assets/memes/placeholder.svg";
+  return template?.previewImage
+    || template?.images?.preview
+    || template?.images?.thumbnail
+    || template?.images?.main
+    || "/assets/memes/placeholder-preview.svg";
+}
+
+function getTemplateMainImage(template = getSelectedTemplate()) {
+  return template?.templateImage
+    || template?.images?.main
+    || getTemplatePreviewImage(template)
+    || "/assets/memes/placeholder.svg";
+}
+
+function getTemplateImageDimensions(template = getSelectedTemplate()) {
+  return {
+    width: Math.max(1, Number(template?.images?.width) || 1),
+    height: Math.max(1, Number(template?.images?.height) || 1),
+  };
+}
+
+function getTemplateImageSources(primarySource, fallbacks = []) {
+  return [primarySource, ...fallbacks]
+    .filter(Boolean)
+    .filter((source, index, list) => list.indexOf(source) === index);
+}
+
+function updateImageWithFallback(image, sources) {
+  if (!image) return;
+  const serializedSources = JSON.stringify(sources);
+  const nextSource = sources[0] || "";
+
+  if (
+    image.dataset.fallbackSources === serializedSources
+    && image.dataset.fallbackIndex === "0"
+    && image.getAttribute("src") === nextSource
+  ) {
+    return;
+  }
+
+  image.dataset.fallbackSources = serializedSources;
+  image.dataset.fallbackIndex = "0";
+  image.src = nextSource;
+}
+
+function getStudioTemplateBox(template = getSelectedTemplate()) {
+  const { width, height } = getTemplateImageDimensions(template);
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1280;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 900;
+  const maxWidth = Math.max(220, Math.min(
+    viewportWidth <= 520 ? viewportWidth - 24 : viewportWidth - 32,
+    viewportWidth * 0.6,
+    560
+  ));
+  const maxHeight = Math.max(220, Math.min(viewportHeight * 0.72, 760));
+  const scale = Math.min(maxWidth / width, maxHeight / height);
+
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
 }
 
 function createEditorSnapshot(overrides = {}) {
@@ -586,7 +647,7 @@ function createEditorSnapshot(overrides = {}) {
 
 function applyEditorSnapshot(snapshot) {
   if (!snapshot) return;
-  state.editor.templateImage = snapshot.templateImage || getTemplatePreviewImage();
+  state.editor.templateImage = snapshot.templateImage || getTemplateMainImage();
   state.editor.generatedImage = snapshot.generatedImage || "";
   state.editor.overlayText = snapshot.overlayText ?? DEFAULT_MEME_TEXT;
   state.editor.overlayFontKey = snapshot.overlayFontKey || DEFAULT_MEME_FONT_KEY;
@@ -632,7 +693,7 @@ function clearEditorHistoryPersistence() {
 function initializeEditorState(template = getSelectedTemplate()) {
   state.editor.initialSnapshot = createEditorSnapshot({
     selectedTemplateId: state.selectedTemplateId,
-    templateImage: getTemplatePreviewImage(template),
+    templateImage: getTemplateMainImage(template),
     generatedImage: "",
     overlayText: DEFAULT_MEME_TEXT,
     overlayFontKey: DEFAULT_MEME_FONT_KEY,
@@ -1221,6 +1282,7 @@ function renderTemplates() {
   dom.templateEmpty.classList.toggle("hidden", templates.length > 0);
 
   templates.forEach((template, index) => {
+    const { width, height } = getTemplateImageDimensions(template);
     const card = document.createElement("button");
     card.type = "button";
     card.className = "template-card";
@@ -1229,14 +1291,34 @@ function renderTemplates() {
 
     const art = document.createElement("span");
     art.className = "template-art";
+    art.style.aspectRatio = `${width} / ${height}`;
     const previewImage = document.createElement("img");
     previewImage.className = "template-art-image";
     previewImage.alt = template.name;
     previewImage.loading = "lazy";
-    previewImage.src = template.images?.preview || template.images?.thumbnail || template.images?.main || "";
-    previewImage.addEventListener("error", () => {
-      previewImage.src = "/assets/memes/placeholder-preview.svg";
+    previewImage.decoding = "async";
+    previewImage.width = width;
+    previewImage.height = height;
+    previewImage.addEventListener("load", () => {
+      art.classList.add("image-ready");
+      previewImage.classList.add("is-loaded");
     });
+    previewImage.addEventListener("error", () => {
+      const sources = JSON.parse(previewImage.dataset.fallbackSources || "[]");
+      const nextIndex = Number(previewImage.dataset.fallbackIndex || "0") + 1;
+
+      if (nextIndex < sources.length) {
+        previewImage.dataset.fallbackIndex = String(nextIndex);
+        previewImage.src = sources[nextIndex];
+        return;
+      }
+
+      art.classList.add("image-error");
+    });
+    updateImageWithFallback(previewImage, getTemplateImageSources(
+      getTemplatePreviewImage(template),
+      [template.images?.thumbnail, getTemplateMainImage(template), "/assets/memes/placeholder-preview.svg"]
+    ));
 
     const initials = document.createElement("span");
     initials.className = "template-initials";
@@ -1251,10 +1333,10 @@ function renderTemplates() {
     (template.faceRegions || []).slice(0, 4).forEach((region) => {
       const marker = document.createElement("span");
       marker.className = "template-region";
-      marker.style.left = `${(region.x / template.images.width) * 100}%`;
-      marker.style.top = `${(region.y / template.images.height) * 100}%`;
-      marker.style.width = `${Math.max(12, (region.width / template.images.width) * 100)}%`;
-      marker.style.height = `${Math.max(12, (region.height / template.images.height) * 100)}%`;
+      marker.style.left = `${(region.x / width) * 100}%`;
+      marker.style.top = `${(region.y / height) * 100}%`;
+      marker.style.width = `${Math.max(12, (region.width / width) * 100)}%`;
+      marker.style.height = `${Math.max(12, (region.height / height) * 100)}%`;
       regions.appendChild(marker);
     });
 
@@ -1279,28 +1361,41 @@ function renderTemplates() {
 
 function renderStudioTemplate(template) {
   if (!template) return;
+  const { width, height } = getTemplateImageDimensions(template);
+  const box = getStudioTemplateBox(template);
+  const studioImageSources = getTemplateImageSources(
+    state.editor.generatedImage || state.editor.templateImage || getTemplateMainImage(template),
+    [getTemplateMainImage(template), getTemplatePreviewImage(template), "/assets/memes/placeholder.svg"]
+  );
+  const serializedStudioImageSources = JSON.stringify(studioImageSources);
+  const shouldResetStudioImageState = dom.studioTemplateImage.dataset.fallbackSources !== serializedStudioImageSources;
 
   dom.studioTemplateArt.style.setProperty(
     "--template-hue",
     String(Math.abs(template.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % 360)
   );
+  dom.studioTemplateArt.style.width = `${box.width}px`;
+  dom.studioTemplateArt.style.height = `${box.height}px`;
   dom.studioTemplateInitials.textContent = template.name
     .split(/\s+/)
     .slice(0, 2)
     .map((word) => word[0])
     .join("");
   dom.studioTemplateRegions.innerHTML = "";
-  dom.studioTemplateArt.style.backgroundImage = `url("${state.editor.generatedImage || state.editor.templateImage || getTemplatePreviewImage(template)}")`;
-  dom.studioTemplateArt.style.backgroundSize = "cover";
-  dom.studioTemplateArt.style.backgroundPosition = "center";
+  if (shouldResetStudioImageState) {
+    dom.studioTemplateArt.classList.remove("image-ready", "image-error");
+    dom.studioTemplateImage.classList.remove("is-loaded");
+  }
+  dom.studioTemplateImage.alt = template.name;
+  updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
 
   (template.faceRegions || []).slice(0, 4).forEach((region) => {
     const marker = document.createElement("span");
     marker.className = "studio-template-region";
-    marker.style.left = `${(region.x / template.images.width) * 100}%`;
-    marker.style.top = `${(region.y / template.images.height) * 100}%`;
-    marker.style.width = `${Math.max(10, (region.width / template.images.width) * 100)}%`;
-    marker.style.height = `${Math.max(10, (region.height / template.images.height) * 100)}%`;
+    marker.style.left = `${(region.x / width) * 100}%`;
+    marker.style.top = `${(region.y / height) * 100}%`;
+    marker.style.width = `${Math.max(10, (region.width / width) * 100)}%`;
+    marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
     dom.studioTemplateRegions.appendChild(marker);
   });
 }
@@ -1786,8 +1881,31 @@ dom.manualRotation.addEventListener("input", () => {
   renderOverlay();
 });
 
+dom.studioTemplateImage.addEventListener("load", () => {
+  dom.studioTemplateArt.classList.add("image-ready");
+  dom.studioTemplateArt.classList.remove("image-error");
+  dom.studioTemplateImage.classList.add("is-loaded");
+});
+
+dom.studioTemplateImage.addEventListener("error", () => {
+  const sources = JSON.parse(dom.studioTemplateImage.dataset.fallbackSources || "[]");
+  const nextIndex = Number(dom.studioTemplateImage.dataset.fallbackIndex || "0") + 1;
+
+  if (nextIndex < sources.length) {
+    dom.studioTemplateImage.dataset.fallbackIndex = String(nextIndex);
+    dom.studioTemplateImage.src = sources[nextIndex];
+    return;
+  }
+
+  dom.studioTemplateArt.classList.add("image-error");
+});
+
 window.addEventListener("resize", () => {
-  if (state.view === "studio") syncMemeTextAppearance();
+  if (state.view === "studio") {
+    const selectedTemplate = getSelectedTemplate();
+    if (selectedTemplate) renderStudioTemplate(selectedTemplate);
+    syncMemeTextAppearance();
+  }
 });
 
 function startManualDrag(event) {
