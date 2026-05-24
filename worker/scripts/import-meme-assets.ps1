@@ -149,6 +149,8 @@ foreach ($template in $templateCatalog.templates) {
   $template.images.thumbnail = "/assets/preview-images/$previewAssetFileName"
   $template.images.width = [int]$meme.width
   $template.images.height = [int]$meme.height
+  $template | Add-Member -NotePropertyName previewImage -NotePropertyValue $template.images.preview -Force
+  $template | Add-Member -NotePropertyName templateImage -NotePropertyValue $template.images.main -Force
 
   $downloaded += [PSCustomObject]@{
     id = $template.id

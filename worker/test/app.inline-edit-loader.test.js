@@ -44,7 +44,7 @@ function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   state.templateCatalog = catalog.templates;
   state.view = "studio";
   state.selectedTemplateId = template.id;
-  state.editor.templateImage = template.images.main || template.images.preview || "/assets/memes/placeholder.svg";
+  state.editor.templateImage = template.templateImage || template.images.main || template.images.preview || "/assets/memes/placeholder.svg";
   state.editor.generatedImage = "";
   state.editor.overlayText = "Tap to edit text";
   state.editor.overlayFontKey = "impact";
@@ -142,6 +142,20 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.editor.overlayOutlineEnabled).toBe(true);
   });
 
+  test("custom: gallery cards use previewImage sources and preserve image dimensions", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { dom } = __testHooks;
+
+    const firstCardImage = dom.templateGrid.querySelector(".template-art-image");
+    const firstCardArt = dom.templateGrid.querySelector(".template-art");
+
+    expect(firstCardImage).not.toBeNull();
+    expect(firstCardImage.getAttribute("src")).toBe(catalog.templates[0].previewImage);
+    expect(firstCardImage.loading).toBe("lazy");
+    expect(firstCardArt.style.aspectRatio).toBe(`${catalog.templates[0].images.width} / ${catalog.templates[0].images.height}`);
+  });
+
   test("custom: long text shrinks to stay inside the meme canvas", async () => {
     const { __testHooks } = await loadApp();
     await settleApp();
@@ -180,6 +194,26 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(scale).toBeLessThan(1);
     expect(Number(dom.memeTextPreview.dataset.fitScale)).toBeLessThan(1);
     expect(state.editor.overlayAutoScale).toBeLessThan(1);
+  });
+
+  test("custom: studio template uses full image source without cover-cropping", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state, "expanding-brain");
+    render();
+
+    const template = catalog.templates.find((entry) => entry.id === "expanding-brain");
+    const maxWidth = Math.max(220, Math.min(window.innerWidth - 32, window.innerWidth * 0.6, 560));
+    const maxHeight = Math.max(220, Math.min(window.innerHeight * 0.72, 760));
+    const scale = Math.min(maxWidth / template.images.width, maxHeight / template.images.height);
+    const expectedWidth = Math.round(template.images.width * scale);
+    const expectedHeight = Math.round(template.images.height * scale);
+
+    expect(dom.studioTemplateImage.getAttribute("src")).toBe(template.templateImage);
+    expect(dom.studioTemplateArt.style.width).toBe(`${expectedWidth}px`);
+    expect(dom.studioTemplateArt.style.height).toBe(`${expectedHeight}px`);
   });
 
   test("custom: loader shows immediately, shows slower message at 5s, then hides", async () => {
@@ -243,7 +277,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     render();
 
     await submitSelectedFace();
-    expect(dom.studioTemplateArt.style.backgroundImage).toContain("/generated/swapped.png");
+    expect(dom.studioTemplateImage.getAttribute("src")).toBe("/generated/swapped.png");
 
     dom.memeTextPreview.click();
     dom.memeTextInput.value = "fresh text";

@@ -164,7 +164,9 @@
           "width": 220,
           "height": 220
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/drake-hotline-bling.jpg",
+      "templateImage": "/assets/meme-templates/drake-hotline-bling.jpg"
     },
     {
       "id": "distracted-boyfriend",
@@ -212,7 +214,9 @@
           "width": 160,
           "height": 160
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/distracted-boyfriend.jpg",
+      "templateImage": "/assets/meme-templates/distracted-boyfriend.jpg"
     },
     {
       "id": "two-buttons",
@@ -246,7 +250,9 @@
           "width": 180,
           "height": 180
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/two-buttons.jpg",
+      "templateImage": "/assets/meme-templates/two-buttons.jpg"
     },
     {
       "id": "change-my-mind",
@@ -280,7 +286,9 @@
           "width": 170,
           "height": 170
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/change-my-mind.jpg",
+      "templateImage": "/assets/meme-templates/change-my-mind.jpg"
     },
     {
       "id": "woman-yelling-at-cat",
@@ -328,7 +336,9 @@
           "width": 120,
           "height": 120
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/woman-yelling-at-cat.jpg",
+      "templateImage": "/assets/meme-templates/woman-yelling-at-cat.jpg"
     },
     {
       "id": "expanding-brain",
@@ -383,7 +393,9 @@
           "width": 130,
           "height": 130
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/expanding-brain.jpg",
+      "templateImage": "/assets/meme-templates/expanding-brain.jpg"
     },
     {
       "id": "one-does-not-simply",
@@ -417,7 +429,9 @@
           "width": 210,
           "height": 210
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/one-does-not-simply.jpg",
+      "templateImage": "/assets/meme-templates/one-does-not-simply.jpg"
     },
     {
       "id": "success-kid",
@@ -451,7 +465,9 @@
           "width": 180,
           "height": 180
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/success-kid.jpg",
+      "templateImage": "/assets/meme-templates/success-kid.jpg"
     },
     {
       "id": "disaster-girl",
@@ -485,7 +501,9 @@
           "width": 140,
           "height": 140
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/disaster-girl.jpg",
+      "templateImage": "/assets/meme-templates/disaster-girl.jpg"
     },
     {
       "id": "this-is-fine",
@@ -519,7 +537,9 @@
           "width": 180,
           "height": 180
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/this-is-fine.jpg",
+      "templateImage": "/assets/meme-templates/this-is-fine.jpg"
     },
     {
       "id": "gru-plan",
@@ -574,7 +594,9 @@
           "width": 120,
           "height": 120
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/gru-plan.jpg",
+      "templateImage": "/assets/meme-templates/gru-plan.jpg"
     },
     {
       "id": "futurama-fry",
@@ -608,7 +630,9 @@
           "width": 230,
           "height": 230
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/futurama-fry.jpg",
+      "templateImage": "/assets/meme-templates/futurama-fry.jpg"
     },
     {
       "id": "ancient-aliens",
@@ -642,7 +666,9 @@
           "width": 170,
           "height": 170
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/ancient-aliens.jpg",
+      "templateImage": "/assets/meme-templates/ancient-aliens.jpg"
     },
     {
       "id": "running-away-balloon",
@@ -676,7 +702,9 @@
           "width": 120,
           "height": 120
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/running-away-balloon.jpg",
+      "templateImage": "/assets/meme-templates/running-away-balloon.jpg"
     },
     {
       "id": "mocking-spongebob",
@@ -710,7 +738,9 @@
           "width": 210,
           "height": 210
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/mocking-spongebob.jpg",
+      "templateImage": "/assets/meme-templates/mocking-spongebob.jpg"
     },
     {
       "id": "hide-the-pain-harold",
@@ -744,7 +774,9 @@
           "width": 160,
           "height": 160
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/hide-the-pain-harold.jpg",
+      "templateImage": "/assets/meme-templates/hide-the-pain-harold.jpg"
     },
     {
       "id": "left-exit-12-off-ramp",
@@ -770,7 +802,9 @@
       "editorTarget": {
         "route": "/editor/left-exit-12-off-ramp"
       },
-      "faceRegions": []
+      "faceRegions": [],
+      "previewImage": "/assets/preview-images/left-exit-12-off-ramp.jpg",
+      "templateImage": "/assets/meme-templates/left-exit-12-off-ramp.jpg"
     },
     {
       "id": "is-this-a-pigeon",
@@ -804,7 +838,9 @@
           "width": 150,
           "height": 150
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/is-this-a-pigeon.jpg",
+      "templateImage": "/assets/meme-templates/is-this-a-pigeon.jpg"
     },
     {
       "id": "roll-safe-think-about-it",
@@ -838,7 +874,9 @@
           "width": 180,
           "height": 180
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/roll-safe-think-about-it.jpg",
+      "templateImage": "/assets/meme-templates/roll-safe-think-about-it.jpg"
     },
     {
       "id": "surprised-pikachu",
@@ -872,7 +910,9 @@
           "width": 190,
           "height": 190
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/surprised-pikachu.jpg",
+      "templateImage": "/assets/meme-templates/surprised-pikachu.jpg"
     },
     {
       "id": "always-has-been",
@@ -913,7 +953,9 @@
           "width": 110,
           "height": 110
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/always-has-been.jpg",
+      "templateImage": "/assets/meme-templates/always-has-been.png"
     },
     {
       "id": "waiting-skeleton",
@@ -939,7 +981,9 @@
       "editorTarget": {
         "route": "/editor/waiting-skeleton"
       },
-      "faceRegions": []
+      "faceRegions": [],
+      "previewImage": "/assets/preview-images/waiting-skeleton.jpg",
+      "templateImage": "/assets/meme-templates/waiting-skeleton.jpg"
     },
     {
       "id": "batman-slapping-robin",
@@ -980,7 +1024,9 @@
           "width": 150,
           "height": 150
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/batman-slapping-robin.jpg",
+      "templateImage": "/assets/meme-templates/batman-slapping-robin.jpg"
     },
     {
       "id": "mega-mind-no-bitches",
@@ -1014,7 +1060,9 @@
           "width": 260,
           "height": 260
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/mega-mind-no-bitches.jpg",
+      "templateImage": "/assets/meme-templates/mega-mind-no-bitches.jpg"
     },
     {
       "id": "awkward-look-monkey-puppet",
@@ -1048,7 +1096,9 @@
           "width": 220,
           "height": 220
         }
-      ]
+      ],
+      "previewImage": "/assets/preview-images/awkward-look-monkey-puppet.jpg",
+      "templateImage": "/assets/meme-templates/awkward-look-monkey-puppet.jpg"
     }
   ]
 }

@@ -241,9 +241,21 @@ Fix the meme template rendering/cropping behavior in the editor.
 - Make sure that the face location data matches properly with the image.
 
 ### __Reasoning/Concerns__
-
+The previous prompt did not properly render all of the display images and in the editor the images were poorly cropped. This would hopefully fix the what images are displayed and adjust the canvas size to fit the meme.
 
 ### __AI Summary__
+Fixed both the gallery preview path and the editor template rendering.
+The gallery now reads previewImage from worker/public/templates.json (line 168), keeps loading="lazy", reserves the right aspect ratio before load, fades images in once ready, and falls back through preview, thumbnail, full image, then placeholder instead of flashing broken images. That logic lives in worker/public/app.js (line 572) and worker/public/styles.css (line 981).
+The editor no longer uses a cropped background-image: cover. It now renders the full meme through a real <img> in worker/public/index.html (line 49), sizes the canvas to the meme’s true aspect ratio in worker/public/app.js (line 617), and overlays face markers/text on that correctly scaled frame so alignment stays consistent. I also updated the import script so future asset refreshes keep writing previewImage and templateImage fields: worker/scripts/import-meme-assets.ps1 (line 152).
+Verified with:
+npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
+Files changed:
+worker/public/app.js
+worker/public/index.html
+worker/public/styles.css
+worker/public/templates.json
+worker/scripts/import-meme-assets.ps1
+worker/test/app.inline-edit-loader.test.js
 
 ## Improve Undo Button
 ### __Task__
