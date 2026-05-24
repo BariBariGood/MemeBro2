@@ -147,23 +147,27 @@ body {
   padding: 8px 14px;
   border-radius: 12px;
   background: rgba(12, 13, 20, 0.44);
-  color: #fff;
+  color: #111;
   border: 2px solid rgba(255, 255, 255, 0.72);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
   font-size: clamp(1.15rem, 4vw, 1.75rem);
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
   line-height: 1.15;
   text-transform: uppercase;
   text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-shadow:
-    -1px -1px 0 #000,
-    1px -1px 0 #000,
-    -1px 1px 0 #000,
-    1px 1px 0 #000;
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff;
   transition:
     background 160ms ease,
     border-color 160ms ease,
     box-shadow 180ms ease,
-    color 160ms ease;
+    color 160ms ease,
+    bottom 160ms ease;
 }
 
 .meme-text-preview:not(:disabled):hover,
@@ -174,10 +178,14 @@ body {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
 }
 
+.studio-template-art.editing-text .meme-text-preview {
+  bottom: 132px;
+}
+
 .meme-text-editor {
   position: absolute;
   left: 50%;
-  bottom: 70px;
+  bottom: 22px;
   transform: translateX(-50%);
   width: min(92%, 520px);
   display: grid;
@@ -316,6 +324,61 @@ body {
   background: #f044bd;
   color: #fff;
   box-shadow: 0 0 24px rgba(240, 68, 189, 0.25);
+}
+
+.text-settings {
+  width: min(100%, 720px);
+  margin-inline: auto;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(14, 15, 22, 0.9);
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.2);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.text-setting-field {
+  display: grid;
+  gap: 8px;
+}
+
+.text-setting-field label,
+.text-setting-toggle span {
+  color: rgba(246, 247, 251, 0.76);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.text-setting-field select {
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f6f7fb;
+  padding: 0 14px;
+  font: inherit;
+}
+
+.text-setting-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.text-setting-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: #b8f73a;
 }
 
 .reset-confirmation {
@@ -1178,6 +1241,11 @@ progress {
     border-radius: 20px;
     background: rgba(5, 8, 18, 0.88);
     backdrop-filter: blur(12px);
+  }
+
+  .text-settings {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .studio-action {

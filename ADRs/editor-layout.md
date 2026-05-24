@@ -137,3 +137,64 @@ Keep the darkening when it is hovered over
 
 ### __Reasoning/Concerns__
 The gliding was an unintentional feature that was added in previous prompting. Because it was unintentional, it had to be removed. I did like the color changing when hovered over, so that should be kept.
+
+### __AI Summary__
+
+## Add text edit settings
+### __Task__
+__PR Review: Sanjana__
+3. Some additional features I think would be nice to have which most basic editors have: customizable font size(just a few size options), text color(5-8 main colors max, not everything please), some common famous font sizes(4-5) and maybe outline option since meme text usually wants a white outline on black etc
+
+__PR Review: Andrew__
+Nice-to-haves for a future pass
+
+Font size options (a few presets, not a slider)
+Text color (5–8 common colors max)
+Font options (4–5 recognizable meme fonts)
+Text outline toggle (white outline on black is standard meme style)
+
+### __Prompt__
+Using the current `app.js` file, add settings underneath the buttons that adjusts the inline text.
+
+__Font__
+- Have an drop down menu for fonts
+  - The drop down menu should have 5 of the most recognizable meme fonts
+- Have a menu (NOT SLIDER) for font sizes
+  - Available font sizesfor selecting should be "Default" (the current size) and "Small" (60% of the current size)
+- When text does not fit in the screen size, shrink the text size automatically so that all text is visible within the canvas boundaries.
+  - Shrink should not be drastic
+  - Shrink should allow for all text to be visible
+  - Shrink size should have real time feedback and visible to the reader
+
+__Text__
+- Have a toggle that enables a white meme outline on the text
+  - When it is on, there is a white meme outline
+  - When it is off, there is no white meme outline
+- Have a dropdown for text colors (NOT OUTLINE COLOR)
+  - Colors include: Black, White, Red, Blue, Yellow
+  - Default color will be black
+
+### __Reasoning/Concerns__
+The gliding was an unintentional feature that was added in previous prompting. Because it was unintentional, it had to be removed. I did like the color changing when hovered over, so that should be kept.
+
+### __AI Summary__
+Added the new text settings under the studio action buttons and wired them into the existing editor flow. The meme text now supports font selection, a Default/Small size menu, text color selection, and a white-outline toggle, all backed by editor snapshot state so undo/reset/session restore keep behaving consistently in app.js (line 40), index.html (line 77), and styles.css (line 139).
+I also changed the inline edit experience so the preview stays visible while typing, and added an automatic fit pass that gently shrinks the preview text when it would spill outside the meme canvas. That fit logic runs on text changes, setting changes, and window resize for live feedback.
+Verified with npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js from worker, and the updated UI spec passes. There was already an unrelated modified file in the repo: ADRs/editor-layout.md.
+
+## Improve Undo Button
+### __Task__
+__PR Review: Sanjana__
+
+
+__PR Review: Andrew__
+
+
+### __Prompt__
+Using the current `app.js` file, add settings to the 
+
+### __Reasoning/Concerns__
+
+
+### __AI Summary__
+
