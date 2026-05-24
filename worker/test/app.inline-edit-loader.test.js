@@ -156,6 +156,19 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(firstCardArt.style.aspectRatio).toBe(`${catalog.templates[0].images.width} / ${catalog.templates[0].images.height}`);
   });
 
+  test("custom: template face regions stay inside the actual meme image bounds", () => {
+    for (const template of catalog.templates) {
+      for (const region of template.faceRegions || []) {
+        expect(region.x).toBeGreaterThanOrEqual(0);
+        expect(region.y).toBeGreaterThanOrEqual(0);
+        expect(region.width).toBeGreaterThan(0);
+        expect(region.height).toBeGreaterThan(0);
+        expect(region.x + region.width).toBeLessThanOrEqual(template.images.width);
+        expect(region.y + region.height).toBeLessThanOrEqual(template.images.height);
+      }
+    }
+  });
+
   test("custom: long text shrinks to stay inside the meme canvas", async () => {
     const { __testHooks } = await loadApp();
     await settleApp();

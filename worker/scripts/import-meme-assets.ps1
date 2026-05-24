@@ -9,51 +9,25 @@ function Normalize-MemeName {
   return (($Name.ToLowerInvariant() -replace "[^a-z0-9]+", " ").Trim() -replace "\s+", " ")
 }
 
-function Save-JpegWithQuality {
-  param(
-    [Parameter(Mandatory = $true)]
-    [System.Drawing.Image]$Image,
-    [Parameter(Mandatory = $true)]
-    [string]$DestinationPath,
-    [Parameter(Mandatory = $true)]
-    [int]$Quality
-  )
-
-  $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
-    Where-Object { $_.MimeType -eq "image/jpeg" } |
-    Select-Object -First 1
-
-  if (-not $jpegCodec) {
-    throw "JPEG encoder is not available on this system."
-  }
-
-  $encoder = [System.Drawing.Imaging.Encoder]::Quality
-  $encoderParameters = New-Object System.Drawing.Imaging.EncoderParameters(1)
-  $encoderParameters.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter($encoder, [long]$Quality)
-
-  try {
-    $Image.Save($DestinationPath, $jpegCodec, $encoderParameters)
-  } finally {
-    $encoderParameters.Dispose()
-  }
-}
-
 function New-PreviewImage {
   param(
     [Parameter(Mandatory = $true)]
     [string]$SourcePath,
     [Parameter(Mandatory = $true)]
     [string]$DestinationPath,
-    [int]$MaxEdge = 360,
-    [int]$Quality = 76
+    [int]$MaxEdge = 360
   )
 
   $image = [System.Drawing.Image]::FromFile($SourcePath)
 
   try {
-    $scale = [Math]::Min(1, $MaxEdge / [Math]::Max($image.Width, $image.Height))
-    $targetWidth = [Math]::Max(1, [int][Math]::Round($image.Width * $scale))
-    $targetHeight = [Math]::Max(1, [int][Math]::Round($image.Height * $scale))
+    if ($image.Width -ge $image.Height) {
+      $targetWidth = [Math]::Min($MaxEdge, $image.Width)
+      $targetHeight = [Math]::Max(1, [int][Math]::Round($image.Height * ($targetWidth / $image.Width)))
+    } else {
+      $targetHeight = [Math]::Min($MaxEdge, $image.Height)
+      $targetWidth = [Math]::Max(1, [int][Math]::Round($image.Width * ($targetHeight / $image.Height)))
+    }
 
     $bitmap = New-Object System.Drawing.Bitmap($targetWidth, $targetHeight)
 
@@ -61,11 +35,9 @@ function New-PreviewImage {
       $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
 
       try {
-        $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
         $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-        $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
         $graphics.DrawImage($image, 0, 0, $targetWidth, $targetHeight)
-        Save-JpegWithQuality -Image $bitmap -DestinationPath $DestinationPath -Quality $Quality
+        $bitmap.Save($DestinationPath, [System.Drawing.Imaging.ImageFormat]::Jpeg)
       } finally {
         $graphics.Dispose()
       }

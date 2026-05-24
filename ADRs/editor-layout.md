@@ -257,6 +257,42 @@ worker/public/templates.json
 worker/scripts/import-meme-assets.ps1
 worker/test/app.inline-edit-loader.test.js
 
+## Fix Preview image loading
+### __Task__
+
+### __Prompt__
+The preview images are still not fixed. 
+- The previews are still blank and do not show the actual meme
+- Use the images from the `preview-images` folder to render the image correctly 
+
+### __Reasoning/Concerns__
+Right now, the images do not show a proper preview. The images that are loaded are blank and do not properly reflect the image loaded in the editor.
+
+### __AI Summary__
+You were right. The remaining blank previews were not a gallery rendering bug anymore; they were bad generated files in worker/public/assets/preview-images/. A subset of previews had been written as tiny 631-633 byte JPEGs, which is why some cards still looked empty.
+I fixed the preview-generation logic in worker/scripts/import-meme-assets.ps1 to use the simpler resize/export path that correctly renders these source images, then regenerated the whole preview folder. The formerly broken files like drake-hotline-bling.jpg, distracted-boyfriend.jpg, expanding-brain.jpg, two-buttons.jpg, and others are now normal-sized preview images instead of blank stubs.
+I rechecked the output and reran:
+npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
+All 8 tests pass. The current worktree changes are the regenerated preview assets, plus the updated import script and templates.json.
+
+## Fix face detection
+### __Task__
+Fix the face detection
+
+### __Prompt__
+Fix the face detection in the editor so that the face in the images in `meme-templates` is properly outlined. 
+Update the data stored in templates.json to follow where the face is in the image.
+
+### __Reasoning/Concerns__
+The outline for where the face is in the preview and editor do not match with the actual face. When the face detection is fixed in the editor, the data needs to be updated as well.
+After running the fix prompt, the area for the faces are more accurate, but not precise.
+
+### __AI Summary__
+Updated the face-region data in worker/public/templates.json so the editor outlines follow the actual faces in the imported meme-templates images instead of the old placeholder coordinates. A lot of the previous boxes were still based on the old fake sizes, and several were completely out of bounds on the real assets.
+I also added a guard test in worker/test/app.inline-edit-loader.test.js that verifies every faceRegions box stays inside its image dimensions. That passed with:
+npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
+One assumption I kept on purpose: for templates that currently behave like single-face templates in the flow, I preserved the existing face-region count and only moved the boxes to the right locations. That avoids accidentally changing how many upload faces the editor asks for while still fixing the outlines.
+
 ## Improve Undo Button
 ### __Task__
 __PR Review: Sanjana__
