@@ -36,19 +36,28 @@ const DETECTION_FAILURE_MESSAGES = {
   NO_FACE_DETECTED: "No face detected. Use manual fit or try another photo.",
 };
 
-const DEFAULT_MEME_TEXT = "Tap to edit text";
+const DEFAULT_MEME_TEXT = "TAP TO EDIT TEXT";
 const EDITOR_HISTORY_STORAGE_KEY = "meme-editor-history";
-const DEFAULT_MEME_FONT_KEY = "impact";
+const DEFAULT_MEME_FONT_KEY = "arial";
 const DEFAULT_MEME_FONT_SIZE_MODE = "default";
-const DEFAULT_MEME_TEXT_COLOR = "black";
-const DEFAULT_MEME_OUTLINE_ENABLED = true;
+const DEFAULT_MEME_TEXT_COLOR = "white";
+const DEFAULT_MEME_OUTLINE_ENABLED = false;
 
 const MEME_FONT_OPTIONS = {
+  arial: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
   impact: 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif',
   "arial-black": '"Arial Black", Gadget, sans-serif',
   "comic-sans": '"Comic Sans MS", "Comic Sans", cursive',
   "times-new-roman": '"Times New Roman", Times, serif',
   "trebuchet-ms": '"Trebuchet MS", Helvetica, sans-serif',
+  georgia: "Georgia, serif",
+  verdana: "Verdana, Geneva, sans-serif",
+  tahoma: "Tahoma, Geneva, sans-serif",
+  "courier-new": '"Courier New", Courier, monospace',
+  "lucida-console": '"Lucida Console", Monaco, monospace',
+  palatino: '"Palatino Linotype", Palatino, serif',
+  "gill-sans": '"Gill Sans", "Gill Sans MT", Calibri, sans-serif',
+  optima: "Optima, Segoe, sans-serif",
 };
 
 const MEME_TEXT_COLORS = {
@@ -75,18 +84,42 @@ const dom = {
   studioTemplateInitials: document.getElementById("studio-template-initials"),
   studioTemplateRegions: document.getElementById("studio-template-regions"),
   memeTextPreview: document.getElementById("meme-text-preview"),
-  memeTextEditor: document.getElementById("meme-text-editor"),
-  memeTextInput: document.getElementById("meme-text-input"),
-  memeTextDone: document.getElementById("meme-text-done"),
+  memeTextHint: document.getElementById("meme-text-hint"),
+  addTextCta: document.getElementById("add-text-cta"),
+  memeTextDragHandle: document.getElementById("meme-text-drag-handle"),
+  memeTextDelete: document.getElementById("meme-text-delete"),
+  memeTextRotateHandle: document.getElementById("meme-text-rotate-handle"),
+  memeTextResizeHandle: document.getElementById("meme-text-resize-handle"),
+  textToolbar: document.getElementById("text-toolbar"),
+  textLocalControls: document.getElementById("text-local-controls"),
+  textDuplicateCta: document.getElementById("text-duplicate-cta"),
+  textLockCta: document.getElementById("text-lock-cta"),
+  textSizeDecCta: document.getElementById("text-size-dec-cta"),
+  textSizeIncCta: document.getElementById("text-size-inc-cta"),
+  textStyleBoldCta: document.getElementById("text-style-bold-cta"),
+  textStyleItalicCta: document.getElementById("text-style-italic-cta"),
+  textStyleUnderlineCta: document.getElementById("text-style-underline-cta"),
+  textMoreCta: document.getElementById("text-more-cta"),
+  textCopyCta: document.getElementById("text-copy-cta"),
+  textPasteCta: document.getElementById("text-paste-cta"),
+  textLinkCta: document.getElementById("text-link-cta"),
+  textMoreMenu: document.getElementById("text-more-menu"),
   memeFontSelect: document.getElementById("meme-font-select"),
-  memeFontSizeSelect: document.getElementById("meme-font-size-select"),
-  memeTextColorSelect: document.getElementById("meme-text-color-select"),
-  memeOutlineToggle: document.getElementById("meme-outline-toggle"),
+  memeFontSizeInput: document.getElementById("meme-font-size-input"),
+  memeTextColorInput: document.getElementById("meme-text-color-input"),
+  memeOutlineColorInput: document.getElementById("meme-outline-color-input"),
+  outlineEnabledToggle: document.getElementById("outline-enabled-toggle"),
   undoCta: document.getElementById("undo-cta"),
+  redoCta: document.getElementById("redo-cta"),
   resetCta: document.getElementById("reset-cta"),
   resetConfirmation: document.getElementById("reset-confirmation"),
+  resetConfirmationBackdrop: document.getElementById("reset-confirmation-backdrop"),
   resetCancelCta: document.getElementById("reset-cancel-cta"),
   resetConfirmCta: document.getElementById("reset-confirm-cta"),
+  backConfirmation: document.getElementById("back-confirmation"),
+  backConfirmationBackdrop: document.getElementById("back-confirmation-backdrop"),
+  backCancelCta: document.getElementById("back-cancel-cta"),
+  backConfirmCta: document.getElementById("back-confirm-cta"),
   openUploadModalCta: document.getElementById("open-upload-modal-cta"),
   uploadModal: document.getElementById("upload-modal"),
   uploadModalBackdrop: document.getElementById("upload-modal-backdrop"),
@@ -154,6 +187,15 @@ const state = {
   dragStartY: 0,
   dragOriginOffsetX: 0,
   dragOriginOffsetY: 0,
+  textDragPointerId: null,
+  textResizePointerId: null,
+  textRotatePointerId: null,
+  textPointerStartX: 0,
+  textPointerStartY: 0,
+  textStartX: 50,
+  textStartY: 80,
+  textStartWidth: 48,
+  textDidDrag: false,
   cameraStream: null,
   cameraFacingMode: "user",
   cameraReviewFile: null,
@@ -170,16 +212,34 @@ const state = {
   faceSwapAbortController: null,
   faceSwapSlowTimer: null,
   showResetConfirmation: false,
+  showBackConfirmation: false,
+  isTextSelected: false,
+  isTextLocked: false,
+  showTextMore: false,
+  clipboardText: "",
+  textLink: "",
   editor: {
     templateImage: "",
     generatedImage: "",
     overlayText: DEFAULT_MEME_TEXT,
     overlayFontKey: DEFAULT_MEME_FONT_KEY,
     overlaySizeMode: DEFAULT_MEME_FONT_SIZE_MODE,
+    overlayFontPx: 22,
     overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
     overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
+    overlayOutlineColor: "#000000",
+    overlayBold: false,
+    overlayItalic: false,
+    overlayUnderline: false,
     overlayAutoScale: 1,
+    overlayX: 50,
+    overlayY: 80,
+    overlayWidthPct: 48,
+    overlayRotation: 0,
+    overlayVisible: false,
+    frozenTextItems: [],
     historyStack: [],
+    futureStack: [],
     initialSnapshot: null,
   },
 };
@@ -640,8 +700,19 @@ function createEditorSnapshot(overrides = {}) {
     overlayText: overrides.overlayText ?? state.editor.overlayText,
     overlayFontKey: overrides.overlayFontKey ?? state.editor.overlayFontKey,
     overlaySizeMode: overrides.overlaySizeMode ?? state.editor.overlaySizeMode,
+    overlayFontPx: overrides.overlayFontPx ?? state.editor.overlayFontPx,
     overlayTextColor: overrides.overlayTextColor ?? state.editor.overlayTextColor,
     overlayOutlineEnabled: overrides.overlayOutlineEnabled ?? state.editor.overlayOutlineEnabled,
+    overlayOutlineColor: overrides.overlayOutlineColor ?? state.editor.overlayOutlineColor,
+    overlayBold: overrides.overlayBold ?? state.editor.overlayBold,
+    overlayItalic: overrides.overlayItalic ?? state.editor.overlayItalic,
+    overlayUnderline: overrides.overlayUnderline ?? state.editor.overlayUnderline,
+    overlayX: overrides.overlayX ?? state.editor.overlayX,
+    overlayY: overrides.overlayY ?? state.editor.overlayY,
+    overlayWidthPct: overrides.overlayWidthPct ?? state.editor.overlayWidthPct,
+    overlayRotation: overrides.overlayRotation ?? state.editor.overlayRotation,
+    overlayVisible: overrides.overlayVisible ?? state.editor.overlayVisible,
+    frozenTextItems: overrides.frozenTextItems ?? state.editor.frozenTextItems,
   };
 }
 
@@ -652,8 +723,19 @@ function applyEditorSnapshot(snapshot) {
   state.editor.overlayText = snapshot.overlayText ?? DEFAULT_MEME_TEXT;
   state.editor.overlayFontKey = snapshot.overlayFontKey || DEFAULT_MEME_FONT_KEY;
   state.editor.overlaySizeMode = snapshot.overlaySizeMode || DEFAULT_MEME_FONT_SIZE_MODE;
+  state.editor.overlayFontPx = Number.isFinite(snapshot.overlayFontPx) ? snapshot.overlayFontPx : 22;
   state.editor.overlayTextColor = snapshot.overlayTextColor || DEFAULT_MEME_TEXT_COLOR;
   state.editor.overlayOutlineEnabled = snapshot.overlayOutlineEnabled ?? DEFAULT_MEME_OUTLINE_ENABLED;
+  state.editor.overlayOutlineColor = snapshot.overlayOutlineColor || "#000000";
+  state.editor.overlayBold = snapshot.overlayBold ?? false;
+  state.editor.overlayItalic = snapshot.overlayItalic ?? false;
+  state.editor.overlayUnderline = snapshot.overlayUnderline ?? false;
+  state.editor.overlayX = Number.isFinite(snapshot.overlayX) ? snapshot.overlayX : 50;
+  state.editor.overlayY = Number.isFinite(snapshot.overlayY) ? snapshot.overlayY : 80;
+  state.editor.overlayWidthPct = Number.isFinite(snapshot.overlayWidthPct) ? snapshot.overlayWidthPct : 48;
+  state.editor.overlayRotation = Number.isFinite(snapshot.overlayRotation) ? snapshot.overlayRotation : 0;
+  state.editor.overlayVisible = snapshot.overlayVisible ?? false;
+  state.editor.frozenTextItems = Array.isArray(snapshot.frozenTextItems) ? snapshot.frozenTextItems : [];
   state.editor.overlayAutoScale = 1;
 }
 
@@ -665,8 +747,19 @@ function editorSnapshotsEqual(left, right) {
     && left.overlayText === right.overlayText
     && left.overlayFontKey === right.overlayFontKey
     && left.overlaySizeMode === right.overlaySizeMode
+    && left.overlayFontPx === right.overlayFontPx
     && left.overlayTextColor === right.overlayTextColor
-    && left.overlayOutlineEnabled === right.overlayOutlineEnabled;
+    && left.overlayOutlineEnabled === right.overlayOutlineEnabled
+    && left.overlayOutlineColor === right.overlayOutlineColor
+    && left.overlayBold === right.overlayBold
+    && left.overlayItalic === right.overlayItalic
+    && left.overlayUnderline === right.overlayUnderline
+    && left.overlayX === right.overlayX
+    && left.overlayY === right.overlayY
+    && left.overlayWidthPct === right.overlayWidthPct
+    && left.overlayRotation === right.overlayRotation
+    && left.overlayVisible === right.overlayVisible
+    && JSON.stringify(left.frozenTextItems || []) === JSON.stringify(right.frozenTextItems || []);
 }
 
 function persistEditorHistory() {
@@ -675,6 +768,7 @@ function persistEditorHistory() {
       selectedTemplateId: state.selectedTemplateId,
       initialSnapshot: state.editor.initialSnapshot,
       historyStack: state.editor.historyStack,
+      futureStack: state.editor.futureStack,
       currentSnapshot: createEditorSnapshot(),
     }));
   } catch {
@@ -698,11 +792,26 @@ function initializeEditorState(template = getSelectedTemplate()) {
     overlayText: DEFAULT_MEME_TEXT,
     overlayFontKey: DEFAULT_MEME_FONT_KEY,
     overlaySizeMode: DEFAULT_MEME_FONT_SIZE_MODE,
+    overlayFontPx: 22,
     overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
     overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
+    overlayOutlineColor: "#000000",
+    overlayBold: false,
+    overlayItalic: false,
+    overlayUnderline: false,
+    overlayX: 50,
+    overlayY: 80,
+    overlayWidthPct: 48,
+    overlayRotation: 0,
+    overlayVisible: false,
+    frozenTextItems: [],
   });
   state.editor.historyStack = [];
+  state.editor.futureStack = [];
   state.showResetConfirmation = false;
+  state.isTextSelected = false;
+  state.isTextLocked = false;
+  state.showTextMore = false;
   applyEditorSnapshot(state.editor.initialSnapshot);
 }
 
@@ -724,6 +833,7 @@ function recordEditorSnapshot(snapshot = createEditorSnapshot()) {
   if (editorSnapshotsEqual(lastSnapshot, nextSnapshot)) return;
 
   state.editor.historyStack.push(nextSnapshot);
+  state.editor.futureStack = [];
   persistEditorHistory();
 }
 
@@ -738,6 +848,9 @@ function restoreEditorSession() {
     state.editor.initialSnapshot = parsed.initialSnapshot || null;
     state.editor.historyStack = Array.isArray(parsed.historyStack)
       ? parsed.historyStack.filter(Boolean)
+      : [];
+    state.editor.futureStack = Array.isArray(parsed.futureStack)
+      ? parsed.futureStack.filter(Boolean)
       : [];
 
     const snapshot = parsed.currentSnapshot
@@ -761,6 +874,7 @@ function openStudioForTemplate(templateId) {
   state.uploadModalOpen = false;
   state.isEditingMemeText = false;
   state.showResetConfirmation = false;
+  state.showBackConfirmation = false;
 
   initializeEditorState();
   if (!restoreEditorSession()) {
@@ -772,8 +886,21 @@ function openStudioForTemplate(templateId) {
 
 function undoEditorSnapshot() {
   if (state.editor.historyStack.length <= 1) return;
-  state.editor.historyStack.pop();
+  const current = state.editor.historyStack.pop();
+  if (current) state.editor.futureStack.push(current);
   applyEditorSnapshot(state.editor.historyStack[state.editor.historyStack.length - 1]);
+  state.showResetConfirmation = false;
+  state.isEditingMemeText = false;
+  persistEditorHistory();
+  render();
+}
+
+function redoEditorSnapshot() {
+  if (state.editor.futureStack.length === 0) return;
+  const next = state.editor.futureStack.pop();
+  if (!next) return;
+  state.editor.historyStack.push(cloneSnapshot(next));
+  applyEditorSnapshot(next);
   state.showResetConfirmation = false;
   state.isEditingMemeText = false;
   persistEditorHistory();
@@ -783,8 +910,27 @@ function undoEditorSnapshot() {
 function resetEditorToTemplate() {
   initializeEditorState();
   state.isEditingMemeText = false;
+  state.showBackConfirmation = false;
   clearEditorHistoryPersistence();
   render();
+}
+
+function hasUnsavedStudioEdits() {
+  if (state.view !== "studio" || !state.selectedTemplateId) return false;
+  if (!state.editor.initialSnapshot) return false;
+  const current = createEditorSnapshot();
+  return !editorSnapshotsEqual(current, state.editor.initialSnapshot);
+}
+
+function confirmBackAndResetStudio() {
+  initializeEditorState();
+  clearEditorHistoryPersistence();
+  state.showBackConfirmation = false;
+  state.showResetConfirmation = false;
+  state.selectedTemplateId = null;
+  state.view = "templates";
+  render();
+  renderTemplates();
 }
 
 function getMemeFontFamily(fontKey = DEFAULT_MEME_FONT_KEY) {
@@ -792,6 +938,7 @@ function getMemeFontFamily(fontKey = DEFAULT_MEME_FONT_KEY) {
 }
 
 function getMemeTextColor(colorKey = DEFAULT_MEME_TEXT_COLOR) {
+  if (typeof colorKey === "string" && colorKey.startsWith("#")) return colorKey;
   return MEME_TEXT_COLORS[colorKey] || MEME_TEXT_COLORS[DEFAULT_MEME_TEXT_COLOR];
 }
 
@@ -803,19 +950,29 @@ function syncMemeTextAppearance() {
   const preview = dom.memeTextPreview;
   if (!preview) return 1;
 
+  preview.style.left = `${clamp(state.editor.overlayX, 5, 95)}%`;
+  preview.style.top = `${clamp(state.editor.overlayY, 5, 95)}%`;
+  preview.style.width = `${clamp(state.editor.overlayWidthPct, 18, 90)}%`;
+  preview.style.setProperty("--meme-text-rotate", `${state.editor.overlayRotation}deg`);
+  preview.style.transform = `translate(-50%, -50%) rotate(${state.editor.overlayRotation}deg)`;
   preview.style.fontFamily = getMemeFontFamily(state.editor.overlayFontKey);
+  preview.style.fontWeight = state.editor.overlayBold ? "700" : "400";
+  preview.style.fontStyle = state.editor.overlayItalic ? "italic" : "normal";
+  preview.style.textDecoration = state.editor.overlayUnderline ? "underline" : "none";
   preview.style.color = getMemeTextColor(state.editor.overlayTextColor);
   preview.style.textShadow = state.editor.overlayOutlineEnabled
     ? [
-      "-2px -2px 0 #fff",
-      "2px -2px 0 #fff",
-      "-2px 2px 0 #fff",
-      "2px 2px 0 #fff",
-      "0 0 8px rgba(255, 255, 255, 0.25)",
+      `-2px -2px 0 ${state.editor.overlayOutlineColor}`,
+      `2px -2px 0 ${state.editor.overlayOutlineColor}`,
+      `-2px 2px 0 ${state.editor.overlayOutlineColor}`,
+      `2px 2px 0 ${state.editor.overlayOutlineColor}`,
+      `0 0 8px ${state.editor.overlayOutlineColor}40`,
     ].join(", ")
     : "none";
 
-  return fitMemeTextToCanvas();
+  const scale = fitMemeTextToCanvas();
+  positionTextHandles();
+  return scale;
 }
 
 function fitMemeTextToCanvas() {
@@ -831,12 +988,13 @@ function fitMemeTextToCanvas() {
     return 1;
   }
 
-  const baseScale = getMemeBaseScale(state.editor.overlaySizeMode);
+  const baseScale = 1;
+  const basePx = Number(state.editor.overlayFontPx || 22);
   let fitScale = 1;
   const minScale = 0.42;
 
   while (fitScale >= minScale) {
-    preview.style.fontSize = `calc(clamp(1.15rem, 4vw, 1.75rem) * ${baseScale * fitScale})`;
+    preview.style.fontSize = `${Math.max(8, basePx * fitScale)}px`;
     const previewRect = preview.getBoundingClientRect();
     const withinHorizontalBounds = previewRect.left >= artRect.left + 12 && previewRect.right <= artRect.right - 12;
     const withinVerticalBounds = previewRect.top >= artRect.top + 12 && previewRect.bottom <= artRect.bottom - 12;
@@ -849,10 +1007,148 @@ function fitMemeTextToCanvas() {
   }
 
   const clampedScale = Math.max(fitScale, minScale);
-  preview.style.fontSize = `calc(clamp(1.15rem, 4vw, 1.75rem) * ${baseScale * clampedScale})`;
+  preview.style.fontSize = `${Math.max(8, basePx * clampedScale)}px`;
   preview.dataset.fitScale = clampedScale.toFixed(2);
   state.editor.overlayAutoScale = clampedScale;
   return clampedScale;
+}
+
+function positionTextHandles() {
+  if (!dom.memeTextDelete || !dom.memeTextRotateHandle) return;
+  const artRect = dom.studioTemplateArt?.getBoundingClientRect();
+  const textRect = dom.memeTextPreview?.getBoundingClientRect();
+  if (!artRect?.width || !textRect?.width) return;
+
+  const left = textRect.left - artRect.left;
+  const top = textRect.top - artRect.top;
+  const width = textRect.width;
+  const height = textRect.height;
+
+  dom.memeTextDelete.style.left = `${left + width - 16}px`;
+  dom.memeTextDelete.style.top = `${top - 16}px`;
+  dom.memeTextDragHandle.style.left = `${left - 16}px`;
+  dom.memeTextDragHandle.style.top = `${top - 16}px`;
+  dom.memeTextRotateHandle.style.left = `${left - 16}px`;
+  dom.memeTextRotateHandle.style.top = `${top + height - 16}px`;
+  dom.memeTextResizeHandle.style.left = `${left + width - 16}px`;
+  dom.memeTextResizeHandle.style.top = `${top + height - 16}px`;
+  if (dom.textLocalControls) {
+    dom.textLocalControls.style.left = `${left + width / 2}px`;
+    dom.textLocalControls.style.top = `${Math.max(12, top - 52)}px`;
+    dom.textLocalControls.style.transform = "translateX(-50%)";
+  }
+  if (dom.textMoreMenu) {
+    dom.textMoreMenu.style.left = `${left + width / 2}px`;
+    dom.textMoreMenu.style.top = `${Math.max(12, top - 8)}px`;
+    dom.textMoreMenu.style.transform = "translate(-50%, -100%)";
+  }
+}
+
+function freezeCurrentTextItem() {
+  if (!state.editor.overlayVisible) return;
+  const text = (state.editor.overlayText || "").trim();
+  if (!text) return;
+  state.editor.frozenTextItems.push({
+    text,
+    fontKey: state.editor.overlayFontKey,
+    fontPx: state.editor.overlayFontPx,
+    color: state.editor.overlayTextColor,
+    outline: state.editor.overlayOutlineEnabled,
+    outlineColor: state.editor.overlayOutlineColor,
+    bold: state.editor.overlayBold,
+    italic: state.editor.overlayItalic,
+    underline: state.editor.overlayUnderline,
+    x: state.editor.overlayX,
+    y: state.editor.overlayY,
+    widthPct: state.editor.overlayWidthPct,
+    rotation: state.editor.overlayRotation,
+    locked: state.isTextLocked,
+  });
+}
+
+function renderFrozenTextItems() {
+  if (!dom.studioTemplateArt) return;
+  dom.studioTemplateArt.querySelectorAll(".frozen-text-item").forEach((node) => node.remove());
+  state.editor.frozenTextItems.forEach((item, index) => {
+    const node = document.createElement("div");
+    node.className = "frozen-text-item";
+    node.dataset.textIndex = String(index);
+    node.textContent = item.text;
+    node.style.left = `${item.x}%`;
+    node.style.top = `${item.y}%`;
+    node.style.width = `${clamp(Number(item.widthPct) || 48, 18, 90)}%`;
+    node.style.transform = `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`;
+    node.style.fontFamily = getMemeFontFamily(item.fontKey);
+    node.style.fontSize = `${Math.max(8, Number(item.fontPx) || 22)}px`;
+    node.style.color = item.color?.startsWith?.("#") ? item.color : getMemeTextColor(item.color);
+    node.style.fontWeight = item.bold ? "700" : "400";
+    node.style.fontStyle = item.italic ? "italic" : "normal";
+    node.style.textDecoration = item.underline ? "underline" : "none";
+    node.style.textShadow = item.outline
+      ? `-2px -2px 0 ${item.outlineColor || "#000000"}, 2px -2px 0 ${item.outlineColor || "#000000"}, -2px 2px 0 ${item.outlineColor || "#000000"}, 2px 2px 0 ${item.outlineColor || "#000000"}`
+      : "none";
+    node.style.cursor = "text";
+    dom.studioTemplateArt.appendChild(node);
+  });
+}
+
+function selectFrozenTextItem(index) {
+  const item = state.editor.frozenTextItems[index];
+  if (!item) return;
+  // Preserve the currently active textbox before switching selection.
+  freezeCurrentTextItem();
+  state.editor.frozenTextItems.splice(index, 1);
+  state.editor.overlayText = item.text;
+  state.editor.overlayFontKey = item.fontKey;
+  state.editor.overlayFontPx = Number(item.fontPx) || 22;
+  state.editor.overlayTextColor = item.color;
+  state.editor.overlayOutlineEnabled = item.outline ?? false;
+  state.editor.overlayOutlineColor = item.outlineColor || "#000000";
+  state.editor.overlayBold = item.bold ?? false;
+  state.editor.overlayItalic = item.italic ?? false;
+  state.editor.overlayUnderline = item.underline ?? false;
+  state.editor.overlayX = item.x;
+  state.editor.overlayY = item.y;
+  state.editor.overlayWidthPct = Number(item.widthPct) || 48;
+  state.editor.overlayRotation = item.rotation || 0;
+  state.editor.overlayVisible = true;
+  state.isTextLocked = Boolean(item.locked);
+  state.isTextSelected = true;
+  state.isEditingMemeText = false;
+  state.showTextMore = false;
+  recordEditorSnapshot();
+  render();
+}
+
+function createOrSelectTextAtPointer(event) {
+  const artRect = dom.studioTemplateArt.getBoundingClientRect();
+  const xPercent = clamp(((event.clientX - artRect.left) / artRect.width) * 100, 5, 95);
+  const yPercent = clamp(((event.clientY - artRect.top) / artRect.height) * 100, 5, 95);
+  if (state.editor.overlayVisible) freezeCurrentTextItem();
+  // Create a fresh text object at the tapped location
+  state.editor.overlayText = DEFAULT_MEME_TEXT;
+  state.editor.overlayFontKey = DEFAULT_MEME_FONT_KEY;
+  state.editor.overlaySizeMode = DEFAULT_MEME_FONT_SIZE_MODE;
+  state.editor.overlayFontPx = 22;
+  state.editor.overlayTextColor = DEFAULT_MEME_TEXT_COLOR;
+  state.editor.overlayOutlineEnabled = DEFAULT_MEME_OUTLINE_ENABLED;
+  state.editor.overlayOutlineColor = "#000000";
+  state.editor.overlayBold = false;
+  state.editor.overlayItalic = false;
+  state.editor.overlayUnderline = false;
+  state.editor.overlayRotation = 0;
+  state.isTextLocked = false;
+  state.editor.overlayX = xPercent;
+  state.editor.overlayY = yPercent;
+  state.isEditingMemeText = true;
+  state.editor.overlayVisible = true;
+  state.isTextSelected = true;
+  state.showTextMore = false;
+  // Ensure new textboxes never inherit prior DOM text content.
+  dom.memeTextPreview.textContent = DEFAULT_MEME_TEXT;
+  recordEditorSnapshot();
+  render();
+  if (state.isEditingMemeText) dom.memeTextPreview.focus();
 }
 
 function updateEditorTextSetting(key, value) {
@@ -1400,16 +1696,197 @@ function renderStudioTemplate(template) {
   });
 }
 
-function beginInlineTextEdit() {
+function beginInlineTextEdit(event) {
+  event?.stopPropagation();
+  if (state.textDidDrag) return;
+  if (!state.editor.overlayVisible) return;
+
   state.isEditingMemeText = true;
+  state.isTextSelected = true;
+  const isPlaceholder = (state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT;
+  if (isPlaceholder) {
+    state.editor.overlayText = "";
+  }
+
+  dom.memeTextPreview.contentEditable = "true";
+
+  requestAnimationFrame(() => {
+    dom.memeTextPreview.focus();
+
+    if (isPlaceholder) {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(dom.memeTextPreview);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+  });
+
   render();
-  dom.memeTextInput.focus();
-  dom.memeTextInput.select();
+}
+
+function selectTextObject(event) {
+  event?.stopPropagation();
+  if (!state.editor.overlayVisible) return;
+  if (state.textDidDrag) return;
+  state.isTextSelected = true;
+  state.showTextMore = false;
+  render();
 }
 
 function finishInlineTextEdit() {
   state.isEditingMemeText = false;
+  state.editor.overlayText = (dom.memeTextPreview.textContent || "").trim() || DEFAULT_MEME_TEXT;
+  if (!state.isEditingMemeText) {
+    dom.memeTextPreview.textContent = state.editor.overlayText;
+  }
+  recordEditorSnapshot();
   render();
+}
+
+function deleteMemeText() {
+  state.editor.overlayVisible = false;
+  state.isTextSelected = false;
+  state.isEditingMemeText = false;
+  state.showResetConfirmation = false;
+  recordEditorSnapshot();
+  render();
+}
+
+function getTextCenterInArt() {
+  const artRect = dom.studioTemplateArt.getBoundingClientRect();
+  return {
+    x: (clamp(state.editor.overlayX, 5, 95) / 100) * artRect.width,
+    y: (clamp(state.editor.overlayY, 5, 95) / 100) * artRect.height,
+    artRect,
+  };
+}
+
+function startTextDrag(event) {
+  if (!state.editor.overlayVisible || state.isTextLocked) return;
+  event.preventDefault();
+  state.isTextSelected = true;
+  state.textDidDrag = false;
+  state.textDragPointerId = event.pointerId;
+  state.textPointerStartX = event.clientX;
+  state.textPointerStartY = event.clientY;
+  state.textStartX = state.editor.overlayX;
+  state.textStartY = state.editor.overlayY;
+  dom.memeTextPreview.setPointerCapture(event.pointerId);
+}
+
+function startTextResize(event) {
+  if (!state.editor.overlayVisible || state.isTextLocked) return;
+  event.preventDefault();
+  state.textResizePointerId = event.pointerId;
+  state.textPointerStartX = event.clientX;
+  state.textStartWidth = state.editor.overlayWidthPct;
+  dom.memeTextResizeHandle.setPointerCapture(event.pointerId);
+}
+
+function moveTextResize(event) {
+  if (state.textResizePointerId !== event.pointerId) return;
+  event.preventDefault();
+  const artRect = dom.studioTemplateArt.getBoundingClientRect();
+  const dxPct = ((event.clientX - state.textPointerStartX) / artRect.width) * 100;
+  state.editor.overlayWidthPct = clamp(state.textStartWidth + dxPct, 18, 90);
+  render();
+}
+
+function endTextResize(event) {
+  if (state.textResizePointerId !== event.pointerId) return;
+  event.preventDefault();
+  state.textResizePointerId = null;
+  recordEditorSnapshot();
+}
+
+function moveTextDrag(event) {
+  if (state.textDragPointerId !== event.pointerId) return;
+  event.preventDefault();
+  const { artRect } = getTextCenterInArt();
+  const dxPercent = (event.clientX - state.textPointerStartX) / artRect.width * 100;
+  const dyPercent = (event.clientY - state.textPointerStartY) / artRect.height * 100;
+  state.editor.overlayX = clamp(state.textStartX + dxPercent, 5, 95);
+  state.editor.overlayY = clamp(state.textStartY + dyPercent, 5, 95);
+  if (Math.abs(dxPercent) > 0.1 || Math.abs(dyPercent) > 0.1) {
+    state.textDidDrag = true;
+  }
+  render();
+}
+
+function endTextDrag(event) {
+  if (state.textDragPointerId !== event.pointerId) return;
+  event.preventDefault();
+  state.textDragPointerId = null;
+  if (state.textDidDrag) {
+    recordEditorSnapshot();
+    setTimeout(() => {
+      state.textDidDrag = false;
+    }, 0);
+  }
+}
+
+// Snap threshold in degrees — within this range of a cardinal angle, snap to it
+const ROTATE_SNAP_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315, 360];
+const ROTATE_SNAP_THRESHOLD = 8; // degrees
+const ROTATE_DAMPEN = 0.72; // slow down rotation sensitivity
+
+let rotateStartAngle = 0;
+let rotateStartRotation = 0;
+let rotateVelocity = 0;
+let lastRawAngle = 0;
+
+function snapRotation(deg) {
+  // Normalize to 0-360
+  const normalized = ((deg % 360) + 360) % 360;
+  for (const snap of ROTATE_SNAP_ANGLES) {
+    if (Math.abs(normalized - snap) < ROTATE_SNAP_THRESHOLD) {
+      return snap === 360 ? 0 : snap;
+    }
+  }
+  return Math.round(deg);
+}
+
+function startTextRotate(event) {
+  if (!state.editor.overlayVisible || state.isTextLocked) return;
+  event.preventDefault();
+  state.textRotatePointerId = event.pointerId;
+  const { x, y, artRect } = getTextCenterInArt();
+  rotateStartAngle = Math.atan2(event.clientY - artRect.top - y, event.clientX - artRect.left - x) * 180 / Math.PI;
+  rotateStartRotation = state.editor.overlayRotation;
+  lastRawAngle = rotateStartAngle;
+  rotateVelocity = 0;
+  dom.memeTextRotateHandle.setPointerCapture(event.pointerId);
+  dom.studioTemplateArt.classList.add("text-rotate-mode");
+}
+
+function moveTextRotate(event) {
+  if (state.textRotatePointerId !== event.pointerId) return;
+  event.preventDefault();
+  const { x, y, artRect } = getTextCenterInArt();
+  const rawAngle = Math.atan2(event.clientY - artRect.top - y, event.clientX - artRect.left - x) * 180 / Math.PI;
+  const delta = rawAngle - rotateStartAngle;
+  rotateVelocity = rawAngle - lastRawAngle;
+  lastRawAngle = rawAngle;
+  // Apply dampening so it feels controlled
+  const dampened = rotateStartRotation + delta * ROTATE_DAMPEN;
+  state.editor.overlayRotation = snapRotation(dampened);
+  render();
+}
+
+function endTextRotate(event) {
+  if (state.textRotatePointerId !== event.pointerId) return;
+  event.preventDefault();
+  state.textRotatePointerId = null;
+  dom.studioTemplateArt.classList.remove("text-rotate-mode");
+  recordEditorSnapshot();
+}
+
+function forceEndTextRotate() {
+  if (state.textRotatePointerId === null) return;
+  state.textRotatePointerId = null;
+  dom.studioTemplateArt.classList.remove("text-rotate-mode");
+  recordEditorSnapshot();
 }
 
 function startFaceSwapLoadingState() {
@@ -1463,6 +1940,7 @@ function render() {
   dom.studioScreen.classList.toggle("hidden", !showingStudio);
   dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
   dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
+  dom.backConfirmation.classList.toggle("hidden", !showingStudio || !state.showBackConfirmation);
   dom.overlayShell.classList.toggle("hidden", !editingPhoto || showingTemplates || showingStudio);
   dom.cameraCancelCta.classList.toggle("hidden", !cameraActive);
   dom.ctaRow.classList.toggle("hidden", !state.uploadModalOpen || cameraActive || reviewingCameraPhoto || editingPhoto);
@@ -1476,17 +1954,39 @@ function render() {
   dom.overlayShell.classList.toggle("dragging", state.dragPointerId !== null);
   dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
   if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
-  dom.memeTextPreview.textContent = state.editor.overlayText;
-  dom.memeTextInput.value = state.editor.overlayText;
+  if (!state.isEditingMemeText) dom.memeTextPreview.textContent = state.editor.overlayText;
   dom.studioTemplateArt.classList.toggle("editing-text", state.isEditingMemeText);
-  dom.memeTextEditor.classList.toggle("hidden", !state.isEditingMemeText);
+  dom.studioTemplateArt.classList.toggle("text-selected", state.isTextSelected);
+  dom.memeTextPreview.setAttribute("contenteditable", state.isEditingMemeText ? "true" : "false");
+  dom.memeTextPreview.classList.toggle("hidden", !state.editor.overlayVisible);
+  dom.memeTextHint?.classList.toggle("hidden", showingStudio && (state.editor.overlayVisible || state.editor.frozenTextItems.length > 0));
+  dom.memeTextDelete.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
+  dom.memeTextDragHandle.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
+  dom.memeTextRotateHandle.classList.toggle(
+    "hidden",
+    !showingStudio || !state.editor.overlayVisible || !state.isTextSelected
+  );
+  dom.memeTextResizeHandle.classList.toggle(
+    "hidden",
+    !showingStudio || !state.editor.overlayVisible || !state.isTextSelected
+  );
+  dom.textToolbar.classList.toggle("hidden", !showingStudio);
+  dom.textLocalControls.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
+  const showTextPopups = showingStudio && state.editor.overlayVisible && state.isTextSelected;
+  dom.textMoreMenu.classList.toggle("hidden", !showTextPopups || !state.showTextMore);
+  dom.textLockCta.textContent = state.isTextLocked ? "🔒" : "🔓";
   dom.memeFontSelect.value = state.editor.overlayFontKey;
-  dom.memeFontSizeSelect.value = state.editor.overlaySizeMode;
-  dom.memeTextColorSelect.value = state.editor.overlayTextColor;
-  dom.memeOutlineToggle.checked = state.editor.overlayOutlineEnabled;
+  dom.memeFontSizeInput.value = String(Math.round(state.editor.overlayFontPx || 22));
+  dom.memeTextColorInput.value = getMemeTextColor(state.editor.overlayTextColor);
+  dom.memeOutlineColorInput.value = state.editor.overlayOutlineColor || "#000000";
+  if (dom.outlineEnabledToggle) dom.outlineEnabledToggle.checked = state.editor.overlayOutlineEnabled;
+  dom.textStyleBoldCta.classList.toggle("active", state.editor.overlayBold);
+  dom.textStyleItalicCta.classList.toggle("active", state.editor.overlayItalic);
+  dom.textStyleUnderlineCta.classList.toggle("active", state.editor.overlayUnderline);
   dom.faceSwapLoader.classList.toggle("hidden", !state.isSubmittingFaceSwap);
   dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
   dom.undoCta.disabled = state.editor.historyStack.length <= 1;
+  dom.redoCta.disabled = state.editor.futureStack.length === 0;
   dom.resetCta.disabled = !selectedTemplate;
 
   dom.progressWrap.classList.toggle(
@@ -1549,6 +2049,7 @@ function render() {
 
   applyManualTransform();
   renderOverlay();
+  renderFrozenTextItems();
   syncMemeTextAppearance();
 }
 
@@ -1694,6 +2195,20 @@ function goBackToUploadChoices() {
     return;
   }
 
+  if (state.showBackConfirmation) {
+    state.showBackConfirmation = false;
+    render();
+    return;
+  }
+
+  if (state.view === "studio" && hasUnsavedStudioEdits()) {
+    state.showBackConfirmation = true;
+    state.showResetConfirmation = false;
+    state.isEditingMemeText = false;
+    render();
+    return;
+  }
+
   if (state.view === "studio" && state.status === STATES.IDLE && state.selectedTemplateId) {
     state.selectedTemplateId = null;
     state.view = "templates";
@@ -1768,6 +2283,10 @@ dom.retakeCta.addEventListener("click", () => {
 dom.usePhotoCta.addEventListener("click", () => {
   useReviewedPhoto();
 });
+dom.addTextCta?.addEventListener("click", () => {
+  const rect = dom.studioTemplateArt.getBoundingClientRect();
+  createOrSelectTextAtPointer({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 });
+});
 dom.openUploadModalCta.addEventListener("click", () => {
   state.uploadModalOpen = true;
   render();
@@ -1803,40 +2322,247 @@ dom.templateTabs.addEventListener("click", (event) => {
   });
   renderTemplates();
 });
-dom.memeTextPreview.addEventListener("click", beginInlineTextEdit);
-dom.memeTextInput.addEventListener("input", () => {
-  state.editor.overlayText = dom.memeTextInput.value;
-  state.showResetConfirmation = false;
-  recordEditorSnapshot();
-  dom.memeTextPreview.textContent = state.editor.overlayText;
-  syncMemeTextAppearance();
+dom.memeTextPreview.addEventListener("click", selectTextObject);
+dom.memeTextPreview.addEventListener("dblclick", beginInlineTextEdit);
+dom.studioTemplateArt.addEventListener("click", (event) => {
+  if (event.target.closest(".text-toolbar, .text-local-controls, .text-menu")) return;
+  if (event.target === dom.memeTextDelete || event.target === dom.memeTextRotateHandle) return;
+  const frozenTextNode = event.target.closest(".frozen-text-item");
+  if (frozenTextNode) {
+    const index = Number(frozenTextNode.dataset.textIndex);
+    if (Number.isFinite(index)) {
+      selectFrozenTextItem(index);
+      return;
+    }
+  }
+  // Single-click on blank space should not create new text.
 });
-dom.memeTextInput.addEventListener("blur", finishInlineTextEdit);
-dom.memeTextInput.addEventListener("keydown", (event) => {
+
+dom.studioTemplateArt.addEventListener("dblclick", (event) => {
+  if (event.target.closest(".text-toolbar, .text-local-controls, .text-menu")) return;
+  if (event.target === dom.memeTextDelete || event.target === dom.memeTextRotateHandle) return;
+  if (event.target.closest(".frozen-text-item")) return;
+  if (state.textDidDrag) return;
+  if (event.target === dom.studioTemplateArt || event.target === dom.studioTemplateInitials || event.target === dom.studioTemplateRegions) {
+    createOrSelectTextAtPointer(event);
+  }
+});
+
+let lastBlankTapTime = 0;
+dom.studioTemplateArt.addEventListener("pointerup", (event) => {
+  if (event.pointerType !== "touch") return;
+  if (event.target.closest(".text-toolbar, .text-local-controls, .text-menu, .frozen-text-item")) return;
+  if (!(event.target === dom.studioTemplateArt || event.target === dom.studioTemplateInitials || event.target === dom.studioTemplateRegions)) return;
+  const now = Date.now();
+  if (now - lastBlankTapTime <= 360) {
+    createOrSelectTextAtPointer(event);
+    lastBlankTapTime = 0;
+    return;
+  }
+  lastBlankTapTime = now;
+});
+dom.memeTextPreview.addEventListener("pointerdown", (event) => {
+  if (state.isEditingMemeText) return;
+  if (event.target === dom.memeTextDragHandle) return;
+  startTextDrag(event);
+});
+dom.memeTextPreview.addEventListener("pointermove", moveTextDrag);
+dom.memeTextPreview.addEventListener("pointerup", endTextDrag);
+dom.memeTextPreview.addEventListener("pointercancel", endTextDrag);
+dom.memeTextPreview.addEventListener("input", () => {
+  state.editor.overlayText = dom.memeTextPreview.textContent || "";
+  state.editor.overlayVisible = true;
+  state.showResetConfirmation = false;
+
+  syncMemeTextAppearance();
+
+  // DO NOT render() while actively editing
+});
+dom.memeTextPreview.addEventListener("blur", finishInlineTextEdit);
+dom.memeTextPreview.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     finishInlineTextEdit();
   }
 });
-dom.memeTextDone.addEventListener("click", finishInlineTextEdit);
+dom.memeTextDelete.addEventListener("click", deleteMemeText);
+dom.textDuplicateCta.addEventListener("click", () => {
+  if (!state.editor.overlayVisible) return;
+  const text = (state.editor.overlayText || "").trim();
+  if (!text) return;
+
+  const duplicateSource = {
+    text,
+    fontKey: state.editor.overlayFontKey,
+    fontPx: state.editor.overlayFontPx,
+    color: state.editor.overlayTextColor,
+    outline: state.editor.overlayOutlineEnabled,
+    outlineColor: state.editor.overlayOutlineColor,
+    bold: state.editor.overlayBold,
+    italic: state.editor.overlayItalic,
+    underline: state.editor.overlayUnderline,
+    x: state.editor.overlayX,
+    y: state.editor.overlayY,
+    widthPct: state.editor.overlayWidthPct,
+    rotation: state.editor.overlayRotation,
+    locked: state.isTextLocked,
+  };
+
+  // Persist original, then make duplicate a separate active textbox.
+  freezeCurrentTextItem();
+  const duplicateOffset = 3;
+  state.editor.overlayText = duplicateSource.text;
+  state.editor.overlayFontKey = duplicateSource.fontKey;
+  state.editor.overlayFontPx = duplicateSource.fontPx;
+  state.editor.overlayTextColor = duplicateSource.color;
+  state.editor.overlayOutlineEnabled = duplicateSource.outline;
+  state.editor.overlayOutlineColor = duplicateSource.outlineColor;
+  state.editor.overlayBold = duplicateSource.bold;
+  state.editor.overlayItalic = duplicateSource.italic;
+  state.editor.overlayUnderline = duplicateSource.underline;
+  state.editor.overlayX = clamp(duplicateSource.x + duplicateOffset, 5, 95);
+  state.editor.overlayY = clamp(duplicateSource.y + duplicateOffset, 5, 95);
+  state.editor.overlayWidthPct = duplicateSource.widthPct;
+  state.editor.overlayRotation = duplicateSource.rotation;
+  state.isTextLocked = duplicateSource.locked;
+  state.editor.overlayVisible = true;
+  state.isEditingMemeText = false;
+  state.isTextSelected = true;
+  state.showTextMore = false;
+  recordEditorSnapshot();
+  render();
+});
+dom.textLockCta.addEventListener("click", () => {
+  state.isTextLocked = !state.isTextLocked;
+  state.isEditingMemeText = false;
+  render();
+});
+dom.textMoreCta.addEventListener("click", () => {
+  state.showTextMore = !state.showTextMore;
+  render();
+});
+dom.textSizeDecCta.addEventListener("click", () => {
+  const next = clamp(Math.round((state.editor.overlayFontPx || 22) - 2), 8, 120);
+  updateEditorTextSetting("overlayFontPx", next);
+});
+dom.textSizeIncCta.addEventListener("click", () => {
+  const next = clamp(Math.round((state.editor.overlayFontPx || 22) + 2), 8, 120);
+  updateEditorTextSetting("overlayFontPx", next);
+});
+dom.textStyleBoldCta.addEventListener("click", () => {
+  updateEditorTextSetting("overlayBold", !state.editor.overlayBold);
+});
+dom.textStyleItalicCta.addEventListener("click", () => {
+  updateEditorTextSetting("overlayItalic", !state.editor.overlayItalic);
+});
+dom.textStyleUnderlineCta.addEventListener("click", () => {
+  updateEditorTextSetting("overlayUnderline", !state.editor.overlayUnderline);
+});
+dom.textCopyCta.addEventListener("click", async () => {
+  state.clipboardText = state.editor.overlayText;
+  try { await navigator.clipboard?.writeText(state.editor.overlayText); } catch {}
+  state.showTextMore = false;
+  render();
+});
+dom.textPasteCta.addEventListener("click", async () => {
+  let text = state.clipboardText;
+  try { text = (await navigator.clipboard?.readText()) || text; } catch {}
+  if (!text) return;
+  state.editor.overlayText = text;
+  state.editor.overlayVisible = true;
+  recordEditorSnapshot();
+  state.showTextMore = false;
+  render();
+});
+dom.textLinkCta.addEventListener("click", () => {
+  const link = window.prompt("Add a link for this text", state.textLink || "https://");
+  if (link !== null) state.textLink = link.trim();
+  state.showTextMore = false;
+  render();
+});
+dom.memeTextRotateHandle.addEventListener("pointerdown", startTextRotate);
+dom.memeTextRotateHandle.addEventListener("pointermove", moveTextRotate);
+dom.memeTextRotateHandle.addEventListener("pointerup", endTextRotate);
+dom.memeTextRotateHandle.addEventListener("pointercancel", endTextRotate);
+window.addEventListener("pointerup", forceEndTextRotate);
+window.addEventListener("pointercancel", forceEndTextRotate);
+dom.memeTextDragHandle.addEventListener("pointerdown", startTextDrag);
+dom.memeTextDragHandle.addEventListener("pointermove", moveTextDrag);
+dom.memeTextDragHandle.addEventListener("pointerup", endTextDrag);
+dom.memeTextDragHandle.addEventListener("pointercancel", endTextDrag);
+dom.memeTextResizeHandle.addEventListener("pointerdown", startTextResize);
+dom.memeTextResizeHandle.addEventListener("pointermove", moveTextResize);
+dom.memeTextResizeHandle.addEventListener("pointerup", endTextResize);
+dom.memeTextResizeHandle.addEventListener("pointercancel", endTextResize);
 dom.memeFontSelect.addEventListener("change", () => {
   updateEditorTextSetting("overlayFontKey", dom.memeFontSelect.value);
 });
-dom.memeFontSizeSelect.addEventListener("change", () => {
-  updateEditorTextSetting("overlaySizeMode", dom.memeFontSizeSelect.value);
+dom.memeFontSizeInput.addEventListener("change", () => {
+  const value = clamp(Number(dom.memeFontSizeInput.value) || 22, 8, 120);
+  updateEditorTextSetting("overlayFontPx", value);
 });
-dom.memeTextColorSelect.addEventListener("change", () => {
-  updateEditorTextSetting("overlayTextColor", dom.memeTextColorSelect.value);
+let textColorFocusStart = state.editor.overlayTextColor;
+let outlineColorFocusStart = state.editor.overlayOutlineColor;
+let textColorCommittedInFocus = false;
+let outlineColorCommittedInFocus = false;
+
+dom.memeTextColorInput.addEventListener("focus", () => {
+  textColorFocusStart = state.editor.overlayTextColor;
+  textColorCommittedInFocus = false;
 });
-dom.memeOutlineToggle.addEventListener("change", () => {
-  updateEditorTextSetting("overlayOutlineEnabled", dom.memeOutlineToggle.checked);
+dom.memeTextColorInput.addEventListener("input", () => {
+  // Live preview only while dragging picker; don't push undo snapshots yet.
+  state.editor.overlayTextColor = dom.memeTextColorInput.value;
+  state.showResetConfirmation = false;
+  syncMemeTextAppearance();
+});
+dom.memeTextColorInput.addEventListener("change", () => {
+  textColorCommittedInFocus = true;
+  updateEditorTextSetting("overlayTextColor", dom.memeTextColorInput.value);
+});
+dom.memeTextColorInput.addEventListener("blur", () => {
+  if (textColorCommittedInFocus) return;
+  if (state.editor.overlayTextColor !== textColorFocusStart) {
+    updateEditorTextSetting("overlayTextColor", state.editor.overlayTextColor);
+  }
+});
+
+dom.memeOutlineColorInput.addEventListener("focus", () => {
+  outlineColorFocusStart = state.editor.overlayOutlineColor;
+  outlineColorCommittedInFocus = false;
+});
+dom.memeOutlineColorInput.addEventListener("input", () => {
+  // Live preview only while dragging picker; don't push undo snapshots yet.
+  state.editor.overlayOutlineColor = dom.memeOutlineColorInput.value;
+  state.showResetConfirmation = false;
+  syncMemeTextAppearance();
+});
+dom.memeOutlineColorInput.addEventListener("change", () => {
+  outlineColorCommittedInFocus = true;
+  updateEditorTextSetting("overlayOutlineColor", dom.memeOutlineColorInput.value);
+});
+dom.memeOutlineColorInput.addEventListener("blur", () => {
+  if (outlineColorCommittedInFocus) return;
+  if (state.editor.overlayOutlineColor !== outlineColorFocusStart) {
+    updateEditorTextSetting("overlayOutlineColor", state.editor.overlayOutlineColor);
+  }
+});
+dom.outlineEnabledToggle?.addEventListener("change", () => {
+  updateEditorTextSetting("overlayOutlineEnabled", dom.outlineEnabledToggle.checked);
 });
 dom.undoCta.addEventListener("click", () => {
   undoEditorSnapshot();
 });
+dom.redoCta.addEventListener("click", () => {
+  redoEditorSnapshot();
+});
 dom.resetCta.addEventListener("click", () => {
   state.showResetConfirmation = !state.showResetConfirmation;
   state.isEditingMemeText = false;
+  render();
+});
+dom.resetConfirmationBackdrop?.addEventListener("click", () => {
+  state.showResetConfirmation = false;
   render();
 });
 dom.resetCancelCta.addEventListener("click", () => {
@@ -1845,6 +2571,43 @@ dom.resetCancelCta.addEventListener("click", () => {
 });
 dom.resetConfirmCta.addEventListener("click", () => {
   resetEditorToTemplate();
+});
+dom.backConfirmationBackdrop?.addEventListener("click", () => {
+  state.showBackConfirmation = false;
+  render();
+});
+dom.backCancelCta?.addEventListener("click", () => {
+  state.showBackConfirmation = false;
+  render();
+});
+dom.backConfirmCta?.addEventListener("click", () => {
+  confirmBackAndResetStudio();
+});
+
+document.addEventListener("pointerdown", (event) => {
+  const clickedInsideEditor =
+    event.target.closest(
+      "#meme-text-preview, .frozen-text-item, .text-toolbar, .text-local-controls, .text-menu, #meme-text-delete, #meme-text-rotate-handle, #meme-text-drag-handle, #meme-text-resize-handle"
+    );
+
+  if (clickedInsideEditor) return;
+
+  if (state.isEditingMemeText) {
+    finishInlineTextEdit();
+  }
+
+  if (event.target.closest("#studio-template-art")) {
+    state.isTextSelected = false;
+    state.showTextMore = false;
+    render();
+    return;
+  }
+
+  if (state.isTextSelected || state.showTextMore) {
+    state.isTextSelected = false;
+    state.showTextMore = false;
+    render();
+  }
 });
 dom.faceSwapLoaderCancel.addEventListener("click", () => {
   if (state.faceSwapAbortController) state.faceSwapAbortController.abort();
@@ -1960,6 +2723,7 @@ export const __testHooks = {
   selectSingleFace,
   submitSelectedFace,
   undoEditorSnapshot,
+  redoEditorSnapshot,
   resetEditorToTemplate,
   beginInlineTextEdit,
   finishInlineTextEdit,

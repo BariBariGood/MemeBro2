@@ -49,13 +49,68 @@
             <img id="studio-template-image" class="studio-template-image" alt="" decoding="async" />
             <span id="studio-template-initials" class="studio-template-initials"></span>
             <span id="studio-template-regions" class="studio-template-regions"></span>
-            <button id="meme-text-preview" class="meme-text-preview" type="button" aria-label="Edit meme text">Tap to edit text</button>
-            <div id="meme-text-editor" class="meme-text-editor hidden" aria-label="Inline text editor">
-              <input id="meme-text-input" type="text" maxlength="140" autocomplete="off" />
-              <button id="meme-text-done" type="button">Done</button>
+            <div id="meme-text-preview" class="meme-text-preview" role="textbox" aria-label="Edit meme text" tabindex="0">Tap to edit text</div>
+            <button id="meme-text-drag-handle" class="meme-text-drag-handle" type="button" aria-label="Drag text">✥</button>
+            <button id="meme-text-delete" class="meme-text-delete" type="button" aria-label="Delete text">×</button>
+            <button id="meme-text-rotate-handle" class="meme-text-rotate-handle" type="button" aria-label="Drag to rotate text">↻</button>
+            <button id="meme-text-resize-handle" class="meme-text-resize-handle" type="button" aria-label="Resize text box">◢</button>
+            <div id="text-local-controls" class="text-local-controls hidden" aria-label="Text object controls">
+              <button id="text-duplicate-cta" type="button" class="toolbar-btn">⧉</button>
+              <button id="text-lock-cta" type="button" class="toolbar-btn">🔓</button>
+              <button id="text-more-cta" type="button" class="toolbar-btn">⋯</button>
+            </div>
+            <div id="text-more-menu" class="text-menu hidden">
+              <button id="text-copy-cta" type="button">Copy</button>
+              <button id="text-paste-cta" type="button">Paste</button>
+              <button id="text-link-cta" type="button">Link</button>
             </div>
             <span class="studio-preview-pill">✧ Preview</span>
           </div>
+          <div id="text-toolbar" class="text-toolbar" aria-label="Text controls">
+              <select id="meme-font-select" class="toolbar-select">
+                <option value="arial">Arial</option>
+                <option value="impact">Impact</option>
+                <option value="arial-black">Arial Black</option>
+                <option value="comic-sans">Comic Sans MS</option>
+                <option value="times-new-roman">Times New Roman</option>
+                <option value="trebuchet-ms">Trebuchet MS</option>
+              <option value="georgia">Georgia</option>
+              <option value="verdana">Verdana</option>
+              <option value="tahoma">Tahoma</option>
+              <option value="courier-new">Courier New</option>
+              <option value="lucida-console">Lucida Console</option>
+              <option value="palatino">Palatino</option>
+              <option value="gill-sans">Gill Sans</option>
+              <option value="optima">Optima</option>
+            </select>
+            <span class="toolbar-separator" aria-hidden="true"></span>
+            <button id="text-size-dec-cta" type="button" class="toolbar-btn">−</button>
+            <input id="meme-font-size-input" class="toolbar-size-input" type="number" min="8" max="120" step="1" value="22" />
+            <button id="text-size-inc-cta" type="button" class="toolbar-btn">+</button>
+            <span class="toolbar-separator" aria-hidden="true"></span>
+            <button id="text-style-bold-cta" type="button" class="toolbar-btn style-btn">B</button>
+            <button id="text-style-italic-cta" type="button" class="toolbar-btn style-btn">I</button>
+            <button id="text-style-underline-cta" type="button" class="toolbar-btn style-btn">U</button>
+            <label class="toolbar-color-group" for="meme-text-color-input">
+              <span>Text</span>
+              <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" />
+            </label>
+            <label class="toolbar-color-group" for="meme-outline-color-input">
+              <span>Outline</span>
+              <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#000000" />
+              <label class="outline-inline-toggle">
+                <input id="outline-enabled-toggle" type="checkbox" />
+                <span>On</span>
+              </label>
+            </label>
+          </div>
+          <section class="template-bottom-actions" aria-label="Edit history actions">
+            <div class="history-left">
+              <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo">↶ Undo</button>
+              <button id="redo-cta" class="icon-action" type="button" disabled aria-label="Redo">↷ Redo</button>
+            </div>
+            <button id="reset-cta" class="danger-action" type="button">⟲ Reset</button>
+          </section>
         </article>
 
         <div class="studio-sidebar">
@@ -71,48 +126,27 @@
 
           <section class="studio-actions" aria-label="Template actions">
             <button id="open-upload-modal-cta" class="primary studio-action" type="button">↥ Upload <span>→</span></button>
-            <button id="undo-cta" class="secondary studio-action" type="button" disabled>Undo</button>
-            <button id="reset-cta" class="secondary studio-action" type="button">Reset</button>
             <button class="pink-action studio-action" type="button">✣ AI Prompt <span>→</span></button>
+            <button id="add-text-cta" class="secondary studio-action" type="button">＋ Add Text</button>
           </section>
-          <section class="text-settings" aria-label="Text settings">
-            <div class="text-setting-field">
-              <label for="meme-font-select">Font</label>
-              <select id="meme-font-select">
-                <option value="impact">Impact</option>
-                <option value="arial-black">Arial Black</option>
-                <option value="comic-sans">Comic Sans MS</option>
-                <option value="times-new-roman">Times New Roman</option>
-                <option value="trebuchet-ms">Trebuchet MS</option>
-              </select>
+          <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
+            <div id="reset-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
+            <div class="reset-confirmation-card">
+              <p>Warning: Reset cannot be undone. Are you sure?</p>
+              <div class="reset-confirmation-actions">
+                <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
+                <button id="reset-confirm-cta" class="danger-action" type="button">Reset</button>
+              </div>
             </div>
-            <div class="text-setting-field">
-              <label for="meme-font-size-select">Font Size</label>
-              <select id="meme-font-size-select">
-                <option value="default">Default</option>
-                <option value="small">Small</option>
-              </select>
-            </div>
-            <div class="text-setting-field">
-              <label for="meme-text-color-select">Text Color</label>
-              <select id="meme-text-color-select">
-                <option value="black">Black</option>
-                <option value="white">White</option>
-                <option value="red">Red</option>
-                <option value="blue">Blue</option>
-                <option value="yellow">Yellow</option>
-              </select>
-            </div>
-            <label class="text-setting-toggle" for="meme-outline-toggle">
-              <span>White Outline</span>
-              <input id="meme-outline-toggle" type="checkbox" checked />
-            </label>
           </section>
-          <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite">
-            <p>Warning: Reset cannot be undone</p>
-            <div class="reset-confirmation-actions">
-              <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
-              <button id="reset-confirm-cta" class="primary" type="button">Reset</button>
+          <section id="back-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
+            <div id="back-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
+            <div class="reset-confirmation-card">
+              <p>You have unsaved template edits. Going back will lose all progress. Continue?</p>
+              <div class="reset-confirmation-actions">
+                <button id="back-cancel-cta" class="secondary" type="button">Stay</button>
+                <button id="back-confirm-cta" class="danger-action" type="button">Go Back</button>
+              </div>
             </div>
           </section>
         </div>
