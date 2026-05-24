@@ -74,6 +74,39 @@
             <button id="reset-cta" class="secondary studio-action" type="button">Reset</button>
             <button class="pink-action studio-action" type="button">✣ AI Prompt <span>→</span></button>
           </section>
+          <section class="text-settings" aria-label="Text settings">
+            <div class="text-setting-field">
+              <label for="meme-font-select">Font</label>
+              <select id="meme-font-select">
+                <option value="impact">Impact</option>
+                <option value="arial-black">Arial Black</option>
+                <option value="comic-sans">Comic Sans MS</option>
+                <option value="times-new-roman">Times New Roman</option>
+                <option value="trebuchet-ms">Trebuchet MS</option>
+              </select>
+            </div>
+            <div class="text-setting-field">
+              <label for="meme-font-size-select">Font Size</label>
+              <select id="meme-font-size-select">
+                <option value="default">Default</option>
+                <option value="small">Small</option>
+              </select>
+            </div>
+            <div class="text-setting-field">
+              <label for="meme-text-color-select">Text Color</label>
+              <select id="meme-text-color-select">
+                <option value="black">Black</option>
+                <option value="white">White</option>
+                <option value="red">Red</option>
+                <option value="blue">Blue</option>
+                <option value="yellow">Yellow</option>
+              </select>
+            </div>
+            <label class="text-setting-toggle" for="meme-outline-toggle">
+              <span>White Outline</span>
+              <input id="meme-outline-toggle" type="checkbox" checked />
+            </label>
+          </section>
           <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite">
             <p>Warning: Reset cannot be undone</p>
             <div class="reset-confirmation-actions">
