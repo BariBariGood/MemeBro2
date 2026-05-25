@@ -76,6 +76,9 @@ const MEME_FONT_SIZE_SCALES = {
 
 const dom = {
   uploadPage: document.querySelector(".upload-page"),
+  titleScreen: document.getElementById("title-screen"),
+  titleStartCta: document.getElementById("title-start-cta"),
+  topbar: document.querySelector(".topbar"),
   backBtn: document.querySelector(".back-btn"),
   ctaRow: document.querySelector(".cta-row"),
   selectedTemplateLabel: document.getElementById("selected-template-label"),
@@ -206,7 +209,7 @@ const state = {
   activeTemplateTab: "trending",
   templateSearchQuery: "",
   uploadModalOpen: false,
-  view: "templates",
+  view: "home",
   isEditingMemeText: false,
   isSubmittingFaceSwap: false,
   showSlowFaceSwapMessage: false,
@@ -1897,12 +1900,17 @@ function render() {
   const cameraActive = Boolean(state.cameraStream);
   const reviewingCameraPhoto = Boolean(state.cameraReviewUrl);
   const editingPhoto = Boolean(state.previewUrl) && [STATES.FACES_FOUND, STATES.READY].includes(state.status);
+  const showingHome = state.view === "home";
   const showingTemplates = state.view === "templates";
   const showingStudio = state.view === "studio";
   const selectedTemplate = getSelectedTemplate();
   const selectedFaceCount = getSelectedFaces().length;
   const selectableFaceLimit = getSelectableFaceLimit();
+  dom.uploadPage.classList.toggle("home-mode", showingHome);
   dom.uploadPage.classList.toggle("camera-mode", cameraActive || reviewingCameraPhoto);
+  dom.titleScreen?.classList.toggle("hidden", !showingHome);
+  dom.topbar?.classList.toggle("hidden", showingHome);
+  dom.backBtn?.classList.toggle("hidden", showingHome);
   dom.cameraShell.classList.toggle("hidden", !cameraActive);
   dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
   dom.templateScreen.classList.toggle("hidden", !showingTemplates);
@@ -2149,6 +2157,8 @@ async function flipCamera() {
 
 function goBackToUploadChoices() {
   if (state.view === "templates") {
+    state.view = "home";
+    render();
     return;
   }
 
@@ -2225,6 +2235,9 @@ function goBackToUploadChoices() {
 
 dom.cameraCta.addEventListener("click", () => {
   startCameraCapture();
+});
+dom.titleStartCta?.addEventListener("click", async () => {
+  await showTemplateSelection();
 });
 dom.backBtn.addEventListener("click", goBackToUploadChoices);
 dom.cameraSnapCta.addEventListener("click", () => {
@@ -2705,7 +2718,7 @@ export const __testHooks = {
 };
 
 async function init() {
-  await showTemplateSelection();
+  render();
 }
 
 init();
