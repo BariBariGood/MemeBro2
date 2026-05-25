@@ -47,7 +47,9 @@ function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   state.editor.templateImage = template.templateImage || template.images.main || template.images.preview || "/assets/memes/placeholder.svg";
   state.editor.generatedImage = "";
   state.editor.overlayText = "Tap to edit text";
+  state.editor.overlayVisible = true;
   state.editor.overlayFontKey = "impact";
+  state.editor.overlayFontPx = 22;
   state.editor.overlaySizeMode = "default";
   state.editor.overlayTextColor = "black";
   state.editor.overlayOutlineEnabled = true;
@@ -57,7 +59,9 @@ function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
     templateImage: state.editor.templateImage,
     generatedImage: "",
     overlayText: "Tap to edit text",
+    overlayVisible: true,
     overlayFontKey: "impact",
+    overlayFontPx: 22,
     overlaySizeMode: "default",
     overlayTextColor: "black",
     overlayOutlineEnabled: true,
@@ -91,18 +95,17 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     seedStudioEditorState(state);
     render();
 
-    dom.memeTextPreview.click();
+    dom.memeTextPreview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(state.isEditingMemeText).toBe(true);
-    expect(dom.memeTextEditor.classList.contains("hidden")).toBe(false);
-    expect(dom.memeTextPreview.classList.contains("hidden")).toBe(false);
+    expect(dom.memeTextPreview.getAttribute("contenteditable")).toBe("true");
 
-    state.editor.overlayText = "new meme text";
-    render();
+    dom.memeTextPreview.textContent = "new meme text";
+    dom.memeTextPreview.dispatchEvent(new Event("input", { bubbles: true }));
     expect(dom.memeTextPreview.textContent).toBe("new meme text");
 
-    dom.memeTextInput.dispatchEvent(new Event("blur", { bubbles: true }));
+    dom.memeTextPreview.dispatchEvent(new Event("blur", { bubbles: true }));
     expect(state.isEditingMemeText).toBe(false);
-    expect(dom.memeTextEditor.classList.contains("hidden")).toBe(true);
+    expect(dom.memeTextPreview.getAttribute("contenteditable")).toBe("false");
   });
 
   test("custom: text settings update preview styles and undo restores them", async () => {
@@ -114,17 +117,17 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     render();
 
     expect(dom.memeFontSelect.value).toBe("impact");
-    expect(dom.memeFontSizeSelect.value).toBe("default");
-    expect(dom.memeTextColorSelect.value).toBe("black");
-    expect(dom.memeOutlineToggle.checked).toBe(true);
+    expect(dom.memeFontSizeInput.value).toBe("22");
+    expect(dom.memeTextColorInput.value).toBe("#000000");
+    expect(dom.memeOutlineRemoveCta.classList.contains("hidden")).toBe(false);
 
     updateEditorTextSetting("overlayFontKey", "comic-sans");
-    updateEditorTextSetting("overlaySizeMode", "small");
+    updateEditorTextSetting("overlayFontPx", 14);
     updateEditorTextSetting("overlayTextColor", "red");
     updateEditorTextSetting("overlayOutlineEnabled", false);
 
     expect(state.editor.overlayFontKey).toBe("comic-sans");
-    expect(state.editor.overlaySizeMode).toBe("small");
+    expect(state.editor.overlayFontPx).toBe(14);
     expect(state.editor.overlayTextColor).toBe("red");
     expect(state.editor.overlayOutlineEnabled).toBe(false);
     expect(dom.memeTextPreview.style.fontFamily).toContain("Comic Sans MS");
@@ -137,7 +140,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     dom.undoCta.click();
 
     expect(state.editor.overlayFontKey).toBe("impact");
-    expect(state.editor.overlaySizeMode).toBe("default");
+    expect(state.editor.overlayFontPx).toBe(22);
     expect(state.editor.overlayTextColor).toBe("black");
     expect(state.editor.overlayOutlineEnabled).toBe(true);
   });
@@ -292,9 +295,9 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await submitSelectedFace();
     expect(dom.studioTemplateImage.getAttribute("src")).toBe("/generated/swapped.png");
 
-    dom.memeTextPreview.click();
-    dom.memeTextInput.value = "fresh text";
-    dom.memeTextInput.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.memeTextPreview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    dom.memeTextPreview.textContent = "fresh text";
+    dom.memeTextPreview.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(state.editor.overlayText).toBe("fresh text");
     expect(dom.memeTextPreview.textContent).toBe("fresh text");
@@ -323,9 +326,10 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     render();
 
     await submitSelectedFace();
-    dom.memeTextPreview.click();
-    dom.memeTextInput.value = "edited once";
-    dom.memeTextInput.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.memeTextPreview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    dom.memeTextPreview.textContent = "edited once";
+    dom.memeTextPreview.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.memeTextPreview.dispatchEvent(new Event("blur", { bubbles: true }));
 
     const historyLengthAfterEdit = state.editor.historyStack.length;
     dom.undoCta.click();
@@ -341,7 +345,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     dom.resetCta.click();
     dom.resetConfirmCta.click();
     expect(state.editor.generatedImage).toBe("");
-    expect(state.editor.overlayText).toBe("Tap to edit text");
+    expect(state.editor.overlayText).toBe("TAP TO EDIT TEXT");
     expect(state.editor.historyStack).toEqual([]);
     expect(localStorage.getItem("meme-editor-history")).toBeNull();
   });
