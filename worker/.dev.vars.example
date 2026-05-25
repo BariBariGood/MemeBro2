@@ -7,9 +7,15 @@
 
 # API gateway upstream endpoints (non-secret URLs)
 FACE_SWAP_API_URL=https://face-swap.example.dev/api/face-swap
+# Optional for legacy /api/process extra_roast routing. If omitted, the Worker
+# will use its built-in /api/image OpenAI integration instead.
 IMAGE_GEN_API_URL=https://image-gen.example.dev/api/image
 # Optional override for extra_roast if it should not share IMAGE_GEN_API_URL.
 # EXTRA_ROAST_API_URL=https://image-gen.example.dev/api/extra-roast
 
 # API gateway secret. Keep real values in `.dev.vars` only.
 OPENAI_API_KEY=sk-your_development_key_here
+
+# Optional model overrides for built-in endpoints.
+# OPENAI_MODEL=gpt-4o-mini
+# OPENAI_IMAGE_MODEL=gpt-image-1
