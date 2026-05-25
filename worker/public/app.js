@@ -109,7 +109,8 @@ const dom = {
   memeFontSizeInput: document.getElementById("meme-font-size-input"),
   memeTextColorInput: document.getElementById("meme-text-color-input"),
   memeOutlineColorInput: document.getElementById("meme-outline-color-input"),
-  outlineEnabledToggle: document.getElementById("outline-enabled-toggle"),
+  outlineColorGroup: document.querySelector(".toolbar-color-group--outline"),
+  memeOutlineRemoveCta: document.getElementById("meme-outline-remove-cta"),
   undoCta: document.getElementById("undo-cta"),
   redoCta: document.getElementById("redo-cta"),
   resetCta: document.getElementById("reset-cta"),
@@ -963,19 +964,34 @@ function syncMemeTextAppearance() {
   preview.style.textDecoration = state.editor.overlayUnderline ? "underline" : "none";
   preview.style.color = textColor;
   preview.style.caretColor = textColor;
-  preview.style.textShadow = state.editor.overlayOutlineEnabled
-    ? [
-      `-2px -2px 0 ${state.editor.overlayOutlineColor}`,
-      `2px -2px 0 ${state.editor.overlayOutlineColor}`,
-      `-2px 2px 0 ${state.editor.overlayOutlineColor}`,
-      `2px 2px 0 ${state.editor.overlayOutlineColor}`,
-      `0 0 8px ${state.editor.overlayOutlineColor}40`,
-    ].join(", ")
-    : "none";
 
   const scale = fitMemeTextToCanvas();
+  applyMemeOutline(preview);
   positionTextHandles();
   return scale;
+}
+
+function applyMemeOutline(preview) {
+  if (!state.editor.overlayOutlineEnabled) {
+    preview.style.textShadow = "none";
+    return;
+  }
+  const color = state.editor.overlayOutlineColor || "#ffffff";
+  const renderedPx = parseFloat(preview.style.fontSize) || Number(state.editor.overlayFontPx || 22);
+  const t = Math.max(1, Math.round(renderedPx / 12));
+  const offsets = [
+    [-t, -t], [t, -t], [-t, t], [t, t],
+    [0, -t], [0, t], [-t, 0], [t, 0],
+  ];
+  preview.style.textShadow = offsets.map(([x, y]) => `${x}px ${y}px 0 ${color}`).join(", ");
+}
+
+function syncOutlineSwatchState() {
+  const group = dom.outlineColorGroup;
+  const removeBtn = dom.memeOutlineRemoveCta;
+  const enabled = !!state.editor.overlayOutlineEnabled;
+  if (group) group.classList.toggle("is-off", !enabled);
+  if (removeBtn) removeBtn.classList.toggle("hidden", !enabled);
 }
 
 function fitMemeTextToCanvas() {
@@ -1981,8 +1997,8 @@ function render() {
   dom.memeFontSelect.value = state.editor.overlayFontKey;
   dom.memeFontSizeInput.value = String(Math.round(state.editor.overlayFontPx || 22));
   dom.memeTextColorInput.value = getMemeTextColor(state.editor.overlayTextColor);
-  dom.memeOutlineColorInput.value = state.editor.overlayOutlineColor || "#000000";
-  if (dom.outlineEnabledToggle) dom.outlineEnabledToggle.checked = state.editor.overlayOutlineEnabled;
+  dom.memeOutlineColorInput.value = state.editor.overlayOutlineColor || "#ffffff";
+  syncOutlineSwatchState();
   dom.textStyleBoldCta.classList.toggle("active", state.editor.overlayBold);
   dom.textStyleItalicCta.classList.toggle("active", state.editor.overlayItalic);
   dom.textStyleUnderlineCta.classList.toggle("active", state.editor.overlayUnderline);
@@ -2536,22 +2552,28 @@ dom.memeOutlineColorInput.addEventListener("focus", () => {
 });
 dom.memeOutlineColorInput.addEventListener("input", () => {
   // Live preview only while dragging picker; don't push undo snapshots yet.
+  // Picking any color implies the user wants an outline, so auto-enable.
+  state.editor.overlayOutlineEnabled = true;
   state.editor.overlayOutlineColor = dom.memeOutlineColorInput.value;
   state.showResetConfirmation = false;
   syncMemeTextAppearance();
+  syncOutlineSwatchState();
 });
 dom.memeOutlineColorInput.addEventListener("change", () => {
   outlineColorCommittedInFocus = true;
+  // Commit enabled=true alongside the color in a single undo snapshot.
+  state.editor.overlayOutlineEnabled = true;
   updateEditorTextSetting("overlayOutlineColor", dom.memeOutlineColorInput.value);
 });
 dom.memeOutlineColorInput.addEventListener("blur", () => {
   if (outlineColorCommittedInFocus) return;
   if (state.editor.overlayOutlineColor !== outlineColorFocusStart) {
+    state.editor.overlayOutlineEnabled = true;
     updateEditorTextSetting("overlayOutlineColor", state.editor.overlayOutlineColor);
   }
 });
-dom.outlineEnabledToggle?.addEventListener("change", () => {
-  updateEditorTextSetting("overlayOutlineEnabled", dom.outlineEnabledToggle.checked);
+dom.memeOutlineRemoveCta?.addEventListener("click", () => {
+  updateEditorTextSetting("overlayOutlineEnabled", false);
 });
 dom.undoCta.addEventListener("click", () => {
   undoEditorSnapshot();

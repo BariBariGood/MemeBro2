@@ -423,6 +423,11 @@ body {
   max-width: min(46vw, 210px);
 }
 
+.toolbar-select option {
+  background: #13151f;
+  color: #f6f7fb;
+}
+
 .toolbar-size-input {
   width: 60px;
   min-height: 36px;
@@ -478,16 +483,40 @@ body {
   background: rgba(255, 255, 255, 0.14);
 }
 
-.outline-inline-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.68rem;
-  text-transform: none;
+.toolbar-color-group--outline {
+  cursor: pointer;
 }
 
-.outline-inline-toggle input {
-  accent-color: #b8f73a;
+.toolbar-color-group--outline.is-off .toolbar-color-input {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.toolbar-color-group--outline.is-off > span::after {
+  content: " · off";
+  color: rgba(240, 242, 255, 0.55);
+}
+
+.outline-remove-btn {
+  min-height: 28px;
+  min-width: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(240, 242, 255, 0.88);
+  font-size: 1rem;
+  line-height: 1;
+  margin-left: 2px;
+  flex: 0 0 auto;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.outline-remove-btn:not(:disabled):hover {
+  background: rgba(225, 80, 95, 0.22);
+  border-color: rgba(225, 80, 95, 0.55);
+  color: #ffe1e5;
+  transform: none;
 }
 
 .text-menu {
