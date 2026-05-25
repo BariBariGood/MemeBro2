@@ -21,9 +21,11 @@ const SECRET_NAME_PATTERN = /(KEY|TOKEN|SECRET|PASSWORD)/i;
 const MODE_ROUTES = {
   face_swap: {
     urlKeys: ["FACE_SWAP_API_URL"],
+    authEnvKey: "FACE_SWAP_API_KEY",
   },
   extra_roast: {
     urlKeys: ["EXTRA_ROAST_API_URL", "IMAGE_GEN_API_URL"],
+    authEnvKey: "OPENAI_API_KEY",
   },
 };
 
@@ -117,10 +119,18 @@ export function routeRequest(mode, env) {
   }
 
   const urlKey = route.urlKeys.find((key) => String(env?.[key] ?? "").trim());
+  const authKey = route.authEnvKey;
+  const requiredEnv = [urlKey ?? route.urlKeys[0]];
+  if (authKey && String(env?.[authKey] ?? "").trim()) {
+    requiredEnv.push(authKey);
+  } else if (mode !== "face_swap" && authKey) {
+    requiredEnv.push(authKey);
+  }
 
   return {
     url: urlKey ? env[urlKey] : "",
-    requiredEnv: ["OPENAI_API_KEY", urlKey ?? route.urlKeys[0]],
+    authKey,
+    requiredEnv,
   };
 }
 
@@ -131,11 +141,12 @@ export function routeRequest(mode, env) {
  * @param {Object} env - Cloudflare Workers env object
  * @returns {RequestInit} Fetch options with gateway authentication headers
  */
-function withGatewayAuth(options = {}, env) {
+function withGatewayAuth(options = {}, env, authKey = "OPENAI_API_KEY") {
   const headers = new Headers(options.headers ?? {});
 
-  if (!headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${env.OPENAI_API_KEY}`);
+  const token = String(env?.[authKey] ?? "").trim();
+  if (!headers.has("Authorization") && token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   return {
@@ -247,7 +258,7 @@ export async function callAPI(mode, options, env) {
   const timeoutMs = env.AI_TIMEOUT_MS
     ? parseInt(env.AI_TIMEOUT_MS, 10)
     : DEFAULT_TIMEOUT_MS;
-  const outboundOptions = withGatewayAuth(options, env);
+  const outboundOptions = withGatewayAuth(options, env, route.authKey);
 
   let response;
   try {

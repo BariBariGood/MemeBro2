@@ -52,7 +52,7 @@ The product has four distinct functional modes:
 | API Integration | Aayan, Sohum | Cloudflare Workers/Pages, external API routing, latency measurement, error handling, rate limits |
 | Testing / CI/CD | Andrew, Sanjana | GitHub Actions pipeline, unit test framework, E2E test scaffolding, SemVer + changelog setup, linting config, reviewing doc |
 
----
+--- 
 
 ## 3. User Personas
 
@@ -74,7 +74,7 @@ College student who uses memes like language. Discord servers, Snapchat, Instagr
 - **Where she is:** Latest iPhone, solid WiFi, always connected
 - **What she does:** Makes memes of her friends for inside jokes. Puts actual effort in. It's a mini art form for her.
 - **Her problem:** Can't swap a friend's face into a meme smoothly on mobile. Desktop tools exist but they're clunky as hell on a phone.
-- **What wins her over:** Face swap that looks good enough to screenshot instantly, easy to edit text/image.
+- **What wins her over:** Face swap that looks good enough to screenshot instantly, easy to edit text/image. face swap api
 
 ---
 

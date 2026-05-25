@@ -1,0 +1,352 @@
+/**
+ * @vitest-environment jsdom
+ */
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+
+import catalog from "../public/templates.json";
+
+vi.mock("../public/.generated/mediapipe/vision_bundle.mjs", () => ({
+  FaceDetector: {
+    createFromOptions: vi.fn(async () => ({
+      detect: vi.fn(() => ({ detections: [] })),
+    })),
+  },
+  FilesetResolver: {
+    forVisionTasks: vi.fn(async () => ({})),
+  },
+}));
+
+const testDir = path.dirname(fileURLToPath(import.meta.url));
+const htmlPath = path.resolve(testDir, "../public/index.html");
+const indexHtml = readFileSync(htmlPath, "utf8");
+
+function mountAppHtml() {
+  const mainMarkup = indexHtml.match(/<main[\s\S]*<\/main>/)?.[0] || "";
+  document.body.innerHTML = mainMarkup;
+}
+
+async function loadApp() {
+  return import("../public/app.js");
+}
+
+async function settleApp() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
+  const template = catalog.templates.find((entry) => entry.id === templateId) || catalog.templates[0];
+
+  state.templateCatalog = catalog.templates;
+  state.view = "studio";
+  state.selectedTemplateId = template.id;
+  state.editor.templateImage = template.templateImage || template.images.main || template.images.preview || "/assets/memes/placeholder.svg";
+  state.editor.generatedImage = "";
+  state.editor.overlayText = "Tap to edit text";
+  state.editor.overlayVisible = true;
+  state.editor.overlayFontKey = "impact";
+  state.editor.overlayFontPx = 22;
+  state.editor.overlaySizeMode = "default";
+  state.editor.overlayTextColor = "black";
+  state.editor.overlayOutlineEnabled = true;
+  state.editor.overlayAutoScale = 1;
+  state.editor.initialSnapshot = {
+    selectedTemplateId: template.id,
+    templateImage: state.editor.templateImage,
+    generatedImage: "",
+    overlayText: "Tap to edit text",
+    overlayVisible: true,
+    overlayFontKey: "impact",
+    overlayFontPx: 22,
+    overlaySizeMode: "default",
+    overlayTextColor: "black",
+    overlayOutlineEnabled: true,
+  };
+  state.editor.historyStack = [];
+}
+
+describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.restoreAllMocks();
+    mountAppHtml();
+    vi.stubGlobal("requestAnimationFrame", (cb) => cb());
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      return { ok: true, json: async () => ({ generatedImageUrl: "/generated/default.png" }) };
+    }));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("custom: text is editable inline and preview updates live", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.memeTextPreview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(state.isEditingMemeText).toBe(true);
+    expect(dom.memeTextPreview.getAttribute("contenteditable")).toBe("true");
+
+    dom.memeTextPreview.textContent = "new meme text";
+    dom.memeTextPreview.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dom.memeTextPreview.textContent).toBe("new meme text");
+
+    dom.memeTextPreview.dispatchEvent(new Event("blur", { bubbles: true }));
+    expect(state.isEditingMemeText).toBe(false);
+    expect(dom.memeTextPreview.getAttribute("contenteditable")).toBe("false");
+  });
+
+  test("custom: text settings update preview styles and undo restores them", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render, updateEditorTextSetting } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    expect(dom.memeFontSelect.value).toBe("impact");
+    expect(dom.memeFontSizeInput.value).toBe("22");
+    expect(dom.memeTextColorInput.value).toBe("#000000");
+    expect(dom.memeOutlineRemoveCta.classList.contains("hidden")).toBe(false);
+
+    updateEditorTextSetting("overlayFontKey", "comic-sans");
+    updateEditorTextSetting("overlayFontPx", 14);
+    updateEditorTextSetting("overlayTextColor", "red");
+    updateEditorTextSetting("overlayOutlineEnabled", false);
+
+    expect(state.editor.overlayFontKey).toBe("comic-sans");
+    expect(state.editor.overlayFontPx).toBe(14);
+    expect(state.editor.overlayTextColor).toBe("red");
+    expect(state.editor.overlayOutlineEnabled).toBe(false);
+    expect(dom.memeTextPreview.style.fontFamily).toContain("Comic Sans MS");
+    expect(dom.memeTextPreview.style.color).toBe("rgb(214, 40, 40)");
+    expect(dom.memeTextPreview.style.textShadow).toBe("none");
+
+    dom.undoCta.click();
+    dom.undoCta.click();
+    dom.undoCta.click();
+    dom.undoCta.click();
+
+    expect(state.editor.overlayFontKey).toBe("impact");
+    expect(state.editor.overlayFontPx).toBe(22);
+    expect(state.editor.overlayTextColor).toBe("black");
+    expect(state.editor.overlayOutlineEnabled).toBe(true);
+  });
+
+  test("custom: gallery cards use previewImage sources and preserve image dimensions", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { dom } = __testHooks;
+
+    const firstCardImage = dom.templateGrid.querySelector(".template-art-image");
+    const firstCardArt = dom.templateGrid.querySelector(".template-art");
+
+    expect(firstCardImage).not.toBeNull();
+    expect(firstCardImage.getAttribute("src")).toBe(catalog.templates[0].previewImage);
+    expect(firstCardImage.loading).toBe("lazy");
+    expect(firstCardArt.style.aspectRatio).toBe(`${catalog.templates[0].images.width} / ${catalog.templates[0].images.height}`);
+  });
+
+  test("custom: template face regions stay inside the actual meme image bounds", () => {
+    for (const template of catalog.templates) {
+      for (const region of template.faceRegions || []) {
+        expect(region.x).toBeGreaterThanOrEqual(0);
+        expect(region.y).toBeGreaterThanOrEqual(0);
+        expect(region.width).toBeGreaterThan(0);
+        expect(region.height).toBeGreaterThan(0);
+        expect(region.x + region.width).toBeLessThanOrEqual(template.images.width);
+        expect(region.y + region.height).toBeLessThanOrEqual(template.images.height);
+      }
+    }
+  });
+
+  test("custom: long text shrinks to stay inside the meme canvas", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render, syncMemeTextAppearance } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "this is a much longer meme caption that should shrink to stay visible";
+
+    dom.studioTemplateArt.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 320,
+      bottom: 320,
+      width: 320,
+      height: 320,
+    });
+
+    dom.memeTextPreview.getBoundingClientRect = () => {
+      const fontSize = dom.memeTextPreview.style.fontSize;
+      const scale = Number(fontSize.match(/\*\s([0-9.]+)\)/)?.[1] || 1);
+      const width = 360 * scale;
+      const height = 150 * scale;
+      return {
+        left: (320 - width) / 2,
+        right: (320 + width) / 2,
+        top: 320 - 70 - height,
+        bottom: 320 - 70,
+        width,
+        height,
+      };
+    };
+
+    render();
+    const scale = syncMemeTextAppearance();
+
+    expect(scale).toBeLessThan(1);
+    expect(Number(dom.memeTextPreview.dataset.fitScale)).toBeLessThan(1);
+    expect(state.editor.overlayAutoScale).toBeLessThan(1);
+  });
+
+  test("custom: studio template uses full image source without cover-cropping", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state, "expanding-brain");
+    render();
+
+    const template = catalog.templates.find((entry) => entry.id === "expanding-brain");
+    const maxWidth = Math.max(220, Math.min(window.innerWidth - 32, window.innerWidth * 0.6, 560));
+    const maxHeight = Math.max(220, Math.min(window.innerHeight * 0.72, 760));
+    const scale = Math.min(maxWidth / template.images.width, maxHeight / template.images.height);
+    const expectedWidth = Math.round(template.images.width * scale);
+    const expectedHeight = Math.round(template.images.height * scale);
+
+    expect(dom.studioTemplateImage.getAttribute("src")).toBe(template.templateImage);
+    expect(dom.studioTemplateArt.style.width).toBe(`${expectedWidth}px`);
+    expect(dom.studioTemplateArt.style.height).toBe(`${expectedHeight}px`);
+  });
+
+  test("custom: loader shows immediately, shows slower message at 5s, then hides", async () => {
+    vi.useFakeTimers();
+    let resolveRequest;
+    global.fetch = vi.fn((url) => {
+      if (url === "/templates.json") {
+        return Promise.resolve({ json: async () => ({ templates: catalog.templates }) });
+      }
+      if (url === "/api/process") {
+        return new Promise((resolve) => {
+          resolveRequest = resolve;
+        });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, submitSelectedFace } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.status = "ready";
+    state.selectedTemplateId = catalog.templates[0].id;
+    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
+    state.selectedFaceIds = ["face-0"];
+    state.selectedFaceId = "face-0";
+
+    const pending = submitSelectedFace();
+    expect(dom.faceSwapLoader.classList.contains("hidden")).toBe(false);
+
+    vi.advanceTimersByTime(5001);
+    expect(dom.faceSwapLoaderDelay.classList.contains("hidden")).toBe(false);
+
+    resolveRequest({ ok: true, json: async () => ({ generatedImageUrl: "/generated/slow.png" }) });
+    await pending;
+
+    expect(dom.faceSwapLoader.classList.contains("hidden")).toBe(true);
+  });
+
+  test("custom: face swap result replaces the template image and stays editable", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/swapped.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render, submitSelectedFace } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.status = "ready";
+    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
+    state.selectedFaceIds = ["face-0"];
+    state.selectedFaceId = "face-0";
+    render();
+
+    await submitSelectedFace();
+    expect(dom.studioTemplateImage.getAttribute("src")).toBe("/generated/swapped.png");
+
+    dom.memeTextPreview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    dom.memeTextPreview.textContent = "fresh text";
+    dom.memeTextPreview.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(state.editor.overlayText).toBe("fresh text");
+    expect(dom.memeTextPreview.textContent).toBe("fresh text");
+  });
+
+  test("custom: undo restores the previous snapshot and reset clears history", async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/undoable.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render, submitSelectedFace } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.status = "ready";
+    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
+    state.selectedFaceIds = ["face-0"];
+    state.selectedFaceId = "face-0";
+    render();
+
+    await submitSelectedFace();
+    dom.memeTextPreview.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    dom.memeTextPreview.textContent = "edited once";
+    dom.memeTextPreview.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.memeTextPreview.dispatchEvent(new Event("blur", { bubbles: true }));
+
+    const historyLengthAfterEdit = state.editor.historyStack.length;
+    dom.undoCta.click();
+    expect(state.editor.overlayText).toBe("Tap to edit text");
+    expect(state.editor.generatedImage).toBe("/generated/undoable.png");
+    expect(state.editor.historyStack.length).toBe(historyLengthAfterEdit - 1);
+
+    dom.resetCta.click();
+    expect(dom.resetConfirmation.classList.contains("hidden")).toBe(false);
+    dom.resetCancelCta.click();
+    expect(dom.resetConfirmation.classList.contains("hidden")).toBe(true);
+
+    dom.resetCta.click();
+    dom.resetConfirmCta.click();
+    expect(state.editor.generatedImage).toBe("");
+    expect(state.editor.overlayText).toBe("TAP TO EDIT TEXT");
+    expect(state.editor.historyStack).toEqual([]);
+    expect(localStorage.getItem("meme-editor-history")).toBeNull();
+  });
+});

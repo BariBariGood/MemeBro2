@@ -46,10 +46,67 @@
       <section id="studio-screen" class="studio-screen hidden" aria-label="Selected template studio">
         <article class="studio-template-card">
           <div id="studio-template-art" class="studio-template-art">
+            <img id="studio-template-image" class="studio-template-image" alt="" decoding="async" />
             <span id="studio-template-initials" class="studio-template-initials"></span>
             <span id="studio-template-regions" class="studio-template-regions"></span>
-            <span class="studio-preview-pill">✧ Preview</span>
+            <div id="meme-text-preview" class="meme-text-preview" role="textbox" aria-label="Edit meme text" tabindex="0">Tap to edit text</div>
+            <button id="meme-text-drag-handle" class="meme-text-drag-handle" type="button" aria-label="Drag text">✥</button>
+            <button id="meme-text-delete" class="meme-text-delete" type="button" aria-label="Delete text">×</button>
+            <button id="meme-text-rotate-handle" class="meme-text-rotate-handle" type="button" aria-label="Drag to rotate text">↻</button>
+            <button id="meme-text-resize-handle" class="meme-text-resize-handle" type="button" aria-label="Resize text box">◢</button>
+            <div id="text-local-controls" class="text-local-controls hidden" aria-label="Text object controls">
+              <button id="text-duplicate-cta" type="button" class="toolbar-btn">⧉</button>
+              <button id="text-lock-cta" type="button" class="toolbar-btn">🔓</button>
+              <button id="text-more-cta" type="button" class="toolbar-btn">⋯</button>
+            </div>
+            <div id="text-more-menu" class="text-menu hidden">
+              <button id="text-copy-cta" type="button">Copy</button>
+              <button id="text-paste-cta" type="button">Paste</button>
+              <button id="text-link-cta" type="button">Link</button>
+            </div>
           </div>
+          <div id="text-toolbar" class="text-toolbar" aria-label="Text controls">
+              <select id="meme-font-select" class="toolbar-select">
+                <option value="arial">Arial</option>
+                <option value="impact">Impact</option>
+                <option value="arial-black">Arial Black</option>
+                <option value="comic-sans">Comic Sans MS</option>
+                <option value="times-new-roman">Times New Roman</option>
+                <option value="trebuchet-ms">Trebuchet MS</option>
+              <option value="georgia">Georgia</option>
+              <option value="verdana">Verdana</option>
+              <option value="tahoma">Tahoma</option>
+              <option value="courier-new">Courier New</option>
+              <option value="lucida-console">Lucida Console</option>
+              <option value="palatino">Palatino</option>
+              <option value="gill-sans">Gill Sans</option>
+              <option value="optima">Optima</option>
+            </select>
+            <span class="toolbar-separator" aria-hidden="true"></span>
+            <button id="text-size-dec-cta" type="button" class="toolbar-btn">−</button>
+            <input id="meme-font-size-input" class="toolbar-size-input" type="number" min="8" max="120" step="1" value="22" />
+            <button id="text-size-inc-cta" type="button" class="toolbar-btn">+</button>
+            <span class="toolbar-separator" aria-hidden="true"></span>
+            <button id="text-style-bold-cta" type="button" class="toolbar-btn style-btn">B</button>
+            <button id="text-style-italic-cta" type="button" class="toolbar-btn style-btn">I</button>
+            <button id="text-style-underline-cta" type="button" class="toolbar-btn style-btn">U</button>
+            <label class="toolbar-color-group" for="meme-text-color-input">
+              <span>Text</span>
+              <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" />
+            </label>
+            <label class="toolbar-color-group toolbar-color-group--outline is-off" for="meme-outline-color-input">
+              <span>Outline</span>
+              <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" />
+            </label>
+            <button id="meme-outline-remove-cta" class="outline-remove-btn hidden" type="button" aria-label="Remove outline" title="Remove outline">×</button>
+          </div>
+          <section class="template-bottom-actions" aria-label="Edit history actions">
+            <div class="history-left">
+              <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo">↶ Undo</button>
+              <button id="redo-cta" class="icon-action" type="button" disabled aria-label="Redo">↷ Redo</button>
+            </div>
+            <button id="reset-cta" class="danger-action" type="button">⟲ Reset</button>
+          </section>
         </article>
 
         <div class="studio-sidebar">
@@ -66,6 +123,27 @@
           <section class="studio-actions" aria-label="Template actions">
             <button id="open-upload-modal-cta" class="primary studio-action" type="button">↥ Upload <span>→</span></button>
             <button class="pink-action studio-action" type="button">✣ AI Prompt <span>→</span></button>
+            <button id="add-text-cta" class="secondary studio-action" type="button">＋ Add Text</button>
+          </section>
+          <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
+            <div id="reset-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
+            <div class="reset-confirmation-card">
+              <p>Warning: Reset cannot be undone. Are you sure?</p>
+              <div class="reset-confirmation-actions">
+                <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
+                <button id="reset-confirm-cta" class="danger-action" type="button">Reset</button>
+              </div>
+            </div>
+          </section>
+          <section id="back-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
+            <div id="back-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
+            <div class="reset-confirmation-card">
+              <p>You have unsaved template edits. Going back will lose all progress. Continue?</p>
+              <div class="reset-confirmation-actions">
+                <button id="back-cancel-cta" class="secondary" type="button">Stay</button>
+                <button id="back-confirm-cta" class="danger-action" type="button">Go Back</button>
+              </div>
+            </div>
           </section>
         </div>
       </section>
@@ -124,6 +202,16 @@
       </section>
 
       <button id="continue-btn" type="button" disabled>Add Face →</button>
+
+      <section id="face-swap-loader" class="face-swap-loader hidden" aria-live="polite" aria-label="Face swap loading">
+        <div class="face-swap-loader-card">
+          <div class="face-swap-loader-skeleton" aria-hidden="true"></div>
+          <p class="face-swap-loader-copy">Cooking your meme...</p>
+          <p id="face-swap-loader-time" class="face-swap-loader-time">Estimated wait time: ~3 seconds</p>
+          <p id="face-swap-loader-delay" class="face-swap-loader-delay hidden">Taking longer than usual...</p>
+          <button id="face-swap-loader-cancel" class="secondary" type="button">Cancel</button>
+        </div>
+      </section>
     </main>
 
     <script type="module" src="./app.js"></script>
