@@ -191,7 +191,6 @@ const state = {
   dragOriginOffsetY: 0,
   textDragPointerId: null,
   textResizePointerId: null,
-  textRotatePointerId: null,
   textPointerStartX: 0,
   textPointerStartY: 0,
   textStartX: 50,
@@ -1845,67 +1844,18 @@ function endTextDrag(event) {
   }
 }
 
-// Snap threshold in degrees — within this range of a cardinal angle, snap to it
-const ROTATE_SNAP_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315, 360];
-const ROTATE_SNAP_THRESHOLD = 8; // degrees
-const ROTATE_DAMPEN = 0.72; // slow down rotation sensitivity
+// Rotation now works as a discrete 90-degree step: click the handle to advance.
+const ROTATE_STEP = 90;
 
-let rotateStartAngle = 0;
-let rotateStartRotation = 0;
-let rotateVelocity = 0;
-let lastRawAngle = 0;
-
-function snapRotation(deg) {
-  // Normalize to 0-360
-  const normalized = ((deg % 360) + 360) % 360;
-  for (const snap of ROTATE_SNAP_ANGLES) {
-    if (Math.abs(normalized - snap) < ROTATE_SNAP_THRESHOLD) {
-      return snap === 360 ? 0 : snap;
-    }
-  }
-  return Math.round(deg);
-}
-
-function startTextRotate(event) {
+function rotateTextOneStep(event) {
   if (!state.editor.overlayVisible || state.isTextLocked) return;
-  event.preventDefault();
-  state.textRotatePointerId = event.pointerId;
-  const { x, y, artRect } = getTextCenterInArt();
-  rotateStartAngle = Math.atan2(event.clientY - artRect.top - y, event.clientX - artRect.left - x) * 180 / Math.PI;
-  rotateStartRotation = state.editor.overlayRotation;
-  lastRawAngle = rotateStartAngle;
-  rotateVelocity = 0;
-  dom.memeTextRotateHandle.setPointerCapture(event.pointerId);
-  dom.studioTemplateArt.classList.add("text-rotate-mode");
-}
-
-function moveTextRotate(event) {
-  if (state.textRotatePointerId !== event.pointerId) return;
-  event.preventDefault();
-  const { x, y, artRect } = getTextCenterInArt();
-  const rawAngle = Math.atan2(event.clientY - artRect.top - y, event.clientX - artRect.left - x) * 180 / Math.PI;
-  const delta = rawAngle - rotateStartAngle;
-  rotateVelocity = rawAngle - lastRawAngle;
-  lastRawAngle = rawAngle;
-  // Apply dampening so it feels controlled
-  const dampened = rotateStartRotation + delta * ROTATE_DAMPEN;
-  state.editor.overlayRotation = snapRotation(dampened);
+  event?.preventDefault();
+  event?.stopPropagation();
+  const current = Number.isFinite(state.editor.overlayRotation) ? state.editor.overlayRotation : 0;
+  const next = (((current + ROTATE_STEP) % 360) + 360) % 360;
+  state.editor.overlayRotation = next === 360 ? 0 : next;
+  recordEditorSnapshot();
   render();
-}
-
-function endTextRotate(event) {
-  if (state.textRotatePointerId !== event.pointerId) return;
-  event.preventDefault();
-  state.textRotatePointerId = null;
-  dom.studioTemplateArt.classList.remove("text-rotate-mode");
-  recordEditorSnapshot();
-}
-
-function forceEndTextRotate() {
-  if (state.textRotatePointerId === null) return;
-  state.textRotatePointerId = null;
-  dom.studioTemplateArt.classList.remove("text-rotate-mode");
-  recordEditorSnapshot();
 }
 
 function startFaceSwapLoadingState() {
@@ -2499,12 +2449,7 @@ dom.textLinkCta.addEventListener("click", () => {
   state.showTextMore = false;
   render();
 });
-dom.memeTextRotateHandle.addEventListener("pointerdown", startTextRotate);
-dom.memeTextRotateHandle.addEventListener("pointermove", moveTextRotate);
-dom.memeTextRotateHandle.addEventListener("pointerup", endTextRotate);
-dom.memeTextRotateHandle.addEventListener("pointercancel", endTextRotate);
-window.addEventListener("pointerup", forceEndTextRotate);
-window.addEventListener("pointercancel", forceEndTextRotate);
+dom.memeTextRotateHandle.addEventListener("click", rotateTextOneStep);
 dom.memeTextDragHandle.addEventListener("pointerdown", startTextDrag);
 dom.memeTextDragHandle.addEventListener("pointermove", moveTextDrag);
 dom.memeTextDragHandle.addEventListener("pointerup", endTextDrag);
