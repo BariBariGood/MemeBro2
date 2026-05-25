@@ -13,7 +13,7 @@ Preface: To portion out the process, I will go through and prompt to build off o
 ### __Propmt 1__: 
 Build a file templates.json data structure schema that can hold over 20 meme templates based on popular memes from the internet displayed in a scrollable grid. 
 The grid should allow for users to view from both desktops and mobile devices. 
-
+                    
 Data for each meme template:
 - The memes should have their own tags based on the meme. 
 - An id

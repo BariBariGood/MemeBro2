@@ -274,12 +274,25 @@ describe("callAPI", () => {
     );
   });
 
-  it("validates API keys before outbound fetch", async () => {
+  it("allows face_swap without OPENAI_API_KEY when FACE_SWAP_API_URL is configured", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), { status: 200 })
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await callAPI("face_swap", {}, {
+      FACE_SWAP_API_URL: env.FACE_SWAP_API_URL,
+    });
+    expect(result.ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires OPENAI_API_KEY for extra_roast mode", async () => {
     const mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);
 
     await expect(
-      callAPI("face_swap", {}, { FACE_SWAP_API_URL: env.FACE_SWAP_API_URL })
+      callAPI("extra_roast", {}, { IMAGE_GEN_API_URL: env.IMAGE_GEN_API_URL })
     ).rejects.toMatchObject({
       code: "MISSING_API_KEY",
       retryable: false,
