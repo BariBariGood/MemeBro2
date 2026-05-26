@@ -386,6 +386,130 @@ function normalizeBox(boxNatural, natural, rendered) {
   };
 }
 
+function getFaceCropBounds(detectedFace, natural) {
+  const box = detectedFace?.boxNatural || detectedFace;
+  const naturalWidth = Math.max(1, Math.floor(Number(natural?.width) || 0));
+  const naturalHeight = Math.max(1, Math.floor(Number(natural?.height) || 0));
+  const rawX = Number(box?.x);
+  const rawY = Number(box?.y);
+  const rawWidth = Number(box?.width);
+  const rawHeight = Number(box?.height);
+
+  if (
+    !Number.isFinite(rawX)
+    || !Number.isFinite(rawY)
+    || !Number.isFinite(rawWidth)
+    || !Number.isFinite(rawHeight)
+    || rawWidth <= 0
+    || rawHeight <= 0
+  ) {
+    const error = new Error("Selected face is missing a valid crop box.");
+    error.code = "INVALID_FACE_CROP";
+    throw error;
+  }
+
+  const left = clamp(Math.floor(rawX), 0, naturalWidth);
+  const top = clamp(Math.floor(rawY), 0, naturalHeight);
+  const right = clamp(Math.ceil(rawX + rawWidth), left, naturalWidth);
+  const bottom = clamp(Math.ceil(rawY + rawHeight), top, naturalHeight);
+  const width = right - left;
+  const height = bottom - top;
+
+  if (width <= 0 || height <= 0) {
+    const error = new Error("Selected face crop is outside the image bounds.");
+    error.code = "INVALID_FACE_CROP";
+    throw error;
+  }
+
+  return { x: left, y: top, width, height };
+}
+
+function getFaceCropMimeType(file) {
+  return ["image/jpeg", "image/png", "image/webp"].includes(file?.type)
+    ? file.type
+    : FACE_CROP_DEFAULT_TYPE;
+}
+
+function getFaceCropFilename(file, cropType) {
+  const extensionByType = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  };
+  const extension = extensionByType[cropType] || "jpg";
+  const sourceName = typeof file?.name === "string" ? file.name : "upload";
+  const baseName = sourceName
+    .replace(/\.[^/.\\]+$/, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "upload";
+
+  return `${baseName}-face-crop.${extension}`;
+}
+
+async function canvasToBlob(canvas, type, quality) {
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob(resolve, type, quality);
+  });
+
+  if (!blob) {
+    const error = new Error("Could not export the selected face crop.");
+    error.code = "FACE_CROP_EXPORT_FAILED";
+    throw error;
+  }
+
+  return blob;
+}
+
+async function extractFaceCrop(fullImageBlob, detectedFace, options = {}) {
+  if (!fullImageBlob && !options.decodedImage) {
+    const error = new Error("A source image is required before cropping a face.");
+    error.code = "MISSING_SOURCE_IMAGE";
+    throw error;
+  }
+
+  const decodedImage = options.decodedImage || await decodeImage(fullImageBlob);
+  const source = decodedImage.source || decodedImage;
+  const natural = {
+    width: decodedImage.width || source.naturalWidth || source.width,
+    height: decodedImage.height || source.naturalHeight || source.height,
+  };
+  const crop = getFaceCropBounds(detectedFace, natural);
+  const canvas = document.createElement("canvas");
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    const error = new Error("Canvas is unavailable for face crop extraction.");
+    error.code = "FACE_CROP_UNAVAILABLE";
+    throw error;
+  }
+
+  ctx.drawImage(
+    source,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+
+  const type = options.type || getFaceCropMimeType(fullImageBlob);
+  const blob = await canvasToBlob(canvas, type, options.quality ?? FACE_CROP_QUALITY);
+
+  return {
+    blob,
+    bounds: crop,
+    width: crop.width,
+    height: crop.height,
+    type: blob.type || type,
+  };
+}
+
 function getRenderedSize() {
   const rect = dom.previewImage.getBoundingClientRect();
   return { width: rect.width || 320, height: rect.height || 320 };
@@ -953,6 +1077,7 @@ function extractGeneratedImageUrl(payload) {
     || payload?.compositedImage
     || payload?.outputUrl
     || payload?.url
+    || (payload?.b64 ? `data:${payload.mimeType || "image/png"};base64,${payload.b64}` : "")
     || "";
 }
 
@@ -1803,28 +1928,40 @@ async function submitSelectedFace() {
 
   state.faceSwapAbortController = new AbortController();
   startFaceSwapLoadingState();
-  const response = await fetch("/api/process", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-MemeBro-Mode": "face_swap",
-      "X-MemeBro-Selected-Face": JSON.stringify(selectedFace),
-      "X-MemeBro-Selected-Faces": JSON.stringify(selectedFaces),
-      "X-MemeBro-Template": state.selectedTemplateId || "",
-    },
-    body: JSON.stringify({
-      mode: "face_swap",
-      selectedFace,
-      selectedFaces,
-      selectedFaceIds: state.selectedFaceIds,
-      selectedTemplateId: state.selectedTemplateId,
-      selectedTemplate,
-      memeText: state.editor.overlayText,
-    }),
-    signal: state.faceSwapAbortController.signal,
-  }).finally(() => {
+  let response;
+
+  try {
+    const cropType = getFaceCropMimeType(state.file);
+    const faceCrop = await extractFaceCrop(state.file, selectedFace, {
+      decodedImage: state.imageBitmap,
+      type: cropType,
+    });
+
+    response = await fetch("/api/process", {
+      method: "POST",
+      headers: {
+        "Content-Type": faceCrop.type,
+        "X-MemeBro-Mode": "face_swap",
+        "X-MemeBro-Filename": getFaceCropFilename(state.file, faceCrop.type),
+        "X-MemeBro-Selected-Face": JSON.stringify(selectedFace),
+        "X-MemeBro-Selected-Faces": JSON.stringify(selectedFaces),
+        "X-MemeBro-Face-Crop": JSON.stringify(faceCrop.bounds),
+        "X-MemeBro-Template": state.selectedTemplateId || "",
+        "X-MemeBro-Meme-Text": state.editor.overlayText || "",
+        "X-MemeBro-Text-Style": JSON.stringify({
+          fontKey: state.editor.overlayFontKey,
+          fontPx: state.editor.overlayFontPx,
+          textColor: state.editor.overlayTextColor,
+          outlineEnabled: state.editor.overlayOutlineEnabled,
+          outlineColor: state.editor.overlayOutlineColor,
+        }),
+      },
+      body: faceCrop.blob,
+      signal: state.faceSwapAbortController.signal,
+    });
+  } finally {
     stopFaceSwapLoadingState();
-  });
+  }
 
   if (response.ok) {
     const payload = await response.json().catch(() => ({}));
@@ -2476,6 +2613,8 @@ export const __testHooks = {
   finishInlineTextEdit,
   startFaceSwapLoadingState,
   stopFaceSwapLoadingState,
+  getFaceCropBounds,
+  extractFaceCrop,
   syncMemeTextAppearance,
   fitMemeTextToCanvas,
   updateEditorTextSetting,
