@@ -168,3 +168,5 @@ dist
 
 # Generated browser assets
 public/.generated/
+
+.DS_Store
