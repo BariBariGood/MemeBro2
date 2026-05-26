@@ -23,160 +23,31 @@ import {
 } from "./lib/upload.js";
 import adapter from "./lib/faceDetect.js";
 
-const STATES = {
-  IDLE: "idle",
-  LOADING_IMAGE: "loading-image",
-  DETECTING: "detecting",
-  FACES_FOUND: "faces-found",
-  ERROR: "error",
-  READY: "ready",
-};
-
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-]);
-
-const DETECTION_TIMEOUT_MS = 5000;
-const FACE_BOX_TAP_TARGET = 48;
-const DETECTION_TILE_OVERLAP = 0.18;
-const DETECTION_TILE_MAX_EDGE = 900;
-const DETECTION_TILE_MAX_PASSES = 12;
-const DETECTION_DUPLICATE_OVERLAP = 0.45;
-const MEDIAPIPE_WASM_PATH = "/.generated/mediapipe/wasm";
-const MEDIAPIPE_FACE_MODEL_PATH = "/.generated/mediapipe/models/blaze_face_short_range.tflite";
-const FACE_CROP_DEFAULT_TYPE = "image/jpeg";
-const FACE_CROP_QUALITY = 0.92;
-
-const DETECTION_FAILURE_MESSAGES = {
-  DETECTOR_UNAVAILABLE: "Face detection could not load in this browser. Use manual fit to line up the face.",
-  DETECTION_FAILED: "Face detection could not find a usable face. Use manual fit or try another photo.",
-  DETECTION_TIMEOUT: "Face detection took too long. Use manual fit or try another photo.",
-  NO_FACE_DETECTED: "No face detected. Use manual fit or try another photo.",
-};
-
-const DEFAULT_MEME_TEXT = "TAP TO EDIT TEXT";
-const EDITOR_HISTORY_STORAGE_KEY = "meme-editor-history";
-const DEFAULT_MEME_FONT_KEY = "arial";
-const DEFAULT_MEME_FONT_SIZE_MODE = "default";
-const DEFAULT_MEME_TEXT_COLOR = "black";
-const DEFAULT_MEME_OUTLINE_ENABLED = false;
-const DEFAULT_MEME_OUTLINE_COLOR = "#ffffff";
-
-const MEME_FONT_OPTIONS = {
-  arial: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
-  impact: 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif',
-  "arial-black": '"Arial Black", Gadget, sans-serif',
-  "comic-sans": '"Comic Sans MS", "Comic Sans", cursive',
-  "times-new-roman": '"Times New Roman", Times, serif',
-  "trebuchet-ms": '"Trebuchet MS", Helvetica, sans-serif',
-  georgia: "Georgia, serif",
-  verdana: "Verdana, Geneva, sans-serif",
-  tahoma: "Tahoma, Geneva, sans-serif",
-  "courier-new": '"Courier New", Courier, monospace',
-  "lucida-console": '"Lucida Console", Monaco, monospace',
-  palatino: '"Palatino Linotype", Palatino, serif',
-  "gill-sans": '"Gill Sans", "Gill Sans MT", Calibri, sans-serif',
-  optima: "Optima, Segoe, sans-serif",
-};
-
-const MEME_TEXT_COLORS = {
-  black: "#000000",
-  white: "#ffffff",
-  red: "#d62828",
-  blue: "#2563eb",
-  yellow: "#ffd60a",
-};
-
-const MEME_FONT_SIZE_SCALES = {
-  default: 1,
-  small: 0.6,
-};
-
-
-
-const state = {
-  status: STATES.IDLE,
-  faces: [],
-  selectedFaceId: null,
-  selectedFaceIds: [],
-  error: null,
-  imageBitmap: null,
-  previewUrl: "",
-  file: null,
-  sequence: 0,
-  detectorAvailable: true,
-  usedDetectedFace: false,
-  manualMode: false,
-  manualScale: 1,
-  manualRotation: 0,
-  manualOffsetX: 0,
-  manualOffsetY: 0,
-  dragPointerId: null,
-  dragStartX: 0,
-  dragStartY: 0,
-  dragOriginOffsetX: 0,
-  dragOriginOffsetY: 0,
-  textDragPointerId: null,
-  textResizePointerId: null,
-  textPointerStartX: 0,
-  textPointerStartY: 0,
-  textStartX: 50,
-  textStartY: 80,
-  textStartWidth: 48,
-  textDidDrag: false,
-  cameraStream: null,
-  cameraFacingMode: "user",
-  cameraReviewFile: null,
-  cameraReviewUrl: "",
-  templateCatalog: [],
-  selectedTemplateId: null,
-  activeTemplateTab: "trending",
-  templateSearchQuery: "",
-  uploadModalOpen: false,
-  view: "home",
-  isEditingMemeText: false,
-  isSubmittingFaceSwap: false,
-  showSlowFaceSwapMessage: false,
-  faceSwapAbortController: null,
-  faceSwapSlowTimer: null,
-  showResetConfirmation: false,
-  showBackConfirmation: false,
-  isTextSelected: false,
-  isTextLocked: false,
-  showTextMore: false,
-  clipboardText: "",
-  textLink: "",
-  editor: {
-    templateImage: "",
-    generatedImage: "",
-    overlayText: DEFAULT_MEME_TEXT,
-    overlayFontKey: DEFAULT_MEME_FONT_KEY,
-    overlaySizeMode: DEFAULT_MEME_FONT_SIZE_MODE,
-    overlayFontPx: 22,
-    overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
-    overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
-    overlayOutlineColor: DEFAULT_MEME_OUTLINE_COLOR,
-    overlayBold: false,
-    overlayItalic: false,
-    overlayUnderline: false,
-    overlayAutoScale: 1,
-    overlayX: 50,
-    overlayY: 80,
-    overlayWidthPct: 48,
-    overlayRotation: 0,
-    overlayVisible: false,
-    frozenTextItems: [],
-    historyStack: [],
-    futureStack: [],
-    initialSnapshot: null,
-  },
-};
-
-const RECENTS_STORAGE_KEY = "meme-template-recents";
+import {
+  STATES,
+  ALLOWED_TYPES,
+  DETECTION_TIMEOUT_MS,
+  FACE_BOX_TAP_TARGET,
+  DETECTION_TILE_OVERLAP,
+  DETECTION_TILE_MAX_EDGE,
+  DETECTION_TILE_MAX_PASSES,
+  DETECTION_DUPLICATE_OVERLAP,
+  MEDIAPIPE_WASM_PATH,
+  MEDIAPIPE_FACE_MODEL_PATH,
+  DETECTION_FAILURE_MESSAGES,
+  DEFAULT_MEME_TEXT,
+  EDITOR_HISTORY_STORAGE_KEY,
+  DEFAULT_MEME_FONT_KEY,
+  DEFAULT_MEME_FONT_SIZE_MODE,
+  DEFAULT_MEME_TEXT_COLOR,
+  DEFAULT_MEME_OUTLINE_ENABLED,
+  DEFAULT_MEME_OUTLINE_COLOR,
+  MEME_FONT_OPTIONS,
+  MEME_TEXT_COLORS,
+  MEME_FONT_SIZE_SCALES,
+  RECENTS_STORAGE_KEY,
+} from "./lib/constants.js";
+import { state } from "./lib/state.js";
 
 function setStatus(next) {
   state.status = next;
