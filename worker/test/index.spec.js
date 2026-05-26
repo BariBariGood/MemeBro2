@@ -1,6 +1,7 @@
 import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src";
+import { encodePNG } from "../src/pngUtil.js";
 
 const testEnv = {
   OPENAI_API_KEY: "sk-test123",
@@ -21,6 +22,19 @@ function fakeJpeg(size = 1024) {
   view[1] = 0xd8;
   view[2] = 0xff;
   return buf;
+}
+
+async function fakePng(width = 64, height = 64) {
+  const rgba = new Uint8Array(width * height * 4);
+  rgba.fill(255);
+  return encodePNG(width, height, rgba);
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }
 
 beforeEach(() => {
@@ -90,6 +104,70 @@ describe("MemeBro API gateway", () => {
     await expect(response.json()).resolves.toEqual({ result: "ok" });
     expect(mockFetch).toHaveBeenCalledWith(
       "https://face.example/api/face-swap",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
+  it("runs local face compositing when a cropped face upload includes crop metadata", async () => {
+    const generatedPng = await fakePng(32, 32);
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ b64_json: arrayBufferToBase64(generatedPng) }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const cropPng = await fakePng(80, 80);
+    const templatePng = await fakePng(128, 128);
+    const assets = {
+      fetch: vi.fn(async (request) => {
+        const url = new URL(request.url);
+        if (url.pathname === "/templates.json") {
+          return new Response(
+            JSON.stringify({
+              templates: [
+                {
+                  id: "drake",
+                  templateImage: "/assets/memes/drake.png",
+                  faceRegions: [{ x: 10, y: 10, width: 40, height: 40 }],
+                  images: { width: 128, height: 128 },
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        if (url.pathname === "/assets/memes/drake.png") {
+          return new Response(templatePng, {
+            status: 200,
+            headers: { "content-type": "image/png" },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    };
+
+    const request = new Request("http://example.com/api/process?mode=face_swap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/png",
+        "X-MemeBro-Filename": "face.png",
+        "X-MemeBro-Face-Crop": JSON.stringify({ x: 0, y: 0, width: 80, height: 80 }),
+        "X-MemeBro-Template": "drake",
+        "X-MemeBro-Meme-Text": "test meme",
+      },
+      body: cropPng,
+    });
+
+    const response = await worker.fetch(request, { ...testEnv, ASSETS: assets }, createExecutionContext());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.generatedImageUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.mode).toBe("face_swap");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/images/edits",
       expect.objectContaining({ method: "POST" })
     );
   });
