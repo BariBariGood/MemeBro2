@@ -1,15 +1,10 @@
 /**
  * @module textRenderer
- * Renders meme caption text onto a transparent PNG suitable for compositing.
- *
- * Canvas API is unavailable in Cloudflare Workers; this module uses a pure-JS
- * 8×8 bitmap font and CompressionStream('deflate') for zlib-wrapped PNG IDAT.
- *
- * Canvas size: bbox.width × rendered text height (numLines × lineHeight).
- * The compositor places this overlay at bbox.x/bbox.y on the template canvas.
+ * Renders meme caption text onto a transparent PNG (pure-JS 8×8 bitmap font; no Canvas API).
  */
 
-// 8×8 pixel font for printable ASCII 0x20–0x7E (95 chars × 8 bytes = 760 bytes).
+import { encodePNG } from "./pngUtil.js";
+
 const FONT_DATA = new Uint8Array([
   /* 0x20 ' '  */ 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
   /* 0x21 '!'  */ 0x18,0x3C,0x3C,0x18,0x18,0x00,0x18,0x00,
@@ -111,86 +106,6 @@ const FONT_BASE = 0x20;
 const FONT_HEIGHT = 8;
 const FONT_WIDTH = 8;
 
-const CRC_TABLE = (() => {
-  const t = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-    t[i] = c;
-  }
-  return t;
-})();
-
-function crc32(data) {
-  let crc = 0xffffffff;
-  for (let i = 0; i < data.length; i++) crc = CRC_TABLE[(crc ^ data[i]) & 0xff] ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
-}
-
-function concatU8(...arrays) {
-  const total = arrays.reduce((s, a) => s + a.length, 0);
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const a of arrays) { out.set(a, off); off += a.length; }
-  return out;
-}
-
-function u32be(n) {
-  const b = new Uint8Array(4);
-  new DataView(b.buffer).setUint32(0, n, false);
-  return b;
-}
-
-function pngChunk(type, data) {
-  const typeBytes = new TextEncoder().encode(type);
-  const crcInput = concatU8(typeBytes, data);
-  return concatU8(u32be(data.length), typeBytes, data, u32be(crc32(crcInput)));
-}
-
-async function zlibDeflate(input) {
-  const cs = new CompressionStream("deflate");
-  const writer = cs.writable.getWriter();
-  const reader = cs.readable.getReader();
-  writer.write(input);
-  writer.close();
-  const chunks = [];
-  let done, value;
-  while ({ done, value } = await reader.read(), !done) chunks.push(value);
-  return concatU8(...chunks);
-}
-
-/**
- * Encodes an RGBA pixel buffer as a PNG ArrayBuffer.
- * @param {number} width
- * @param {number} height
- * @param {Uint8Array} rgba - width*height*4 bytes, row-major
- * @returns {Promise<ArrayBuffer>}
- */
-async function encodePNG(width, height, rgba) {
-  const sig = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-
-  const ihdrData = new Uint8Array(13);
-  const dv = new DataView(ihdrData.buffer);
-  dv.setUint32(0, width, false);
-  dv.setUint32(4, height, false);
-  ihdrData[8] = 8; ihdrData[9] = 6;
-
-  const scanlines = new Uint8Array(height * (1 + width * 4));
-  for (let y = 0; y < height; y++) {
-    scanlines[y * (1 + width * 4)] = 0;
-    scanlines.set(rgba.subarray(y * width * 4, (y + 1) * width * 4), y * (1 + width * 4) + 1);
-  }
-
-  const compressed = await zlibDeflate(scanlines);
-  return concatU8(
-    sig,
-    pngChunk("IHDR", ihdrData),
-    pngChunk("IDAT", compressed),
-    pngChunk("IEND", new Uint8Array(0)),
-  ).buffer;
-}
-
-
 function isEmoji(cp) {
   return (
     (cp >= 0x1f300 && cp <= 0x1faff) ||
@@ -252,7 +167,6 @@ function drawChar(buf, canvasW, canvasH, glyph, emoji, originX, originY, scale, 
   const ink = inkPixels(glyph, emoji, scale);
   const swSq = sw * sw;
 
-  // Stroke pass (white outline)
   for (let i = 0; i < ink.length; i += 2) {
     const px = ink[i], py = ink[i + 1];
     for (let dy = -sw; dy <= sw; dy++) {
@@ -262,13 +176,11 @@ function drawChar(buf, canvasW, canvasH, glyph, emoji, originX, originY, scale, 
       }
     }
   }
-  // Fill pass (black text)
   for (let i = 0; i < ink.length; i += 2)
     setPixel(buf, canvasW, canvasH, originX + ink[i], originY + ink[i + 1], fc.r, fc.g, fc.b, 255);
 }
 
 
-/** Character count of a string, handling surrogate pairs. */
 function charCount(str) {
   return [...str].length;
 }
@@ -290,7 +202,6 @@ function wrapLines(text, maxWidth, charW) {
     let line = "";
     for (const word of words) {
       if (charCount(word) * charW > maxWidth && line) {
-        // word alone exceeds width — flush current line first
         result.push(line);
         line = "";
       }
@@ -316,8 +227,8 @@ function wrapLines(text, maxWidth, charW) {
  * stroke color at the outline and fill color at the glyph interior.
  *
  * @param {Object} opts
- * @param {string} opts.text - Caption text; may contain `\n` for explicit breaks.
- * @param {number} opts.fontSize - Desired font size in pixels (snapped to 8px scale steps).
+ * @param {string} opts.text
+ * @param {number} opts.fontSize
  * @param {{ x: number, y: number, width: number, height: number }} opts.bbox
  *   Bounding box on the template. `width` drives wrapping; `x`/`y` are for the compositor.
  * @param {"center"|"left"} [opts.align="center"] - Horizontal alignment within bbox.
@@ -346,10 +257,9 @@ export async function renderTextOverlay({
 
   const canvasW = bbox.width;
   const lines = text === "" ? [] : wrapLines(text, canvasW, charW);
-  // Extra vertical padding so top/bottom stroke is not clipped
   const canvasH = lines.length === 0 ? 1 : lines.length * lineHeight + sw * 2;
 
-  const buf = new Uint8Array(canvasW * canvasH * 4); // all transparent
+  const buf = new Uint8Array(canvasW * canvasH * 4);
   const sc = parseHex(strokeColor);
   const fc = parseHex(fillColor);
 

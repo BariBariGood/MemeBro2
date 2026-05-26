@@ -12,6 +12,7 @@ export const ErrorCodes = {
     INVALID_MODE: "INVALID_MODE",
     SERVER_ERROR: "SERVER_ERROR",
     CLIENT_ERROR: "CLIENT_ERROR",
+    EXPORT_TOO_LARGE: "EXPORT_TOO_LARGE",
   };
   
   /**

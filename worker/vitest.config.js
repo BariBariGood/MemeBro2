@@ -8,6 +8,7 @@ export default defineWorkersConfig({
 			"test/callManager.test.js",
 			"test/validator.test.js",
 			"test/textRenderer.test.js",
+			"test/imageExporter.test.js",
 		],
 		poolOptions: {
 			workers: {
