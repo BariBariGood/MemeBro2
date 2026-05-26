@@ -10,6 +10,8 @@ export default defineWorkersConfig({
 			"test/healthCheck.test.js",
 			"test/requestQueue.test.js",
 			"test/fallback.test.js",
+			"test/textRenderer.test.js",
+			"test/imageExporter.test.js",
 		],
 		poolOptions: {
 			workers: {
