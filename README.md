@@ -16,6 +16,7 @@ cse110-sp26-group17-MemeBro/
 ├── docs/                  # Project documentation, wireframes, and ADRs
 │   └── ADRs/              # Architecture Decision Records (0001-0006)
 ├── public/                # FRONTEND: HTML, CSS, client-side JS
+├── scripts/               # UTILITIES: Build and asset import scripts
 ├── src/                   # BACKEND: Cloudflare Worker API gateway
 └── test/                  # TESTING: Vitest test suites
 ```
