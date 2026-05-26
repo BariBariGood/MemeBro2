@@ -18,6 +18,7 @@ import {
   handleImageRequest,
 } from "./openai/image.js";
 import { enqueueRequest } from "./requestQueue.js";
+import { compositeImage } from "./image-compositor.js";
 import { MAX_FILE_SIZE, sanitizeFilename, validateUpload } from "./validator.js";
 
 const GATEWAY_PATH = "/api/process";
@@ -181,6 +182,9 @@ function prepareImageOutbound(request, buffer) {
     mode: getMode(request),
     payload: null,
     isJson: false,
+    buffer,
+    mimeType,
+    requestHeaders: request.headers,
     options: {
       method: "POST",
       headers: {
@@ -235,6 +239,117 @@ function shouldUseLocalImageGeneration(mode, env) {
   return !hasExtraRoastUrl && !hasImageGenUrl;
 }
 
+function shouldUseLocalFaceSwap(mode, isJson, requestHeaders) {
+  return mode === "face_swap" && !isJson && Boolean(requestHeaders?.get("X-MemeBro-Face-Crop"));
+}
+
+async function handleLocalFaceSwap({ buffer, mimeType, requestHeaders }, env) {
+  const selectedTemplateId = requestHeaders.get("X-MemeBro-Template") || "";
+  const faceCropBounds = parseJsonHeader(requestHeaders, "X-MemeBro-Face-Crop") || {};
+  const textOptions = parseJsonHeader(requestHeaders, "X-MemeBro-Text-Style") || {};
+  const memeText = requestHeaders.get("X-MemeBro-Meme-Text") || "TAP TO EDIT TEXT";
+  const templateImage = await loadTemplateImage(selectedTemplateId, env);
+  const faceRegion = getTemplateFaceRegion(templateImage.template);
+
+  const result = await compositeImage({
+    templateImage,
+    faceCrop: {
+      b64: arrayBufferToBase64(buffer),
+      mimeType,
+      width: Number(faceCropBounds.width),
+      height: Number(faceCropBounds.height),
+      bounds: faceCropBounds,
+    },
+    text: memeText,
+    faceRegion,
+    textOptions,
+    env,
+  });
+
+  if (result instanceof Response) return result;
+  return jsonResponse(result);
+}
+
+function parseJsonHeader(headers, name) {
+  const raw = headers.get(name);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const err = new Error(`Invalid ${name} header`);
+    err.code = ErrorCodes.CLIENT_ERROR;
+    err.retryable = false;
+    throw err;
+  }
+}
+
+async function loadTemplateImage(templateId, env) {
+  if (!env?.ASSETS?.fetch) {
+    const err = new Error("Static assets are required for local face compositing");
+    err.code = ErrorCodes.CLIENT_ERROR;
+    err.retryable = false;
+    throw err;
+  }
+
+  const catalogResponse = await env.ASSETS.fetch(new Request("https://assets.local/templates.json"));
+  if (!catalogResponse.ok) {
+    const err = new Error("Template catalog could not be loaded");
+    err.code = ErrorCodes.SERVER_ERROR;
+    err.retryable = true;
+    throw err;
+  }
+
+  const catalog = await catalogResponse.json();
+  const template = catalog.templates?.find((entry) => entry.id === templateId);
+  if (!template) {
+    const err = new Error("Selected template was not found");
+    err.code = ErrorCodes.CLIENT_ERROR;
+    err.retryable = false;
+    throw err;
+  }
+
+  const imagePath = template.templateImage || template.images?.main || template.previewImage;
+  const imageResponse = await env.ASSETS.fetch(new Request(`https://assets.local${imagePath}`));
+  if (!imageResponse.ok) {
+    const err = new Error("Template image could not be loaded");
+    err.code = ErrorCodes.SERVER_ERROR;
+    err.retryable = true;
+    throw err;
+  }
+
+  const mimeType = imageResponse.headers.get("content-type")?.split(";")[0] || "image/png";
+  const buffer = await imageResponse.arrayBuffer();
+  return {
+    template,
+    b64: arrayBufferToBase64(buffer),
+    mimeType,
+    width: template.images?.width,
+    height: template.images?.height,
+    path: imagePath,
+  };
+}
+
+function getTemplateFaceRegion(template) {
+  const region = template?.faceRegions?.[0];
+  if (!region) {
+    const err = new Error("Selected template does not define a face region");
+    err.code = ErrorCodes.CLIENT_ERROR;
+    err.retryable = false;
+    throw err;
+  }
+  return region;
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
 /**
  * Handles the MemeBro API gateway route.
  *
@@ -251,7 +366,8 @@ export async function handleGatewayRequest(request, env) {
       );
     }
 
-    const { mode, options, payload, isJson } = await prepareOutboundRequest(request);
+    const prepared = await prepareOutboundRequest(request);
+    const { mode, options, payload, isJson } = prepared;
 
     // Fallback strategy (issue #33): refuse the request early when the
     // upstream powering this mode is currently unhealthy. The client sees a
@@ -261,6 +377,10 @@ export async function handleGatewayRequest(request, env) {
 
     if (isJson && shouldUseLocalImageGeneration(mode, env)) {
       return enqueueRequest(() => buildImageResponseFromBody(payload ?? {}, env));
+    }
+
+    if (shouldUseLocalFaceSwap(mode, isJson, prepared.requestHeaders)) {
+      return handleLocalFaceSwap(prepared, env);
     }
 
     // Request queue (issue #34): smooths bursts above 10 req/s and applies
