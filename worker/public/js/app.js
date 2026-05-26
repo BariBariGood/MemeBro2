@@ -1,254 +1,21 @@
 import {
   FaceDetector as MediaPipeFaceDetector,
   FilesetResolver,
-} from "./.generated/mediapipe/vision_bundle.mjs";
-
-const STATES = {
-  IDLE: "idle",
-  LOADING_IMAGE: "loading-image",
-  DETECTING: "detecting",
-  FACES_FOUND: "faces-found",
-  ERROR: "error",
-  READY: "ready",
-};
-
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-]);
-
-const DETECTION_TIMEOUT_MS = 5000;
-const FACE_BOX_TAP_TARGET = 48;
-const DETECTION_TILE_OVERLAP = 0.18;
-const DETECTION_TILE_MAX_EDGE = 900;
-const DETECTION_TILE_MAX_PASSES = 12;
-const DETECTION_DUPLICATE_OVERLAP = 0.45;
-const MEDIAPIPE_WASM_PATH = "/.generated/mediapipe/wasm";
-const MEDIAPIPE_FACE_MODEL_PATH = "/.generated/mediapipe/models/blaze_face_short_range.tflite";
-
-const DETECTION_FAILURE_MESSAGES = {
-  DETECTOR_UNAVAILABLE: "Face detection could not load in this browser. Use manual fit to line up the face.",
-  DETECTION_FAILED: "Face detection could not find a usable face. Use manual fit or try another photo.",
-  DETECTION_TIMEOUT: "Face detection took too long. Use manual fit or try another photo.",
-  NO_FACE_DETECTED: "No face detected. Use manual fit or try another photo.",
-};
-
-const DEFAULT_MEME_TEXT = "TAP TO EDIT TEXT";
-const EDITOR_HISTORY_STORAGE_KEY = "meme-editor-history";
-const DEFAULT_MEME_FONT_KEY = "arial";
-const DEFAULT_MEME_FONT_SIZE_MODE = "default";
-const DEFAULT_MEME_TEXT_COLOR = "black";
-const DEFAULT_MEME_OUTLINE_ENABLED = false;
-const DEFAULT_MEME_OUTLINE_COLOR = "#ffffff";
-
-const MEME_FONT_OPTIONS = {
-  arial: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
-  impact: 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif',
-  "arial-black": '"Arial Black", Gadget, sans-serif',
-  "comic-sans": '"Comic Sans MS", "Comic Sans", cursive',
-  "times-new-roman": '"Times New Roman", Times, serif',
-  "trebuchet-ms": '"Trebuchet MS", Helvetica, sans-serif',
-  georgia: "Georgia, serif",
-  verdana: "Verdana, Geneva, sans-serif",
-  tahoma: "Tahoma, Geneva, sans-serif",
-  "courier-new": '"Courier New", Courier, monospace',
-  "lucida-console": '"Lucida Console", Monaco, monospace',
-  palatino: '"Palatino Linotype", Palatino, serif',
-  "gill-sans": '"Gill Sans", "Gill Sans MT", Calibri, sans-serif',
-  optima: "Optima, Segoe, sans-serif",
-};
-
-const MEME_TEXT_COLORS = {
-  black: "#000000",
-  white: "#ffffff",
-  red: "#d62828",
-  blue: "#2563eb",
-  yellow: "#ffd60a",
-};
-
-const MEME_FONT_SIZE_SCALES = {
-  default: 1,
-  small: 0.6,
-};
-
-const dom = {
-  uploadPage: document.querySelector(".upload-page"),
-  titleScreen: document.getElementById("title-screen"),
-  titleStartCta: document.getElementById("title-start-cta"),
-  topbar: document.querySelector(".topbar"),
-  backBtn: document.querySelector(".back-btn"),
-  ctaRow: document.querySelector(".cta-row"),
-  selectedTemplateLabel: document.getElementById("selected-template-label"),
-  studioScreen: document.getElementById("studio-screen"),
-  studioTemplateArt: document.getElementById("studio-template-art"),
-  studioTemplateImage: document.getElementById("studio-template-image"),
-  studioTemplateInitials: document.getElementById("studio-template-initials"),
-  studioTemplateRegions: document.getElementById("studio-template-regions"),
-  memeTextPreview: document.getElementById("meme-text-preview"),
-  memeTextHint: document.getElementById("meme-text-hint"),
-  addTextCta: document.getElementById("add-text-cta"),
-  memeTextDragHandle: document.getElementById("meme-text-drag-handle"),
-  memeTextDelete: document.getElementById("meme-text-delete"),
-  memeTextRotateHandle: document.getElementById("meme-text-rotate-handle"),
-  memeTextResizeHandle: document.getElementById("meme-text-resize-handle"),
-  textToolbar: document.getElementById("text-toolbar"),
-  textLocalControls: document.getElementById("text-local-controls"),
-  textDuplicateCta: document.getElementById("text-duplicate-cta"),
-  textLockCta: document.getElementById("text-lock-cta"),
-  textSizeDecCta: document.getElementById("text-size-dec-cta"),
-  textSizeIncCta: document.getElementById("text-size-inc-cta"),
-  textStyleBoldCta: document.getElementById("text-style-bold-cta"),
-  textStyleItalicCta: document.getElementById("text-style-italic-cta"),
-  textStyleUnderlineCta: document.getElementById("text-style-underline-cta"),
-  textMoreCta: document.getElementById("text-more-cta"),
-  textCopyCta: document.getElementById("text-copy-cta"),
-  textPasteCta: document.getElementById("text-paste-cta"),
-  textLinkCta: document.getElementById("text-link-cta"),
-  textMoreMenu: document.getElementById("text-more-menu"),
-  memeFontSelect: document.getElementById("meme-font-select"),
-  memeFontSizeInput: document.getElementById("meme-font-size-input"),
-  memeTextColorInput: document.getElementById("meme-text-color-input"),
-  memeOutlineColorInput: document.getElementById("meme-outline-color-input"),
-  outlineColorGroup: document.querySelector(".toolbar-color-group--outline"),
-  memeOutlineRemoveCta: document.getElementById("meme-outline-remove-cta"),
-  undoCta: document.getElementById("undo-cta"),
-  redoCta: document.getElementById("redo-cta"),
-  resetCta: document.getElementById("reset-cta"),
-  resetConfirmation: document.getElementById("reset-confirmation"),
-  resetConfirmationBackdrop: document.getElementById("reset-confirmation-backdrop"),
-  resetCancelCta: document.getElementById("reset-cancel-cta"),
-  resetConfirmCta: document.getElementById("reset-confirm-cta"),
-  backConfirmation: document.getElementById("back-confirmation"),
-  backConfirmationBackdrop: document.getElementById("back-confirmation-backdrop"),
-  backCancelCta: document.getElementById("back-cancel-cta"),
-  backConfirmCta: document.getElementById("back-confirm-cta"),
-  openUploadModalCta: document.getElementById("open-upload-modal-cta"),
-  uploadModal: document.getElementById("upload-modal"),
-  uploadModalBackdrop: document.getElementById("upload-modal-backdrop"),
-  uploadModalClose: document.getElementById("upload-modal-close"),
-  cameraCta: document.getElementById("camera-cta"),
-  cameraSnapCta: document.getElementById("camera-snap-cta"),
-  cameraCloseCta: document.getElementById("camera-close-cta"),
-  cameraFlipCta: document.getElementById("camera-flip-cta"),
-  cameraCancelCta: document.getElementById("camera-cancel-cta"),
-  libraryCta: document.getElementById("library-cta"),
-  cameraInput: document.getElementById("camera-input"),
-  libraryInput: document.getElementById("library-input"),
-  cameraShell: document.getElementById("camera-shell"),
-  cameraVideo: document.getElementById("camera-video"),
-  reviewShell: document.getElementById("review-shell"),
-  reviewImage: document.getElementById("review-image"),
-  reviewCloseCta: document.getElementById("review-close-cta"),
-  retakeCta: document.getElementById("retake-cta"),
-  usePhotoCta: document.getElementById("use-photo-cta"),
-  progressWrap: document.getElementById("progress-wrap"),
-  progressBar: document.getElementById("progress-bar"),
-  progressLabel: document.getElementById("progress-label"),
-  overlayShell: document.getElementById("overlay-shell"),
-  previewImage: document.getElementById("preview-image"),
-  overlayLayer: document.getElementById("overlay-layer"),
-  statusText: document.getElementById("status-text"),
-  manualFitCta: document.getElementById("manual-fit-cta"),
-  errorState: document.getElementById("error-state"),
-  errorMessage: document.getElementById("error-message"),
-  templateScreen: document.getElementById("template-screen"),
-  templateSearch: document.getElementById("template-search"),
-  templateTabs: document.getElementById("template-tabs"),
-  templateGrid: document.getElementById("template-grid"),
-  templateEmpty: document.getElementById("template-empty"),
-  continueBtn: document.getElementById("continue-btn"),
-  manualOverlay: document.getElementById("manual-overlay"),
-  manualCircle: document.getElementById("manual-circle"),
-  manualControls: document.getElementById("manual-controls"),
-  manualZoom: document.getElementById("manual-zoom"),
-  manualRotation: document.getElementById("manual-rotation"),
-  faceSwapLoader: document.getElementById("face-swap-loader"),
-  faceSwapLoaderDelay: document.getElementById("face-swap-loader-delay"),
-  faceSwapLoaderCancel: document.getElementById("face-swap-loader-cancel"),
-};
-
-const state = {
-  status: STATES.IDLE,
-  faces: [],
-  selectedFaceId: null,
-  selectedFaceIds: [],
-  error: null,
-  imageBitmap: null,
-  previewUrl: "",
-  file: null,
-  sequence: 0,
-  detectorAvailable: true,
-  usedDetectedFace: false,
-  manualMode: false,
-  manualScale: 1,
-  manualRotation: 0,
-  manualOffsetX: 0,
-  manualOffsetY: 0,
-  dragPointerId: null,
-  dragStartX: 0,
-  dragStartY: 0,
-  dragOriginOffsetX: 0,
-  dragOriginOffsetY: 0,
-  textDragPointerId: null,
-  textResizePointerId: null,
-  textPointerStartX: 0,
-  textPointerStartY: 0,
-  textStartX: 50,
-  textStartY: 80,
-  textStartWidth: 48,
-  textDidDrag: false,
-  cameraStream: null,
-  cameraFacingMode: "user",
-  cameraReviewFile: null,
-  cameraReviewUrl: "",
-  templateCatalog: [],
-  selectedTemplateId: null,
-  activeTemplateTab: "trending",
-  templateSearchQuery: "",
-  uploadModalOpen: false,
-  view: "home",
-  isEditingMemeText: false,
-  isSubmittingFaceSwap: false,
-  showSlowFaceSwapMessage: false,
-  faceSwapAbortController: null,
-  faceSwapSlowTimer: null,
-  showResetConfirmation: false,
-  showBackConfirmation: false,
-  isTextSelected: false,
-  isTextLocked: false,
-  showTextMore: false,
-  clipboardText: "",
-  textLink: "",
-  editor: {
-    templateImage: "",
-    generatedImage: "",
-    overlayText: DEFAULT_MEME_TEXT,
-    overlayFontKey: DEFAULT_MEME_FONT_KEY,
-    overlaySizeMode: DEFAULT_MEME_FONT_SIZE_MODE,
-    overlayFontPx: 22,
-    overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
-    overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
-    overlayOutlineColor: DEFAULT_MEME_OUTLINE_COLOR,
-    overlayBold: false,
-    overlayItalic: false,
-    overlayUnderline: false,
-    overlayAutoScale: 1,
-    overlayX: 50,
-    overlayY: 80,
-    overlayWidthPct: 48,
-    overlayRotation: 0,
-    overlayVisible: false,
-    frozenTextItems: [],
-    historyStack: [],
-    futureStack: [],
-    initialSnapshot: null,
-  },
-};
-
-const RECENTS_STORAGE_KEY = "meme-template-recents";
+} from "../.generated/mediapipe/vision_bundle.mjs";
+import {
+  STATES, ALLOWED_TYPES,
+  DETECTION_TIMEOUT_MS, FACE_BOX_TAP_TARGET,
+  DETECTION_TILE_OVERLAP, DETECTION_TILE_MAX_EDGE,
+  DETECTION_TILE_MAX_PASSES, DETECTION_DUPLICATE_OVERLAP,
+  MEDIAPIPE_WASM_PATH, MEDIAPIPE_FACE_MODEL_PATH,
+  DETECTION_FAILURE_MESSAGES,
+  DEFAULT_MEME_TEXT, EDITOR_HISTORY_STORAGE_KEY,
+  DEFAULT_MEME_FONT_KEY, DEFAULT_MEME_FONT_SIZE_MODE,
+  DEFAULT_MEME_TEXT_COLOR, DEFAULT_MEME_OUTLINE_ENABLED, DEFAULT_MEME_OUTLINE_COLOR,
+  MEME_FONT_OPTIONS, MEME_TEXT_COLORS, MEME_FONT_SIZE_SCALES,
+  RECENTS_STORAGE_KEY, ROTATE_STEP,
+} from "./constants.js";
+import { dom, state } from "./state.js";
 
 function createFaceDetectionAdapter() {
   let detector = null;
@@ -1846,9 +1613,6 @@ function endTextDrag(event) {
     }, 0);
   }
 }
-
-// Rotation now works as a discrete 90-degree step: click the handle to advance.
-const ROTATE_STEP = 90;
 
 function rotateTextOneStep(event) {
   if (!state.editor.overlayVisible || state.isTextLocked) return;
