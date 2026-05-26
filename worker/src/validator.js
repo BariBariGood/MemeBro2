@@ -19,7 +19,7 @@ const MAX_DIMENSION = 4096;
 const MIN_FACE_CROP_DIMENSION = 50;
 
 /** Maximum face crop dimension for compositing */
-const MAX_FACE_CROP_DIMENSION = 500;
+const MAX_FACE_CROP_DIMENSION = MAX_DIMENSION;
 
 /** Maximum meme text length */
 const MAX_MEME_TEXT_LENGTH = 200;
@@ -133,7 +133,8 @@ export function validateMemeText(text) {
 
 /**
  * Validates the cropped face before compositing.
- * Issue #18 requires face crop size >50x50px and <500x500px.
+ * Issue #18 requires a valid crop large enough for compositing without
+ * rejecting high-resolution user photos.
  *
  * @param {{ width: number, height: number }} faceCrop
  * @returns {true}

@@ -1312,6 +1312,7 @@ function extractGeneratedImageUrl(payload) {
     || payload?.compositedImage
     || payload?.outputUrl
     || payload?.url
+    || (payload?.b64 ? `data:${payload.mimeType || "image/png"};base64,${payload.b64}` : "")
     || "";
 }
 
@@ -2184,6 +2185,14 @@ async function submitSelectedFace() {
         "X-MemeBro-Selected-Faces": JSON.stringify(selectedFaces),
         "X-MemeBro-Face-Crop": JSON.stringify(faceCrop.bounds),
         "X-MemeBro-Template": state.selectedTemplateId || "",
+        "X-MemeBro-Meme-Text": state.editor.overlayText || "",
+        "X-MemeBro-Text-Style": JSON.stringify({
+          fontKey: state.editor.overlayFontKey,
+          fontPx: state.editor.overlayFontPx,
+          textColor: state.editor.overlayTextColor,
+          outlineEnabled: state.editor.overlayOutlineEnabled,
+          outlineColor: state.editor.overlayOutlineColor,
+        }),
       },
       body: faceCrop.blob,
       signal: state.faceSwapAbortController.signal,

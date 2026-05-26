@@ -1,25 +1,23 @@
 /**
  * @module imageExporter
- * Encodes a flat RGBA image as JPEG or PNG, guaranteeing output ≤ maxBytes (US-04).
+ * Encodes a flat RGBA image as PNG, guaranteeing output ≤ maxBytes (US-04).
  *
  * Encoding strategy:
- *  1. Encode at requested quality (default 85 for JPEG).
- *  2. If output exceeds maxBytes and format is JPEG: lower quality in QUALITY_STEP
- *     increments down to MIN_QUALITY (60).
- *  3. If still over limit: downscale dimensions by SCALE_FACTOR (0.75) per iteration,
- *     nearest-neighbour, stopping when both edges reach MIN_EDGE (800 px, per
- *     scenario 7.6 min 800 px width) or file fits.
- *  4. Throws EXPORT_TOO_LARGE if all strategies are exhausted.
+ *  1. Encode at native dimensions as PNG.
+ *  2. If output exceeds maxBytes, downscale by SCALE_FACTOR (0.75) per iteration
+ *     using nearest-neighbour, stopping when both edges reach MIN_EDGE (800 px,
+ *     per scenario 7.6 min 800 px width) or the file fits.
+ *  3. Throws EXPORT_TOO_LARGE if downscaling cannot bring the image under maxBytes.
+ *
+ * Note: This module is PNG-only by design. Cloudflare Workers do not ship with a
+ * JPEG encoder and pulling in a JS encoder bloats the worker bundle. PNG keeps
+ * the pipeline lossless and works for every browser MemeBro targets.
  */
 
 import { MAX_FILE_SIZE } from "./validator.js";
 import { ErrorCodes } from "./errors.js";
 import { encodePNG, decodePNG } from "./pngUtil.js";
-import jpeg from "jpeg-js";
 
-const DEFAULT_QUALITY = 85;
-const MIN_QUALITY = 60;
-const QUALITY_STEP = 10;
 export const MIN_EDGE = 800;
 const SCALE_FACTOR = 0.75;
 const MAX_SCALE_ITERS = 10;
@@ -43,18 +41,8 @@ function scaleDown(rgba, srcW, srcH, dstW, dstH) {
   return out;
 }
 
-async function encodeToBuffer(format, rgba, w, h, q) {
-  if (format === "jpeg") {
-    const encoded = jpeg.encode({ data: rgba, width: w, height: h }, q);
-    const buf = new ArrayBuffer(encoded.data.length);
-    new Uint8Array(buf).set(encoded.data);
-    return buf;
-  }
-  return encodePNG(w, h, rgba);
-}
-
 /**
- * Exports a flat RGBA image as JPEG or PNG, guaranteeing output ≤ maxBytes.
+ * Exports a flat RGBA image as a PNG ArrayBuffer, guaranteeing output ≤ maxBytes.
  *
  * @param {Object} opts
  * @param {Uint8Array|ArrayBuffer} opts.data
@@ -62,17 +50,15 @@ async function encodeToBuffer(format, rgba, w, h, q) {
  *   PNG input is detected by magic bytes and decoded automatically.
  * @param {number} opts.width  - Image width in pixels
  * @param {number} opts.height - Image height in pixels
- * @param {"jpeg"|"png"} [opts.format="jpeg"] - Output format
- * @param {number} [opts.quality=85] - JPEG quality 1–100; ignored for PNG
+ * @param {"png"} [opts.format="png"] - Only "png" is supported.
  * @param {number} [opts.maxBytes] - Size cap; defaults to MAX_FILE_SIZE (10 MB)
  * @returns {Promise<{
  *   buffer: ArrayBuffer,
- *   format: string,
- *   mimeType: string,
+ *   format: "png",
+ *   mimeType: "image/png",
  *   byteLength: number,
  *   width: number,
- *   height: number,
- *   qualityUsed?: number
+ *   height: number
  * }>}
  * @throws {Error} with code EXPORT_TOO_LARGE if the image cannot fit in maxBytes
  */
@@ -80,11 +66,10 @@ export async function exportImage({
   data,
   width,
   height,
-  format = "jpeg",
-  quality = DEFAULT_QUALITY,
+  format = "png",
   maxBytes = MAX_FILE_SIZE,
 }) {
-  if (format !== "jpeg" && format !== "png") {
+  if (format !== "png") {
     const err = new Error(`Unsupported export format: ${format}`);
     err.code = ErrorCodes.CLIENT_ERROR;
     throw err;
@@ -111,21 +96,9 @@ export async function exportImage({
     rgba = data instanceof Uint8Array ? data : new Uint8Array(data);
   }
 
-  let currentQ = Math.max(MIN_QUALITY, Math.min(100, quality));
-  let buf = await encodeToBuffer(format, rgba, w, h, currentQ);
-
+  let buf = await encodePNG(w, h, rgba);
   if (buf.byteLength <= maxBytes) {
-    return buildResult(buf, format, w, h, format === "jpeg" ? currentQ : undefined);
-  }
-
-  if (format === "jpeg") {
-    while (currentQ > MIN_QUALITY) {
-      currentQ = Math.max(MIN_QUALITY, currentQ - QUALITY_STEP);
-      buf = await encodeToBuffer(format, rgba, w, h, currentQ);
-      if (buf.byteLength <= maxBytes) {
-        return buildResult(buf, format, w, h, currentQ);
-      }
-    }
+    return buildResult(buf, w, h);
   }
 
   let scaledRgba = rgba;
@@ -146,32 +119,28 @@ export async function exportImage({
     scaledW = newW;
     scaledH = newH;
 
-    const q = format === "jpeg" ? MIN_QUALITY : currentQ;
-    buf = await encodeToBuffer(format, scaledRgba, scaledW, scaledH, q);
+    buf = await encodePNG(scaledW, scaledH, scaledRgba);
 
     if (buf.byteLength <= maxBytes) {
-      return buildResult(buf, format, scaledW, scaledH,
-        format === "jpeg" ? q : undefined);
+      return buildResult(buf, scaledW, scaledH);
     }
   }
 
   const err = new Error(
     `Cannot compress image below ${maxBytes} bytes ` +
-    `(tried JPEG quality ${MIN_QUALITY} and dimensions ${scaledW}×${scaledH})`,
+    `(PNG, downscaled to ${scaledW}×${scaledH})`,
   );
   err.code = ErrorCodes.EXPORT_TOO_LARGE;
   throw err;
 }
 
-function buildResult(buffer, format, width, height, qualityUsed) {
-  const result = {
+function buildResult(buffer, width, height) {
+  return {
     buffer,
-    format,
-    mimeType: format === "jpeg" ? "image/jpeg" : "image/png",
+    format: "png",
+    mimeType: "image/png",
     byteLength: buffer.byteLength,
     width,
     height,
   };
-  if (qualityUsed !== undefined) result.qualityUsed = qualityUsed;
-  return result;
 }
