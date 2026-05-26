@@ -5,12 +5,24 @@
  * Called by index.js before any upload reaches face detection or AI services.
  */
 import { ErrorCodes } from "./errors.js";
+
 /** Maximum allowed file size: 10 MB */
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 /** Minimum image dimension in pixels */
 const MIN_DIMENSION = 100;
+
 /** Maximum image dimension in pixels */
 const MAX_DIMENSION = 4096;
+
+/** Minimum face crop dimension for compositing */
+const MIN_FACE_CROP_DIMENSION = 50;
+
+/** Maximum face crop dimension for compositing */
+const MAX_FACE_CROP_DIMENSION = 500;
+
+/** Maximum meme text length */
+const MAX_MEME_TEXT_LENGTH = 200;
 
 /** MIME types the pipeline accepts */
 const ALLOWED_MIME_TYPES = new Set([
@@ -20,12 +32,6 @@ const ALLOWED_MIME_TYPES = new Set([
   "image/heic",
 ]);
 
-/**
- * Detects the real image format by inspecting magic bytes.
- * Prevents MIME spoofing (e.g. a PDF renamed to .jpg).
- * @param {Uint8Array} bytes - Raw file bytes
- * @returns {string|null} Detected MIME type, or null if unrecognized/corrupt
- */
 function detectMimeFromBytes(bytes) {
   if (!bytes || bytes.length < 12) return null;
 
@@ -43,10 +49,14 @@ function detectMimeFromBytes(bytes) {
   }
 
   if (
-    bytes[0] === 0x52 && bytes[1] === 0x49 && // RI
-    bytes[2] === 0x46 && bytes[3] === 0x46 && // FF
-    bytes[8] === 0x57 && bytes[9] === 0x45 && // WE
-    bytes[10] === 0x42 && bytes[11] === 0x50  // BP
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
   ) {
     return "image/webp";
   }
@@ -54,14 +64,9 @@ function detectMimeFromBytes(bytes) {
   return null;
 }
 
-/**
- * Returns true when magic bytes match a known non-image format (e.g. PDF).
- * @param {Uint8Array} bytes - Raw file bytes
- * @returns {boolean}
- */
 function isKnownNonImageContent(bytes) {
   if (!bytes || bytes.length < 4) return false;
-  // PDF: %PDF
+
   return (
     bytes[0] === 0x25 &&
     bytes[1] === 0x50 &&
@@ -70,26 +75,16 @@ function isKnownNonImageContent(bytes) {
   );
 }
 
-/**
- * Strips path traversal characters from a filename.
- * Prevents attacks like "../../etc/passwd.jpg".
- * @param {string} filename - Raw filename from the upload
- * @returns {string} Sanitized filename safe for logging and storage
- */
 export function sanitizeFilename(filename) {
   if (!filename) return "upload";
+
   let safe = filename.replace(/[/\\]/g, "");
   safe = safe.replace(/\.\./g, "");
   safe = safe.replace(/[^a-zA-Z0-9._-]/g, "");
+
   return safe || "upload";
 }
 
-/**
- * Builds a ValidationError with a code attached.
- * @param {string} message - Human-readable error message
- * @param {string} code - One of ErrorCodes
- * @returns {Error}
- */
 function validationError(message, code = ErrorCodes.CLIENT_ERROR) {
   const err = new Error(message);
   err.code = code;
@@ -98,17 +93,109 @@ function validationError(message, code = ErrorCodes.CLIENT_ERROR) {
 }
 
 /**
- * Validates an image upload before it enters the face detection pipeline.
- * Checks in this order: empty file → size → SVG block → MIME type → magic bytes → spoof → filename.
- * Dimension validation (MIN/MAX) is a TODO pending image parsing in issue #39.
+ * Removes HTML tags from user-provided meme text.
+ * Prevents HTML/script injection in rendered text.
  *
- * @param {Object} upload - Upload descriptor extracted from the incoming Request
- * @param {ArrayBuffer} upload.buffer - Raw file bytes
- * @param {string} upload.mimeType - Declared MIME type from Content-Type header
- * @param {string} upload.filename - Original filename from the upload
- * @param {number} upload.size - File size in bytes
- * @returns {{ valid: true, format: string, filename: string }} Validation result on success
- * @throws {Error} ValidationError if any check fails
+ * @param {string} text
+ * @returns {string}
+ */
+export function sanitizeMemeText(text) {
+  if (typeof text !== "string") return "";
+
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/[<>]/g, "")
+    .trim();
+}
+
+/**
+ * Validates meme text before it is rendered onto the final meme.
+ *
+ * @param {string} text
+ * @returns {string} Sanitized text
+ * @throws {Error}
+ */
+export function validateMemeText(text) {
+  const sanitized = sanitizeMemeText(text);
+
+  if (!sanitized) {
+    throw validationError("Meme text cannot be empty");
+  }
+
+  if (sanitized.length > MAX_MEME_TEXT_LENGTH) {
+    throw validationError(
+      `Meme text must be ${MAX_MEME_TEXT_LENGTH} characters or fewer`
+    );
+  }
+
+  return sanitized;
+}
+
+/**
+ * Validates the cropped face before compositing.
+ * Issue #18 requires face crop size >50x50px and <500x500px.
+ *
+ * @param {{ width: number, height: number }} faceCrop
+ * @returns {true}
+ * @throws {Error}
+ */
+export function validateFaceCrop(faceCrop) {
+  if (!faceCrop) {
+    throw validationError("Missing face crop for compositing");
+  }
+
+  const { width, height } = faceCrop;
+
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    throw validationError("Invalid face crop dimensions");
+  }
+
+  if (
+    width <= MIN_FACE_CROP_DIMENSION ||
+    height <= MIN_FACE_CROP_DIMENSION
+  ) {
+    throw validationError(
+      `Face crop must be larger than ${MIN_FACE_CROP_DIMENSION}x${MIN_FACE_CROP_DIMENSION} pixels`
+    );
+  }
+
+  if (
+    width >= MAX_FACE_CROP_DIMENSION ||
+    height >= MAX_FACE_CROP_DIMENSION
+  ) {
+    throw validationError(
+      `Face crop must be smaller than ${MAX_FACE_CROP_DIMENSION}x${MAX_FACE_CROP_DIMENSION} pixels`
+    );
+  }
+
+  return true;
+}
+
+/**
+ * Validates that the template image loaded correctly.
+ *
+ * @param {unknown} templateImage
+ * @returns {true}
+ * @throws {Error}
+ */
+export function validateTemplateImage(templateImage) {
+  if (!templateImage) {
+    throw validationError("Template image failed to load");
+  }
+
+  return true;
+}
+
+/**
+ * Validates an image upload before it enters the face detection pipeline.
+ *
+ * @param {Object} upload
+ * @param {ArrayBuffer} upload.buffer
+ * @param {string} upload.mimeType
+ * @param {string} upload.filename
+ * @param {number} upload.size
+ * @returns {{ valid: true, format: string, filename: string }}
+ * @throws {Error}
  */
 export function validateUpload({ buffer, mimeType, filename, size }) {
   if (!buffer || size === 0) {
@@ -140,8 +227,10 @@ export function validateUpload({ buffer, mimeType, filename, size }) {
       if (isKnownNonImageContent(bytes)) {
         throw validationError("File content does not match declared type");
       }
+
       throw validationError("Unable to decode image — file may be corrupt");
     }
+
     if (detectedMime !== mimeType) {
       throw validationError("File content does not match declared type");
     }
