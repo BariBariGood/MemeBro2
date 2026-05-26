@@ -7,6 +7,8 @@ export default defineWorkersConfig({
 			"test/openaiRoutes.spec.js",
 			"test/callManager.test.js",
 			"test/validator.test.js",
+			"test/textRenderer.test.js",
+			"test/imageExporter.test.js",
 		],
 		poolOptions: {
 			workers: {
