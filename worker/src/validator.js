@@ -8,9 +8,9 @@ import { ErrorCodes } from "./errors.js";
 /** Maximum allowed file size: 10 MB */
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 /** Minimum image dimension in pixels */
-const MIN_DIMENSION = 100;
+export const MIN_DIMENSION = 100;
 /** Maximum image dimension in pixels */
-const MAX_DIMENSION = 4096;
+export const MAX_DIMENSION = 4096;
 
 /** MIME types the pipeline accepts */
 const ALLOWED_MIME_TYPES = new Set([
@@ -98,16 +98,154 @@ function validationError(message, code = ErrorCodes.CLIENT_ERROR) {
 }
 
 /**
+ * Reads dimensions from a PNG IHDR chunk. Bytes 16-23 of a valid PNG hold
+ * the big-endian width and height of the image.
+ *
+ * @param {Uint8Array} bytes - Raw file bytes
+ * @returns {{ width: number, height: number } | null}
+ */
+function readPngDimensions(bytes) {
+  if (bytes.length < 24) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint32(16, false);
+  const height = view.getUint32(20, false);
+  if (width <= 0 || height <= 0) return null;
+  return { width, height };
+}
+
+/**
+ * Reads dimensions from a JPEG by walking marker segments until it hits one
+ * of the SOFn frame markers, which carry the image dimensions. Skips the
+ * APPn metadata blocks and ignores restart and standalone markers.
+ *
+ * @param {Uint8Array} bytes - Raw file bytes
+ * @returns {{ width: number, height: number } | null}
+ */
+function readJpegDimensions(bytes) {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+
+  let offset = 2;
+  const length = bytes.length;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  while (offset < length) {
+    while (offset < length && bytes[offset] !== 0xff) offset += 1;
+    while (offset < length && bytes[offset] === 0xff) offset += 1;
+    if (offset >= length) return null;
+
+    const marker = bytes[offset];
+    offset += 1;
+
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x00) continue;
+    if (marker >= 0xd0 && marker <= 0xd7) continue;
+
+    if (offset + 2 > length) return null;
+    const segLength = view.getUint16(offset, false);
+    if (segLength < 2) return null;
+
+    const isSofFrame =
+      (marker >= 0xc0 && marker <= 0xc3) ||
+      (marker >= 0xc5 && marker <= 0xc7) ||
+      (marker >= 0xc9 && marker <= 0xcb) ||
+      (marker >= 0xcd && marker <= 0xcf);
+
+    if (isSofFrame) {
+      if (offset + 7 > length) return null;
+      const height = view.getUint16(offset + 3, false);
+      const width = view.getUint16(offset + 5, false);
+      if (width <= 0 || height <= 0) return null;
+      return { width, height };
+    }
+
+    offset += segLength;
+  }
+
+  return null;
+}
+
+/**
+ * Reads dimensions from a WebP file. Supports the three sub-formats: lossy
+ * (VP8 ), lossless (VP8L), and extended (VP8X). Returns null when the chunk
+ * header is malformed or unrecognized.
+ *
+ * @param {Uint8Array} bytes - Raw file bytes
+ * @returns {{ width: number, height: number } | null}
+ */
+function readWebpDimensions(bytes) {
+  if (bytes.length < 30) return null;
+  const tag = String.fromCharCode(bytes[12], bytes[13], bytes[14], bytes[15]);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  if (tag === "VP8 ") {
+    if (bytes.length < 30) return null;
+    const sig0 = bytes[23];
+    const sig1 = bytes[24];
+    const sig2 = bytes[25];
+    if (sig0 !== 0x9d || sig1 !== 0x01 || sig2 !== 0x2a) return null;
+    const width = view.getUint16(26, true) & 0x3fff;
+    const height = view.getUint16(28, true) & 0x3fff;
+    if (width <= 0 || height <= 0) return null;
+    return { width, height };
+  }
+
+  if (tag === "VP8L") {
+    if (bytes.length < 25) return null;
+    if (bytes[20] !== 0x2f) return null;
+    const b0 = bytes[21];
+    const b1 = bytes[22];
+    const b2 = bytes[23];
+    const b3 = bytes[24];
+    const width = 1 + ((((b1 & 0x3f) << 8) | b0) & 0x3fff);
+    const height = 1 + ((((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)) & 0x3fff);
+    if (width <= 0 || height <= 0) return null;
+    return { width, height };
+  }
+
+  if (tag === "VP8X") {
+    if (bytes.length < 30) return null;
+    const width =
+      1 + (bytes[24] | (bytes[25] << 8) | (bytes[26] << 16));
+    const height =
+      1 + (bytes[27] | (bytes[28] << 8) | (bytes[29] << 16));
+    if (width <= 0 || height <= 0) return null;
+    return { width, height };
+  }
+
+  return null;
+}
+
+/**
+ * Best-effort dimension reader that dispatches to the format-specific parser.
+ * Returns null when the format is unknown or the header is too short to
+ * decode safely; callers decide whether to treat that as a hard failure.
+ *
+ * @param {Uint8Array} bytes - Raw file bytes
+ * @param {string} format - Detected MIME type (e.g. "image/png")
+ * @returns {{ width: number, height: number } | null}
+ */
+export function readImageDimensions(bytes, format) {
+  if (format === "image/png") return readPngDimensions(bytes);
+  if (format === "image/jpeg") return readJpegDimensions(bytes);
+  if (format === "image/webp") return readWebpDimensions(bytes);
+  return null;
+}
+
+/**
  * Validates an image upload before it enters the face detection pipeline.
- * Checks in this order: empty file → size → SVG block → MIME type → magic bytes → spoof → filename.
- * Dimension validation (MIN/MAX) is a TODO pending image parsing in issue #39.
+ * Order: empty file -> size -> SVG block -> MIME type -> magic bytes ->
+ * spoof check -> dimensions -> filename.
+ *
+ * Dimension validation enforces the 100px-4096px window for JPEG/PNG/WebP
+ * (issue #48). HEIC is exempt because we cannot decode its container in the
+ * Worker without pulling in a heavyweight parser; HEIC uploads remain limited
+ * by the existing 10 MB size cap.
  *
  * @param {Object} upload - Upload descriptor extracted from the incoming Request
  * @param {ArrayBuffer} upload.buffer - Raw file bytes
  * @param {string} upload.mimeType - Declared MIME type from Content-Type header
  * @param {string} upload.filename - Original filename from the upload
  * @param {number} upload.size - File size in bytes
- * @returns {{ valid: true, format: string, filename: string }} Validation result on success
+ * @returns {{ valid: true, format: string, filename: string, width?: number, height?: number }}
  * @throws {Error} ValidationError if any check fails
  */
 export function validateUpload({ buffer, mimeType, filename, size }) {
@@ -148,16 +286,50 @@ export function validateUpload({ buffer, mimeType, filename, size }) {
   }
 
   const safeFilename = sanitizeFilename(filename);
+  const effectiveMime = detectedMime ?? mimeType;
+  let width;
+  let height;
 
-  // TODO (issue #39): Parse image dimensions from buffer headers and enforce
-  // MIN_DIMENSION (100px) and MAX_DIMENSION (4096px) per DS-09 unit tests.
-  // JPEG: scan for SOF0/SOF2 markers. PNG: bytes 16-23. WebP: VP8 chunk header.
+  if (effectiveMime !== "image/heic") {
+    const dimensions = readImageDimensions(bytes, effectiveMime);
+    if (!dimensions) {
+      throw validationError(
+        "Unable to read image dimensions — file may be corrupt",
+        ErrorCodes.INVALID_DIMENSIONS
+      );
+    }
 
-  const format = (detectedMime ?? mimeType).split("/")[1];
+    if (
+      dimensions.width < MIN_DIMENSION ||
+      dimensions.height < MIN_DIMENSION
+    ) {
+      throw validationError(
+        `Image is too small — minimum ${MIN_DIMENSION}px on each side`,
+        ErrorCodes.INVALID_DIMENSIONS
+      );
+    }
+
+    if (
+      dimensions.width > MAX_DIMENSION ||
+      dimensions.height > MAX_DIMENSION
+    ) {
+      throw validationError(
+        `Image is too large — maximum ${MAX_DIMENSION}px on each side`,
+        ErrorCodes.INVALID_DIMENSIONS
+      );
+    }
+
+    width = dimensions.width;
+    height = dimensions.height;
+  }
+
+  const format = effectiveMime.split("/")[1];
 
   return {
     valid: true,
     format,
     filename: safeFilename,
+    width,
+    height,
   };
 }

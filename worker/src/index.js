@@ -7,16 +7,23 @@
 
 import { callAPI, redactSecrets } from "./callManager.js";
 import { ErrorCodes } from "./errors.js";
+import {
+  assertFeatureEnabled,
+  getFeatureAvailability,
+} from "./fallback.js";
+import { getServiceHealth } from "./healthCheck.js";
 import { handleCaptionRequest } from "./openai/caption.js";
 import {
   buildImageResponseFromBody,
   handleImageRequest,
 } from "./openai/image.js";
+import { enqueueRequest } from "./requestQueue.js";
 import { MAX_FILE_SIZE, sanitizeFilename, validateUpload } from "./validator.js";
 
 const GATEWAY_PATH = "/api/process";
 const CAPTION_PATH = "/api/caption";
 const IMAGE_PATH = "/api/image";
+const HEALTH_PATH = "/api/health";
 
 /**
  * Builds a JSON Response with the gateway's common content type.
@@ -44,7 +51,11 @@ function statusForError(err) {
   if (err.code === ErrorCodes.PAYLOAD_TOO_LARGE) return 413;
   if (err.code === ErrorCodes.INVALID_MODE) return 400;
   if (err.code === ErrorCodes.CLIENT_ERROR) return 400;
+  if (err.code === ErrorCodes.INVALID_DIMENSIONS) return 400;
   if (err.code === ErrorCodes.RATE_LIMITED) return 429;
+  if (err.code === ErrorCodes.QUEUE_FULL) return 503;
+  if (err.code === ErrorCodes.FEATURE_DISABLED) return 503;
+  if (err.code === ErrorCodes.SERVICE_UNAVAILABLE) return 503;
   if (err.code === ErrorCodes.MISSING_API_KEY) return 500;
   return 502;
 }
@@ -58,14 +69,13 @@ function statusForError(err) {
  */
 function errorResponse(err, env) {
   const code = err.code || ErrorCodes.SERVER_ERROR;
-  return jsonResponse(
-    {
-      code,
-      message: redactSecrets(err.message, env),
-      retryable: Boolean(err.retryable),
-    },
-    statusForError(err)
-  );
+  const body = {
+    code,
+    message: redactSecrets(err.message, env),
+    retryable: Boolean(err.retryable),
+  };
+  if (err.feature) body.feature = err.feature;
+  return jsonResponse(body, statusForError(err));
 }
 
 /**
@@ -243,15 +253,75 @@ export async function handleGatewayRequest(request, env) {
 
     const { mode, options, payload, isJson } = await prepareOutboundRequest(request);
 
+    // Fallback strategy (issue #33): refuse the request early when the
+    // upstream powering this mode is currently unhealthy. The client sees a
+    // FEATURE_DISABLED error code so it can disable the affected UI affordance
+    // instead of looking like the whole app crashed.
+    await assertFeatureEnabled(mode, env);
+
     if (isJson && shouldUseLocalImageGeneration(mode, env)) {
-      return buildImageResponseFromBody(payload ?? {}, env);
+      return enqueueRequest(() => buildImageResponseFromBody(payload ?? {}, env));
     }
 
-    const data = await callAPI(mode, options, env);
+    // Request queue (issue #34): smooths bursts above 10 req/s and applies
+    // backpressure once the FIFO queue is saturated.
+    const data = await enqueueRequest(() => callAPI(mode, options, env));
 
     return jsonResponse(data);
   } catch (err) {
     return errorResponse(err, env);
+  }
+}
+
+/**
+ * Handles GET /api/health. Returns the current upstream health snapshot so
+ * monitoring tools and the frontend can detect degraded modes without
+ * hitting the real API.
+ *
+ * @param {Request} request - Incoming Worker request
+ * @param {Object} env - Cloudflare Workers env object
+ * @returns {Promise<Response>}
+ */
+export async function handleHealthRequest(request, env) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return jsonResponse(
+      { code: "METHOD_NOT_ALLOWED", message: "Use GET for /api/health" },
+      405
+    );
+  }
+
+  try {
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "1";
+
+    const features = await getFeatureAvailability(env);
+    const faceSwap = await getServiceHealth("face_swap", env, { force });
+
+    const allHealthy = Object.values(features).every((f) => f.healthy);
+
+    return jsonResponse({
+      status: allHealthy ? "ok" : "degraded",
+      timestamp: Date.now(),
+      services: {
+        face_swap: {
+          healthy: faceSwap.healthy,
+          checkedAt: faceSwap.checkedAt,
+          cached: faceSwap.cached,
+          statusCode: faceSwap.statusCode,
+          reason: faceSwap.reason,
+        },
+      },
+      features,
+    });
+  } catch (err) {
+    return jsonResponse(
+      {
+        status: "error",
+        timestamp: Date.now(),
+        message: redactSecrets(err.message, env),
+      },
+      500
+    );
   }
 }
 
@@ -265,6 +335,10 @@ export default {
    */
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === HEALTH_PATH) {
+      return handleHealthRequest(request, env);
+    }
 
     if (url.pathname === CAPTION_PATH) {
       return handleCaptionRequest(request, env);
