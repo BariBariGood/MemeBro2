@@ -38,6 +38,20 @@ async function settleApp() {
   await Promise.resolve();
 }
 
+function createMemoryStorage() {
+  const values = new Map();
+
+  return {
+    clear: vi.fn(() => values.clear()),
+    getItem: vi.fn((key) => {
+      const storageKey = String(key);
+      return values.has(storageKey) ? values.get(storageKey) : null;
+    }),
+    removeItem: vi.fn((key) => values.delete(String(key))),
+    setItem: vi.fn((key, value) => values.set(String(key), String(value))),
+  };
+}
+
 function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   const template = catalog.templates.find((entry) => entry.id === templateId) || catalog.templates[0];
 
@@ -69,11 +83,61 @@ function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   state.editor.historyStack = [];
 }
 
+function mockFaceCropCanvas(blobType = "image/jpeg") {
+  let canvas;
+  const drawImage = vi.fn();
+
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function getContext() {
+    canvas = this;
+    return { drawImage };
+  });
+  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(callback, type) {
+    callback(new Blob(["face-crop"], { type: type || blobType }));
+  });
+
+  return {
+    drawImage,
+    get canvas() {
+      return canvas;
+    },
+  };
+}
+
+function seedSelectedFaceCrop(state, options = {}) {
+  const source = options.source || { width: 120, height: 90 };
+  const face = options.face || {
+    id: "face-0",
+    boxNatural: { x: 20, y: 15, width: 40, height: 30 },
+  };
+  const file = options.file || new File(["source-image"], "portrait.png", { type: "image/png" });
+
+  state.file = file;
+  state.imageBitmap = {
+    source,
+    width: source.width,
+    height: source.height,
+  };
+  state.faces = [face];
+  state.selectedFaceIds = [face.id];
+  state.selectedFaceId = face.id;
+
+  return { file, source, face };
+}
+
 describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
     mountAppHtml();
+    const localStorage = createMemoryStorage();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
     vi.stubGlobal("requestAnimationFrame", (cb) => cb());
     vi.stubGlobal("fetch", vi.fn(async (url) => {
       if (url === "/templates.json") {
@@ -149,6 +213,10 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     const { __testHooks } = await loadApp();
     await settleApp();
     const { dom } = __testHooks;
+
+    dom.titleStartCta.click();
+    await settleApp();
+    await settleApp();
 
     const firstCardImage = dom.templateGrid.querySelector(".template-art-image");
     const firstCardArt = dom.templateGrid.querySelector(".template-art");
@@ -232,8 +300,106 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.studioTemplateArt.style.height).toBe(`${expectedHeight}px`);
   });
 
+  test("custom: selected face crop matches clamped dimensions without black borders", async () => {
+    const cropCanvas = mockFaceCropCanvas("image/png");
+    const { __testHooks } = await loadApp();
+    await settleApp();
+
+    const source = { width: 100, height: 80 };
+    const file = new File(["source-image"], "edge-face.png", { type: "image/png" });
+    const face = {
+      id: "face-edge",
+      boxNatural: { x: -4.4, y: 9.2, width: 34.1, height: 24.3 },
+    };
+
+    const crop = await __testHooks.extractFaceCrop(file, face, {
+      decodedImage: { source, width: source.width, height: source.height },
+      type: "image/png",
+    });
+
+    expect(crop.bounds).toEqual({ x: 0, y: 9, width: 30, height: 25 });
+    expect(crop.width).toBe(30);
+    expect(crop.height).toBe(25);
+    expect(crop.blob.type).toBe("image/png");
+    expect(cropCanvas.canvas.width).toBe(30);
+    expect(cropCanvas.canvas.height).toBe(25);
+    expect(cropCanvas.drawImage).toHaveBeenCalledWith(
+      source,
+      0,
+      9,
+      30,
+      25,
+      0,
+      0,
+      30,
+      25
+    );
+
+    const [, sourceX, sourceY, sourceWidth, sourceHeight] = cropCanvas.drawImage.mock.calls[0];
+    expect(sourceX).toBeGreaterThanOrEqual(0);
+    expect(sourceY).toBeGreaterThanOrEqual(0);
+    expect(sourceX + sourceWidth).toBeLessThanOrEqual(source.width);
+    expect(sourceY + sourceHeight).toBeLessThanOrEqual(source.height);
+  });
+
+  test("custom: submit sends the extracted face crop blob to the backend", async () => {
+    const cropCanvas = mockFaceCropCanvas("image/png");
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/cropped.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, submitSelectedFace } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.status = "ready";
+    const { source, face } = seedSelectedFaceCrop(state, {
+      source: { width: 160, height: 120 },
+      face: { id: "face-0", boxNatural: { x: 24, y: 18, width: 50, height: 42 } },
+    });
+
+    await submitSelectedFace();
+
+    const processCall = global.fetch.mock.calls.find(([url]) => url === "/api/process");
+    expect(processCall).toBeTruthy();
+    const [, requestOptions] = processCall;
+    expect(requestOptions.method).toBe("POST");
+    expect(requestOptions.headers["Content-Type"]).toBe("image/png");
+    expect(requestOptions.headers["X-MemeBro-Mode"]).toBe("face_swap");
+    expect(requestOptions.headers["X-MemeBro-Filename"]).toBe("portrait-face-crop.png");
+    expect(JSON.parse(requestOptions.headers["X-MemeBro-Face-Crop"])).toEqual({
+      x: 24,
+      y: 18,
+      width: 50,
+      height: 42,
+    });
+    expect(requestOptions.body).toBeInstanceOf(Blob);
+    expect(requestOptions.body.type).toBe("image/png");
+    expect(cropCanvas.canvas.width).toBe(50);
+    expect(cropCanvas.canvas.height).toBe(42);
+    expect(cropCanvas.drawImage).toHaveBeenCalledWith(
+      source,
+      face.boxNatural.x,
+      face.boxNatural.y,
+      face.boxNatural.width,
+      face.boxNatural.height,
+      0,
+      0,
+      face.boxNatural.width,
+      face.boxNatural.height
+    );
+  });
+
   test("custom: loader shows immediately, shows slower message at 5s, then hides", async () => {
     vi.useFakeTimers();
+    mockFaceCropCanvas("image/png");
     let resolveRequest;
     global.fetch = vi.fn((url) => {
       if (url === "/templates.json") {
@@ -254,12 +420,15 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     seedStudioEditorState(state);
     state.status = "ready";
     state.selectedTemplateId = catalog.templates[0].id;
-    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
-    state.selectedFaceIds = ["face-0"];
-    state.selectedFaceId = "face-0";
+    seedSelectedFaceCrop(state, {
+      face: { id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } },
+    });
 
     const pending = submitSelectedFace();
     expect(dom.faceSwapLoader.classList.contains("hidden")).toBe(false);
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(0);
 
     vi.advanceTimersByTime(5001);
     expect(dom.faceSwapLoaderDelay.classList.contains("hidden")).toBe(false);
@@ -271,6 +440,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
   });
 
   test("custom: face swap result replaces the template image and stays editable", async () => {
+    mockFaceCropCanvas("image/png");
     global.fetch = vi.fn(async (url) => {
       if (url === "/templates.json") {
         return { json: async () => ({ templates: catalog.templates }) };
@@ -287,9 +457,9 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
     seedStudioEditorState(state);
     state.status = "ready";
-    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
-    state.selectedFaceIds = ["face-0"];
-    state.selectedFaceId = "face-0";
+    seedSelectedFaceCrop(state, {
+      face: { id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } },
+    });
     render();
 
     await submitSelectedFace();
@@ -304,6 +474,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
   });
 
   test("custom: undo restores the previous snapshot and reset clears history", async () => {
+    mockFaceCropCanvas("image/png");
     global.fetch = vi.fn(async (url) => {
       if (url === "/templates.json") {
         return { json: async () => ({ templates: catalog.templates }) };
@@ -320,9 +491,9 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
     seedStudioEditorState(state);
     state.status = "ready";
-    state.faces = [{ id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } }];
-    state.selectedFaceIds = ["face-0"];
-    state.selectedFaceId = "face-0";
+    seedSelectedFaceCrop(state, {
+      face: { id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } },
+    });
     render();
 
     await submitSelectedFace();
