@@ -1,0 +1,618 @@
+# MemeBro
+## Design & Prototyping Sprint Document
+
+---
+
+## 1. Sprint Overview
+
+**Goal:** Complete all design artifacts, wireframes, user & dev stories, risk analysis, and technical prototyping before any feature coding begins.
+
+### 1.1 Product Summary
+
+MemeBro is a mobile-first meme creation tool targeting Gen Alpha and Gen Z — middle schoolers through young adults. The core value proposition is speed: a meme should be shareable within seconds of the impulse to make one.
+
+The product has four distinct functional modes:
+
+- **Normal Mode:** Face-swap a user-uploaded photo into a pre-existing meme template. Hard requirement and primary feature.
+- **Extra Roast Mode:** AI generates a brand-new meme image using only the face from the uploaded photo — no template, pure chaos, driven by user prompting.
+- **Roast Mode Slider:** User fine-tunes roast intensity on a sliding scale from wholesome to unhinged.
+- **Social Filter Extension:** A browser/share-sheet extension for instant meme creation directly from any image in a social media feed.
+
+### 1.2 What This Sprint Is Not
+
+- This is **NOT** a coding sprint. No React components, no API wiring, no full app builds.
+- Quick proof-of-concept scripts (e.g., 30-line Node.js file calling a face-swap API) are allowed to validate latency and testing ONLY.
+
+---
+
+## Milestones
+
+### Milestone Map *(currently in M1.0)*
+
+| Milestone | Target Date | Gate Criteria |
+|-----------|------------|---------------|
+| **M1.0 : SPRINT 1** — Design baseline | Mid of week 7 (WED May 13) | This document complete, wireframe sketch done, ADRs written, all teams TA-reviewed |
+| **M1 : SPRINT 2** — Core face swap MVP and potential model training for roast modes | End of week 8 (Sun) | User can upload a photo and select a meme template, AI face swap completes in under 5 seconds, result is downloadable/shareable as an image, mobile-friendly, unit tests passing for core image-processing logic, CI/CD pipeline running on Github Actions, start data collection, potentially splitting 60-40 (60 real memes, 40 synthetic data) |
+| **M1 : SPRINT 3** — AI roast modes MVP | End of week 9 (Sun) | At least 2 roast style caption modes selectable by user, slider, user prompting, AI-gen caption appears on meme within 5 seconds of requests, prompt templates stored and documented, integration test cover roast caption generation flow |
+| **M2 : Sprint 1** — Polish + extension stub | Mid week 10 (Wed) | UI polished, meme text is editable after AI generation, extensions (chrome extension or iMessage shell) with README, linting and quality checks passing in CI pipeline, JSDocs coverage on all public functions, Changelog updated to reflect sprint 2 changes |
+| **M2 : Sprint 2** — Peer review ready | End of week 9 (Sun) | App deployed to GitHub Pages or Cloudflare, README covers setup, run instructions, technical documentation site live, all PRs merged to main, sprint retrospective written up and incorporated into planning notes |
+| **M3** — Prof demo ready | Week 10 | Fully functional demo app. All tests green. Documentation site live. CI/CD pipeline passing on main. |
+
+---
+
+## 2. Team Assignments & Domain Ownership
+
+### 2.1 Domain Pair Assignments
+
+| Domain | Members | Primary Responsibility |
+|--------|---------|----------------------|
+| AI & Prompt Engineering | Luke, Ivan | Roast mode prompts, face detection, AI API selection, token budgeting, prompt caching strategy |
+| Image Processing | Raymond, Mohammed, Paul, Sanjana | Face swap pipeline, meme overlay compositing, canvas rendering, image format handling |
+| Frontend / UX | Cathlyn, Jorell | Mobile-first layout, wireframes, design system, social filter extension UI, interaction specs |
+| API Integration | Aayan, Sohum | Cloudflare Workers/Pages, external API routing, latency measurement, error handling, rate limits |
+| Testing / CI/CD | Andrew, Sanjana | GitHub Actions pipeline, unit test framework, E2E test scaffolding, SemVer + changelog setup, linting config, reviewing doc |
+
+--- 
+
+## 3. User Personas
+
+### Marcus, 15 — The Rapid-Fire Reactor
+
+The type of guy who's always mid-group-chat during lunch or post-soccer practice. Phone glued to his hand, always scrolling, always reacting. He's got maybe 30 seconds before the conversation zooms past him.
+
+- **Where he is:** Android phone, school WiFi (which sucks), constant group chats
+- **What he does:** Makes memes about teachers, teammates, literally whatever's happening right now. Real-time reactions only.
+- **His problem:** By the time he opens ImgFlip and finds a template, the joke is dead. Needs to be stupid fast or he just sends a text instead.
+- **What wins him over:** MemeBro opens, face gets detected, template picked, text added and he sends. Done in under 20 seconds.
+
+---
+
+### Priya, 22 — The Creative Sharer
+
+College student who uses memes like language. Discord servers, Snapchat, Instagram DMs. She actually cares about how her memes look. Picks the right font, nails the placement, vibes with the whole thing.
+
+- **Where she is:** Latest iPhone, solid WiFi, always connected
+- **What she does:** Makes memes of her friends for inside jokes. Puts actual effort in. It's a mini art form for her.
+- **Her problem:** Can't swap a friend's face into a meme smoothly on mobile. Desktop tools exist but they're clunky as hell on a phone.
+- **What wins her over:** Face swap that looks good enough to screenshot instantly, easy to edit text/image. face swap api
+
+---
+
+### Jordan, 17 — The Lurker Who Sometimes Posts
+
+High school junior, mostly a consumer of memes, but occasionally something so funny happens in real life that he just has to participate. Then he immediately forgets about it.
+
+- **Where he is:** Older iPhone, Safari browser, barely any apps installed
+- **What he does:** Scrolls. Lurks. Posts maybe once a month when the impulse is too strong.
+- **His problem:** Doesn't want to download an app or sign up for an account just to make one stupid meme. If there's friction, he's out.
+- **What wins him over:** Progressive web app (no download, no account) right in his browser. Friendly, not intense. Frictionless or he ghosts.
+
+---
+
+### Devon, 19 — The Ironic Shitposter
+
+College freshman who's posting complete chaos at 2 AM in Discord and niche subreddits. Runs a meme account with 4K followers built on intentionally terrible, "cursed" humor. Meme-making is his creative outlet.
+
+- **Where he is:** Cracked-screen iPhone, dorm WiFi that cuts out, has an entire photo album called "meme fuel" (all cursed)
+- **What he does:** Doesn't care about clean templates. Layers random images together, throws incoherent text on them, uses Comic Sans unironically, deep-fries everything. The worse it looks = the better.
+- **His problem:** Standard meme tools are too polished. They auto-correct his typos, snap text to the center, and won't let him be chaotic. ImgFlip feels sterile.
+- **What wins him over:** Upload his own weird images (or raid a "cursed" template library), drag text anywhere he wants, cool fonts (possibly?), a deep-fry filter on it and export and flood Discord with 10 memes at once.
+
+---
+
+## Features List
+
+- **Normal face swap mode:** This mode swaps the detected face directly into the chosen meme template.
+- **Roast Mode:** This mode creates a post from scratch, given user prompt, and makes memes punchier, customizable through a slider.
+- **Edit mode:** Users can add, delete, edit filters, color, size, shape of text and their own pictures/emojis.
+- **Export:** Can export to socials, messages, text, etc.
+- **Multi-face selection support:** Can select and add multiple faces.
+
+---
+
+## 4. User Stories & Dev Stories
+
+### 4.1 User Stories — Normal Mode (Face Swapping into Existing Meme)
+
+#### US-01 — Image Processing | Priority: High
+
+> As a user on mobile, I want to upload a photo from my camera roll and have a face automatically detected so that I don't have to manually crop or select the face, it just works.
+
+**Acceptance criteria:** Face bounding box appears within 1 second of image upload. Accuracy >85% on well-lit frontal faces. If detection fails, a clear inline error message explains why.
+
+---
+
+#### US-02 — Frontend | Priority: High
+
+> As a user, I want to browse and select from a library of popular meme templates so that I can find the right meme format without knowing its name.
+
+**Acceptance criteria:** Template grid loads within 1.5 seconds. At least 20 templates available at launch. Search returns results in <500ms. Templates display name and preview thumbnail.
+
+---
+
+#### US-03 — Image Processing | Priority: Medium
+
+> As a user, I want to see my face composited into the selected meme template with correct proportions so that the result looks intentional, not stretched or off-center.
+
+**Acceptance criteria:** Face is positioned in the designated face region of the template. No visible distortion on faces between 50x50px and 500x500px. Result matches template's face region bounding box within 10px.
+
+---
+
+#### US-04 — Image Processing | Priority: Medium
+
+> As a Reddit or Discord user, I want the final meme to be a small enough file size to send over Discord or Reddit without looking super pixelated so that I can quickly share the image after generation without having to compress it myself.
+
+**Acceptance criteria:** The final image must be at most 10 MB (Discord max upload size; Reddit is 20 MB). The image must not be pixelated / must be easily understood.
+
+---
+
+#### US-05 — API Integration | Priority: High
+
+> As a user, I want to share the completed meme directly to my contacts or social apps so that the joke lands while everyone is still paying attention.
+
+**Acceptance criteria:** Web Share API opens within 300ms of tapping share. Fallback clipboard copy works on all browsers. Image exports at minimum 800px width. Share works without requiring account creation.
+
+---
+
+#### US-06 — AI & Prompting | Priority: P0
+
+> As a user in extra roast mode, I want to generate a completely new meme image using only my friend's face so that the meme is fresh and not limited to existing templates — maximum surprise factor.
+
+**Acceptance criteria:** AI generation completes in <8 seconds. Prompt directs the model toward absurdist, deep-fried, or "cursed" aesthetics. Generated image embeds the uploaded face so the person is still recognizable. Output is downloadable at minimum 1024x1024px. If generation fails or triggers a safety filter, the system shows a friendly retry prompt instead of a blank screen.
+
+---
+
+#### US-07 — AI & Prompting | Priority: P0
+
+> As a user in friendly roast mode, I want to generate a kind, funny meme that I could send to my grandma or school group chat so that I don't accidentally send something mean or inappropriate.
+
+**Acceptance criteria:** Generated content passes PG-13 filter (no explicit content, slurs, or targeted harassment). Tone prompt instructs model toward affectionate humor. User can flag if result feels off.
+
+---
+
+#### US-10 — API Integration | Priority: P1
+
+> As a user on a slow mobile connection, I want the app to remain usable even if the AI API is slow or unavailable so that I can still make a basic meme even when AI features are down.
+
+**Acceptance criteria:** Normal mode (face swap) works fully offline using cached templates. Error state for AI failure shows clear message and offers normal mode as fallback. No blank screens or unhandled errors.
+
+---
+
+#### US-11 — Testing/CD/CI | Priority: High
+
+> As a developer writing unit and integration tests, I want test coverage for every failure mode in the face detection pipeline, so that edge cases are caught at the unit level before they ever reach QA or production.
+
+**Acceptance criteria:** Define five failure scenarios the unit and integration tests must cover: no face detected, low confidence, unprocessable image, timeout, and correct error message formatting. Each follow a Given/When/Then structure to ensure the detection module returns the right typed error, the service mock is never called unnecessarily, and the UI always surfaces a clean, user-facing message.
+
+---
+
+#### US-12 — Image Processing | Priority: Medium
+
+> As a user uploading a group photo, I want to select which detected face should be used in the meme so that the system does not accidentally use the wrong person's face.
+
+**Acceptance criteria:** If multiple faces are detected, the system displays a selectable thumbnail grid of detected faces within 1 second. The selected face is highlighted before processing begins. Only the selected face is passed into the face swap or AI generation pipeline.
+
+---
+
+#### US-13 — Image Processing | Priority: High
+
+> As a user uploading a photo of myself, I want the face swap results to preserve my facial features accurately, so that the generated image looks realistic and recognizable.
+
+**Acceptance criteria:** Face swap preserves key facial features and appears visually natural. Output image shows no major distortion or facial misalignment. Low-quality or unreadable uploads display a clear inline error message. Face swap processing completes within acceptable response time.
+
+---
+
+#### US-14 — Image Processing | Priority: Medium
+
+> As a user, I want to be able to read any writing that is in the meme so that the joke can be understood properly.
+
+**Acceptance criteria:** If there is any text visible and intended to be one of the foci of the image, the lettering should be recognizable and legible. There should be distinction between letters with little distortion. The text should be visible and not blend in with other parts of the image.
+
+---
+
+### 4.4 Dev Stories (Testable System Behaviors)
+
+#### DS-01 — Image Processing (3 & 4) | Priority: High
+
+> As a face detection service, I want to receive an image file and return bounding box coordinates for all detected faces so that downstream services can use precise coordinates without re-processing the image.
+
+**Acceptance criteria:** Returns JSON with array of face objects: `{x, y, width, height, confidence}`. Empty array (not null) when no faces found. Responds in <1000ms for images. Handles JPEG, PNG, and WebP.
+
+---
+
+#### DS-02 — Image Processing (3 & 4) | Priority: High
+
+> As a text generator, I want to receive text strings, font size, and coordinates and render the text with a 2px white outline on black text so that text can be legible regardless of background colors.
+
+**Acceptance criteria:** Returns type is PNG with transparent background for compositing. Text exceeding the bounding box width auto-wraps. Text has visible outline.
+
+---
+
+#### DS-03 — AI & Prompting (1 & 2) | Priority: High
+
+> As an AI prompt builder, I want to construct a prompt string from `(face_crop, mode_enum, style_seed)` inputs so that the AI model receives consistent, well-formed prompts that produce predictable output quality.
+
+**Acceptance criteria:** Prompt includes face description, mode-specific tone instruction, and style constraints. Extra roast prompt includes chaos/absurdist instruction. Friendly roast prompt explicitly excludes profanity and mean-spirited content.
+
+---
+
+#### DS-04 — API Integration (7 & 8) | Priority: High
+
+> As an API call manager, I want to enforce a 5-second timeout on all AI generation requests and return a structured error on timeout so that the UI can always show a meaningful state to the user rather than hanging indefinitely.
+
+**Acceptance criteria:** Request times out after 5000ms with error code `TIMEOUT_ERROR`. Timeout is configurable via environment variable. Logs timestamp and duration to console.
+
+---
+
+#### DS-05 — API Integration | Priority: High
+
+> As an API call manager, I want to detect and handle a 429 (Too Many Requests) response from any external API so that the app never crashes when rate limits are hit.
+
+**Acceptance criteria:** When a 429 response is detected, the system immediately inspects for a `Retry-After` header to wait for the specified duration. The process is capped at 3 total retries.
+
+---
+
+#### DS-06 — API Integration | Priority: High
+
+> As an API call manager, I want to validate the presence and format of the API key before any outbound request is made.
+
+**Acceptance criteria:** On app initialization, the Worker checks that required environment variables are present and non-empty. If missing, throw an error with a descriptive message. This check must complete before any user-facing action is taken. Never exposes raw API key values in logs or error messages.
+
+---
+
+#### DS-07 — API Integration | Priority: High
+
+> As an API routing layer on Cloudflare Workers, I want to route face-swap and AI generation requests to the appropriate external API endpoint so that each feature mode hits the correct service.
+
+**Acceptance criteria:** A single Worker endpoint accepts a mode (face swap, roast, etc.) and routes internally to the correct API. Frontend will never call the external APIs directly.
+
+---
+
+#### DS-08 — API Integration | Priority: Medium
+
+> As a Cloudflare Worker handling image upload, I want to enforce a maximum payload size of 10 MB on incoming image uploads so that the service is protected from oversized inputs.
+
+**Acceptance criteria:** Requests with a content length exceeding 10 MB are rejected immediately with a payload too large response and error message.
+
+---
+
+#### DS-09 — Image Processing | Priority: High
+
+> As a file upload validator, I want to validate image format, file size, dimensions, and image integrity before the face detection pipeline runs so that invalid or unsafe uploads do not crash the app or waste processing time.
+
+**Acceptance criteria:** Validator accepts JPEG, PNG, WebP (if supported or convertible). Rejects unsupported formats, zero-byte files, and corrupt images. Returns structured validation errors with clear messages for the UI.
+
+---
+
+#### DS-10 — Image Processing (3 & 4) | Priority: High
+
+> As the face swap processing service, I want to align and map detected facial landmarks before generating the final image, so that face swaps appear accurate and undistorted.
+
+**Acceptance criteria:** Facial landmarks are detected before swap generation. Output face alignment matches target orientation and scale. Generated images contain no major facial distortion or stretching. Processing failures return a clear error response.
+
+---
+
+#### DS-11 — Image Processing (3 & 4) | Priority: High
+
+> As the input validator, I want to have any inputs be properly uploaded and recognized, so that the user does not get frustrated with slow wait times.
+
+**Acceptance criteria:** Any buttons in the UI are responsive and have a fast response time. Any displays that appear when a user makes an input take no more than 1 second. Displayed images that the user uploaded are in high quality and have no distortions.
+
+---
+
+#### DS-011 — Testing/CI/CD | Priority: High
+
+> As a developer writing unit and integration tests, I want test coverage for both the timeout enforcement and structured error response on AI generation requests, so that regressions in timeout behavior or error formatting are caught before they reach the UI or production.
+
+**Acceptance criteria:** Cover both the happy path and edge cases across six scenarios: validating that the timeout fires at the correct threshold, the returned error object contains all required fields with the right types, the timeout is configurable via environment variable with a safe fallback, and the console log always captures a timestamp and duration.
+
+---
+
+## 5. Wireframes & Interaction Specs
+
+*Domain 3 (Frontend/UX) owns this section. All pairs must put their domain's concerns regarding their research by Sunday.*
+
+> **Think:** What specific features does each team want/need for their image/API/model work, so frontend can design accordingly?
+
+All wireframes must be designed at **iPhone 14 dimensions (390 x 844px)** first, then show reflow at **768px (tablet)** and **1280px (desktop)**. Figma file must be shared with the full team.
+
+### Required Screens
+
+| Screen | Key Elements | Interaction Notes |
+|--------|-------------|-------------------|
+| **Home / Launch Screen** | Camera button (primary CTA), recent memes grid, mode selector pills (Normal / Extra Roast / Friendly Roast), settings icon | Mode selector persists across sessions. Recent memes grid is local cache only (no auth required for MVP). |
+| **Upload / Capture Screen** | Camera viewfinder OR photo library picker, face detection overlay (bounding box on detected face), confirm / retry buttons | Face detection runs client-side on upload (MediaPipe or face-api.js). If no face detected, show inline error with suggestion. Must complete in <1 second. |
+| **Template Selector** *(normal mode only)* | Scrollable grid of meme templates, search bar, trending/recent tabs, template preview on tap | Templates loaded from JSON file. Lazy-load images. Tapping a template goes directly to editor — no intermediate confirmation screen. |
+| **Main Editor** | Image canvas (center, 60% of screen height), text overlay controls (tap to edit inline), model mode badge, Generate button (primary), Undo / Reset / Download buttons, text and image editing options, filters | All controls must be reachable with one thumb on mobile. No modals or popups — all editing inline on canvas. Generate triggers AI call; show skeleton loader during wait. |
+| **AI Generation Loading State** | Full-screen progress indicator, estimated wait time (e.g. "~2 seconds"), cancel button, fun loading copy ("Cooking your meme...") | If API call exceeds 5 seconds, show "Taking longer than usual" message with cancel option. Log latency to console for PoC measurement. |
+| **Preview & Share Screen** | Full meme preview, share button (opens native share sheet), copy link, download, start over | Share button uses Web Share API on mobile. Fallback: copy to clipboard. No login required to share. |
+| **Roast Slider** | Visible slider to adjust roast mode, color goes from green to red as roast gets higher | User can adjust via mouse or keyboard buttons; should be clear and visible. |
+
+### User-Interaction Constraints
+
+- Max 3 taps from launch to meme ready to share in normal mode.
+- Max 4 taps from launch to meme ready in roast modes (extra tap for face confirmation).
+- No loading screen on app launch — home screen must render immediately from cached state.
+- Touch targets minimum 44x44px (Apple HIG standard).
+- All destructive actions (reset, delete) require a single confirmation — no multi-step dialogs.
+
+### Accessibility Notes (Minimum Requirements)
+
+- All text must be __ px big for comfortable reading *(will decide on px later, customizable)*.
+- All buttons must be customized to mobile/desktop size; should not block the main view.
+
+---
+
+## 6. Risk Analysis
+
+| Domain | Description | Mitigation Strategy |
+|--------|-------------|---------------------|
+| AI & Prompting | Image generation may be too slow | Enforce a 5-second timeout, preload loading screens, cache prompts/results |
+| AI & Prompting | Image generation may be inappropriate, offensive, or unsafe | Add a PG-13 prompt constraint for those 13 and younger; for those older, they have an option to opt out |
+| Image Processing | Face detection may fail on blurry, tilted, dark, or group photos | Add confidence scoring, clear inline warnings, face selection UI |
+| Image Processing | Face swap alignment may look distorted or low quality | Store template face region metadata and allow manual adjustment if needed |
+| Image Processing | Unsupported file format input | Has specific format requirements or attempts to convert input to an accepted file format |
+| Frontend / UX | Could be too cluttered / too many editing controls | Prioritize one-thumb interaction, simple design |
+| Frontend / UX | Users may abandon app if meme creation takes too many taps or screens | Only 3–4 taps max and minimize confirmation dialogs |
+| Security / Privacy | Uploaded faces may stay in storage | Avoid permanent storage, clear temporary files automatically, document privacy behavior |
+| Testing/CI/CD | Temporary file cleanup and privacy behavior may not be validated, allowing storage bugs to reach production undetected | Write integration tests that assert uploaded files are deleted after session, no face data persists between requests, and privacy behavior is documented and regression-tested in CI on every PR |
+| API Integration | API used for face swap goes down or becomes unreachable | Health-check the API on worker startup and possibly fall back to a placeholder, or disable the feature temporarily with a user message |
+| API Integration | Rate limiting — external APIs return 429 under heavy usage or shared free-tier quotas | Read `Retry-After` header when present; otherwise apply exponential backoff (1s → 2s → 4s → 8s) capped at 3 retries. Return structured error so the UI can surface a clear message. |
+| Image Processing | Phone uploads may include huge files, corrupt data, or unsupported formats that break face detection or expose privacy information | Run all uploads through a validator before face detection, normalize image orientation/dimensions, reject unsafe formats like SVG, and show clear retry instructions |
+
+---
+
+## 7. Scenario-Based Tests
+
+Scenario tests describe realistic user journeys and expected system behavior including edge cases. These are written before coding begins so developers know exactly what the system must handle.
+
+**Format: Given / When / Then**
+
+### 7.1 Normal Mode — Face Swap Scenarios
+
+| Scenario | Given | Then (Expected Behavior) |
+|----------|-------|--------------------------|
+| Happy path — clean frontal face | User uploads a valid picture of their friend and selects the Pizza meme template. | Face is detected in <1s. Face is put into template's face region. Text is editable. Final image downloadable within 3 seconds of template selection. |
+| Multiple faces in uploaded photo | User uploads a group photo with 4 faces detected. | System shows face-selection UI: thumbnail grid of detected faces. User taps one face to select. Only selected face is used for swap. |
+| No face detected | User uploads a photo of a tree. | System shows inline error: "No face found — try a photo where a face is clearly visible." Upload button remains active for retry. No API call made. |
+| Image too small (< 100x100px) | User uploads a tiny image. | System shows inline error: "Image too small — try a bigger photo." Rejected immediately with a pop-up window. |
+| Very tilted face or blurry face | User uploads a side profile/blurry photo. | Face detection returns low confidence score. System warns user: "Face angle may affect quality — result might look off." Allows proceeding or retrying. |
+| Template with no face region | Developer adds a new template missing face region metadata. | System throws `MISSING_FACE_REGION` error. Error logged. Does not crash app. |
+| Dark image | User uploads image with poor lighting. | System returns low confidence score. Error thrown: "Try a photo where a face is clearly visible." |
+| Obstructed image | User uploads face with hair/accessories covering parts of face. | Error thrown: "Try a photo where a face is clearly visible." |
+| Meme creation from scratch | User selects "Create from scratch" instead of choosing a meme template. | System opens a blank canvas editor where the user can upload images, add text, and export the final meme. |
+
+---
+
+### 7.2 AI Roast Mode Scenarios
+
+| Scenario | Given / When | Then (Expected Behavior) |
+|----------|-------------|--------------------------|
+| Face crop extraction | User uploads a valid image of a face for roast mode. | System extracts face crop successfully and sends cropped face to AI pipeline within 1 second. |
+| Multiple faces | User uploads a group photo. | System prompts user to select which face to use before continuing. |
+| Low confidence face | User uploads blurry or dark image. | System warns user that meme quality may be reduced and allows retry. |
+| Face partially obstructed | User uploads an image with something covering face. | System returns low confidence warning but allows manual confirmation. |
+| AI generation timeout | AI generation takes longer than 5 seconds. | System returns `{code: "TIMEOUT_ERROR", message, retryable: true}` and shows a clear retry/cancel message. |
+| API rate limit hit | External AI API returns a 429 response. | System uses `Retry-After` if provided, otherwise retries with exponential backoff up to 3 times, then returns `{code: "RATE_LIMITED", message, retryable: true}`. |
+| Friendly roast user prompt | User enters a custom prompt while in Friendly Roast mode. | System sanitizes the prompt and still enforces PG-13 constraints before generation. |
+
+---
+
+### 7.3 Social Filter Extension Scenarios
+
+| Scenario | Given / When | Then (Expected Behavior) |
+|----------|-------------|--------------------------|
+| Happy path — share from feed | User long-presses an image in the Instagram/X/Reddit feed and selects "Open in MemeBro" from the share sheet. | Extension launches MemeBro mini-editor in <2s with the selected image preloaded. User can pick mode without leaving the feed app. |
+| Unsupported media type | User shares a link that points to a video or animated GIF. | Extension shows inline error: "MemeBro only works with static images — try a screenshot instead." Returns user to the feed without crash. |
+| Cross-origin image blocked | Social platform serves the image with CORS headers that block the extension from reading pixel data. | Extension falls back to prompting "Save the image first, then open MemeBro." Logs the blocked origin for future allowlist updates. |
+| No face in shared image | User shares a landscape photo or object screenshot with no human face. | Extension surfaces the same "No face found" error and offers Normal mode with a manual text-only meme as fallback. |
+| Extension permission not granted | User opens the extension before granting clipboard or storage permissions. | Extension shows the permission prompt inline. If denied, it gracefully degrades to copy-link share only. |
+| Large image on low-end device | Older iPhone or Android shares a 12 MB photo through the extension. | Extension downscales client-side to 1280px max edge before handing off to the main pipeline. Final exported meme stays under 10 MB. |
+| postMessage timeout (background tab) | User triggers the extension, but the host tab is throttled by the OS in the background. | Extension retries postMessage handshake 3x over 2 seconds. If still no response, opens MemeBro in a new tab with the image URL attached. |
+| User closes extension mid-generation | User dismisses the extension overlay while a roast-mode AI generation is still in flight. | In-flight API request is aborted via AbortController. No result is saved or rendered. No additional cost accrues beyond what was already sent. |
+
+---
+
+### 7.4 Edit Mode Scenarios
+
+| Scenario | Given / When | Then (Expected Behavior) |
+|----------|-------------|--------------------------|
+| User edits text after AI generation | User has generated a meme and taps the text overlay on the editor screen. | Text becomes inline-editable without a modal, changes reflect on the canvas in real time, and updated text is baked into the final export. |
+| User repositions text overlay | User is in the editor and drags a text overlay to a new position on the canvas. | Text moves with the drag gesture, stays within canvas bounds, and does not overflow outside the image edges. |
+| User applies a deep-fry filter | User has a completed meme and taps the deep-fry filter. | Image renders with the degraded/saturated aesthetic within 1 second and the filter is reflected in the exported file. |
+| User resets all edits | User has made text and filter changes and taps Reset. | A single confirmation prompt appears; upon confirming, the canvas returns to the post-generation state with all edits cleared. |
+
+---
+
+### 7.5 Roast Slider Scenarios
+
+| Scenario | Given / When | Then (Expected Behavior) |
+|----------|-------------|--------------------------|
+| User adjusts slider to maximum roast | User drags the slider to 10 and taps Generate. | Prompt sent to AI includes maximum chaos/absurdist tone instructions; slider visually reads red. |
+| User adjusts slider to minimum (friendly) | User drags the slider to 0 and taps Generate. | Prompt enforces friendly tone constraints; slider visually reads green. |
+| Slider persists across mode switch | User sets the slider to 60 and navigates away from the editor, then returns to roast mode. | Slider retains the last set value rather than resetting to default. |
+| Keyboard accessibility on slider (desktop) | User is on desktop and presses arrow keys while the slider is focused. | Value increments/decrements by a consistent step and color updates accordingly. |
+
+---
+
+### 7.6 Export & Share Scenarios
+
+| Scenario | Given / When | Then (Expected Behavior) |
+|----------|-------------|--------------------------|
+| Successful share via Web Share API | User taps Share on the preview screen on a mobile browser where Web Share API is available. | Native share sheet opens within 300ms with the meme image attached and ready to send. |
+| Web Share API not available (desktop fallback) | User taps Share on a desktop browser where Web Share API is unsupported. | Meme image is automatically copied to clipboard and a confirmation toast appears. |
+| User downloads meme directly | User taps Download on the preview screen. | File saves as JPEG or PNG at minimum 800px width, under 10 MB, with no visible pixelation. |
+| User shares without an account | User who has never logged in taps Share or Download. | Both actions complete successfully with no login prompt or gate. |
+
+---
+
+### 7.7 Multi-Face Selection Scenarios
+
+| Scenario | Given / When | Then (Expected Behavior) |
+|----------|-------------|--------------------------|
+| User selects one face from a group photo | User uploads a photo with 3 detected faces; face selection thumbnail grid appears. | Tapping one face highlights it and only that face is passed into the swap or roast pipeline. |
+| User changes face selection before generating | User has selected a face and taps a different face thumbnail before generating. | Selection updates immediately; previously selected face is deselected. |
+| All detected faces have low confidence | User uploads a dimly lit group photo where all faces score below the confidence threshold. | Each thumbnail in the face grid displays a warning indicator and the user is advised that quality may be reduced. |
+
+---
+
+## 8. Unit Tests & Edge Cases by Feature *(Team Leads Only)*
+
+Each domain pair is responsible for writing complete unit tests for their feature area before Sprint 1 coding begins. Tests must appear in the repository with passing stubs by end of Week.
+
+### 8.1 Face Detection Service (Domain: Image Processing)
+
+| Test Name | Input | Expected Output |
+|-----------|-------|-----------------|
+| `detectFaces` returns single bounding box for one face | JPEG image with one centered frontal face | Array with one object: `{x, y, width, height, confidence}` where confidence > 0.85 |
+| `detectFaces` returns multiple bboxes for group photo | JPEG image with 4 distinct faces at varying positions | Array of 4 face objects, each with unique `{x, y}` coordinates and confidence > 0.7 |
+| `detectFaces` returns empty array when no face present | JPEG image of a landscape with no human faces | Empty array `[]`; not null, not undefined |
+| `detectFaces` handles WebP input | WebP image with one face | Array with one face object; same schema as JPEG output |
+| `detectFaces` handles PNG with alpha channel | PNG image with transparency and one face | Array with one face object; alpha channel does not affect detection accuracy |
+| `detectFaces` rejects image smaller than 100x100 | JPEG image at 50x50px | Throws `InputError: "Image too small — minimum 100x100px required"` |
+| `detectFaces` rejects file over 5 MB | JPEG image at 6 MB file size | Throws `InputError: "Image exceeds 5 MB size limit"` |
+| `detectFaces` returns low confidence for dark image | JPEG image taken in low-light conditions with one face | Array with one face object where confidence < 0.5; consumer decides whether to warn user |
+| `detectFaces` returns low confidence for side profile | JPEG image of a person turned ~70 degrees from camera | Array with one face object where confidence < 0.6 |
+| `detectFaces` handles corrupt image gracefully | Binary file with .jpg extension but invalid JPEG headers | Throws `InputError: "Unable to decode image — file may be corrupt"` |
+| `detectFaces` returns empty array for empty file | Zero-byte file with .png extension | Throws `InputError: "Empty file — no image data to process"` |
+| `detectFaces` rejects unsupported MIME type | .bmp file upload | Throws `InputError: "Unsupported format — accepted types: JPEG, PNG, WebP"` |
+| `detectFaces` responds within 1000ms | Valid JPEG image (1920x1080, 2 MB) with one face | Result returned in <1000ms (performance assertion) |
+| `detectFaces` confidence is between 0 and 1 | Valid JPEG with clearly visible face | Confidence value satisfies `0 <= confidence <= 1` |
+| `detectFaces` bbox stays within image bounds | JPEG (640x480) with face near the right edge | `x + width <= 640` and `y + height <= 480` for every returned face object |
+| `detectFaces` bbox dimensions are positive integers | JPEG with one centered face | Width > 0 and height > 0; all coordinates are non-negative integers |
+
+---
+
+### 8.2 AI Prompt Builder (Domain: AI & Prompting)
+
+| Test Name | Input | Expected Output |
+|-----------|-------|-----------------|
+| `buildPrompt` produces chaos instruction for `extra_roast` | `{face_crop: validBlob, mode: "extra_roast", style_seed: 42}` | Prompt string contains "absurdist" or "chaotic" tone instruction and excludes PG-13 guardrails |
+| `buildPrompt` produces PG-13 instruction for `friendly_roast` | `{face_crop: validBlob, mode: "friendly_roast", style_seed: 42}` | Prompt string explicitly includes "no profanity, no slurs, no targeted harassment" constraint |
+| `buildPrompt` throws on invalid mode | `{face_crop: validBlob, mode: "unknown_mode", style_seed: 1}` | Throws `ValidationError: "Invalid mode — expected extra_roast or friendly_roast"` |
+| `buildPrompt` keeps token count under 500 | `{face_crop: validBlob, mode: "extra_roast", style_seed: 99}` | Encoded prompt length < 500 tokens (verified via tiktoken or equivalent) |
+| `buildPrompt` is deterministic for same seed | Two calls with identical `{face_crop, mode: "extra_roast", style_seed: 7}` | Both calls return the exact same prompt string |
+| `buildPrompt` varies output across different seeds | `style_seed: 1` vs `style_seed: 2` | Returned prompt strings differ in at least the style/aesthetic section |
+| `buildPrompt` embeds face description | `{face_crop: validBlob, mode: "friendly_roast", style_seed: 10}` | Prompt string includes a face-description segment derived from the crop (e.g., aspect ratio, orientation) |
+| `buildPrompt` throws on empty face_crop | `{face_crop: null, mode: "extra_roast", style_seed: 5}` | Throws `InvalidInput: "face_crop is required"` |
+| `buildPrompt` never leaks API key in output | `{face_crop: validBlob, mode: "extra_roast", style_seed: 1}` | Prompt string does not contain any substring matching the API key pattern (`sk-...`) |
+| `buildPrompt` generates distinct system instructions per mode | Calls with mode `"extra_roast"` and mode `"friendly_roast"` (same crop and seed) | System-instruction segments differ; friendly includes content-policy block, extra does not |
+| `buildPrompt` sanitizes user-injected text | `{face_crop, mode: "extra_roast", style_seed: 1}` with user_text containing prompt-injection attempt | User text is escaped or placed in a quoted literal block — never executed as a prompt directive |
+| `buildPrompt` friendly_roast rejects banned keywords | `{face_crop, mode: "friendly_roast", style_seed: 3}` combined with user text containing slur | Throws `ContentPolicyError: "Input contains disallowed language"` |
+
+---
+
+### 8.3 Image Compositor (Domain: Image Processing)
+
+| Test Name | Input | Expected Output |
+|-----------|-------|-----------------|
+| `compositeImage` places face at template coordinates | Template with face region `{x: 100, y: 50, w: 200, h: 200}`, face crop blob | Output image has face pixels centered at (200, 150) within the template canvas |
+| `compositeImage` renders text with 2px white outline | Text "LOL", font size 24, position (10, 400) | Output PNG text stroke is white (#FFFFFF) at 2px; fill is black (#000000) |
+| `compositeImage` auto-wraps text exceeding bbox width | Text "This is a very long caption that exceeds the region", bbox width 200px | Text wraps into multiple lines; no text renders outside the bounding box width |
+| `compositeImage` outputs transparent PNG | Template with transparent background regions | Output PNG with alpha channel preserved in non-face, non-text areas |
+| `compositeImage` matches template dimensions | Template at 1080x1080 | Output image dimensions are exactly 1080x1080 |
+| `compositeImage` handles multi-line text alignment | Two-line caption text, center-aligned | Both lines are horizontally centered within the text bounding box |
+| `compositeImage` renders emoji in caption | Caption text "fire emoji 🔥 LOL" | Emoji glyph renders visibly in output (not replaced with tofu/box) |
+| `compositeImage` handles empty text without crash | Empty string `""` for caption, valid face crop and template | Output image contains composited face on template with no text overlay; no error thrown |
+| `compositeImage` escapes special characters | Caption containing `& < > "` characters | Characters render as literal glyphs in the image, not HTML entities |
+| `compositeImage` scales face preserving aspect ratio | Face crop 300x400 placed into template region 200x200 | Face is scaled to fit (150x200 or 200x267 with letterboxing); no horizontal stretch |
+| `compositeImage` output is under 10 MB | 1080x1080 template, face crop, 3-line caption | Exported file size < 10 MB at default quality |
+| `compositeImage` bakes caption into pixels | Caption "test", template, face crop | Output is a single flat image; caption text is rasterized into pixels (not a metadata layer) |
+| `compositeImage` is deterministic | Same template, same face crop, same caption called twice | Both output images produce identical pixel data (byte-equal) |
+
+---
+
+### 8.4 API Call Manager (Domain: API Integration)
+
+| Test Name | Input | Expected Output |
+|-----------|-------|-----------------|
+| `callAI` times out after 5 seconds | AI generation request that hangs (mock never resolves) | Returns `{code: "TIMEOUT_ERROR", message: "Request timed out after 5000ms", retryable: true}` |
+| `callAI` respects Retry-After header on 429 | Mock returns 429 with `Retry-After: 3` header | Manager waits 3 seconds then retries; second call succeeds and returns the AI result |
+| `callAI` uses exponential backoff without Retry-After | Mock returns 429 with no `Retry-After` header | Retries at ~1s, ~2s, ~4s intervals; if all fail returns `{code: "RATE_LIMITED", retryable: true}` |
+| `callAI` caps retry attempts at 3 | Mock returns 429 on every attempt | After 3 retries (4 total calls), returns `{code: "RATE_LIMITED", message: "Rate limit exceeded after 3 retries", retryable: true}` |
+| `callAI` validates API key on init | Environment with `OPENAI_API_KEY` unset or empty | Throws `ConfigError: "Missing required environment variable: OPENAI_API_KEY"` |
+| `callAI` rejects payload over 10 MB | Image upload request with 12 MB body | Returns HTTP 413 with `{code: "PAYLOAD_TOO_LARGE", message: "Maximum upload size is 10 MB"}` |
+| `callAI` routes face_swap mode to face-swap endpoint | `{mode: "face_swap", image: blob}` | Request sent to the face-swap API path (e.g., `/api/face-swap`), not the generation endpoint |
+| `callAI` routes extra_roast mode to image-gen endpoint | `{mode: "extra_roast", face_crop: blob, prompt: "..."}` | Request sent to the image-generation API path (e.g., `/api/image`) |
+| `callAI` never exposes API key in error messages | Mock returns 500 server error | Error object's message field does not contain the API key substring; console.error log also clean |
+| `callAI` returns retryable true for 5xx errors | Mock returns HTTP 502 Bad Gateway | Returns `{code: "SERVER_ERROR", message: "...", retryable: true}` |
+| `callAI` returns retryable false for non-429 4xx errors | Mock returns HTTP 400 Bad Request | Returns `{code: "CLIENT_ERROR", message: "...", retryable: false}` |
+| `callAI` abort cancels in-flight request | `AbortController.abort()` called 1 second into a 5-second request | Request is cancelled; no result or error is returned; fetch was aborted |
+| `callAI` timeout is configurable via env var | `AI_TIMEOUT_MS` env var set to 3000 | Request times out after 3000ms instead of default 5000ms |
+| `callAI` logs timestamp and duration | Successful AI generation request completing in 2.3 seconds | Console.log output includes ISO timestamp and "duration: 2300ms" |
+| `callAI` concurrent requests have independent retry counters | Two simultaneous requests; first gets 429, second succeeds | First request retries independently; second request returns immediately without delay |
+| `callAI` handles concurrent requests with independent retry logic | Two simultaneous calls — first with a transient network error injected, second with a valid input | First request retries independently; second request returns immediately without delay |
+
+---
+
+### 8.5 File Upload Validator (Domain: Image Processing)
+
+| Test Name | Input | Expected Output |
+|-----------|-------|-----------------|
+| `validateUpload` accepts valid JPEG | JPEG file, 2 MB, 1920x1080, `image/jpeg` MIME | Returns `{valid: true, width: 1920, height: 1080, format: "jpeg"}` |
+| `validateUpload` accepts valid PNG | PNG file, 1.5 MB, 800x600, `image/png` MIME | Returns `{valid: true, width: 800, height: 600, format: "png"}` |
+| `validateUpload` accepts valid WebP | WebP file, 500 KB, 1024x768, `image/webp` MIME | Returns `{valid: true, width: 1024, height: 768, format: "webp"}` |
+| `validateUpload` rejects file over 10 MB | JPEG file at 12 MB | Throws `ValidationError: "File exceeds 10 MB upload limit"` |
+| `validateUpload` rejects zero-byte file | Empty file with .png extension, 0 bytes | Throws `ValidationError: "Empty file — no image data to process"` |
+| `validateUpload` rejects unsupported MIME type | BMP file with `image/bmp` MIME type | Throws `ValidationError: "Unsupported format — accepted types: JPEG, PNG, WebP"` |
+| `validateUpload` rejects SVG (XSS risk) | SVG file with `image/svg+xml` MIME | Throws `ValidationError: "SVG uploads are not supported for security reasons"` |
+| `validateUpload` detects MIME spoofing | File with .jpg extension but actual content is a PDF | Throws `ValidationError: "File content does not match declared type"` |
+| `validateUpload` rejects image below minimum dimensions | JPEG at 50x30px | Throws `ValidationError: "Image too small — minimum 100x100px required"` |
+| `validateUpload` rejects image above max dimensions | PNG at 8192x8192px | Throws `ValidationError: "Image dimensions exceed maximum 4096x4096px"` |
+| `validateUpload` strips EXIF metadata | JPEG with GPS, camera model, and orientation EXIF tags | Returns valid result; output blob contains no EXIF data (privacy protection) |
+| `validateUpload` handles corrupt image headers | Binary file with .jpg extension but invalid JPEG magic bytes | Throws `ValidationError: "Unable to decode image — file may be corrupt"` |
+| `validateUpload` accepts HEIC from iOS | HEIC file from iPhone camera roll, 3 MB | Returns `{valid: true, format: "heic"}` or auto-converts to JPEG before returning |
+| `validateUpload` sanitizes filename | File named `"../../etc/passwd.jpg"` | Filename is sanitized to `"etcpasswd.jpg"`; path traversal characters stripped |
+
+---
+
+## 12. Repository Structure & GitHub Checklist
+
+### 12.1 Target Repo Structure After Review
+
+```
+memebro/
+├── docs/
+│   ├── week6-design-sprint.md       (this document as markdown)
+│   ├── user-personas.md
+│   └── user-stories.md
+├── design/
+│   ├── figma-link.md
+│   └── wireframes/                  (exported PNGs from Figma)
+├── prototypes/
+│   └── api-latency-poc/             (PoC scripts — NOT production code)
+├── src/                             (empty or skeleton only — no features yet)
+├── .github/workflows/ci.yml         (lint + test pipeline)
+└── .gitignore
+```
+
+---
+
+## 13. Open Questions for Omair (TA)
+
+| # | Question | Domain | Answer |
+|---|----------|--------|--------|
+| Q1 | Do we have any API credits / budget for face-swap or image-generation APIs for Week 6 latency testing? Or should we use free tiers only? | AI (1&2) | We do not! Be careful about how you want to do this — though you can always offer the option for the user to login and maybe use their own credits/paid tier if they run out of the free option. |
+| Q2 | For the social filter extension — which platform(s) should we target first? Instagram, Twitter/X, Reddit? | Frontend (5&6) | Honestly — why not all? If you really have to be picky I'd say maybe Reddit, then Twitter — but I use memes mostly for personal conversation not for posting on bigger forums. I feel like the clipboard is probably the thing I'd want to be able to move stuff to first. The rest is really icing on the cake for people who really want to use this thing as a power tool for meme generation. |
+| Q3 | Is CapacitorJS approved for wrapping as a mobile app, or should we stay PWA for the mobile experience? | Frontend (5&6) | It is approved — but feel free to use anything else you might prefer — just make sure you write up an ADR and have me look it over before going down that route. |
+| Q4 | Are we allowed to add a dependency on face-api.js or MediaPipe for client-side face detection, or do we need TA approval first? | Image (3&4) | Write up an ADR and then get my approval! |
+| Q5 | For friendly roast mode — is there a specific content policy definition we should follow beyond "PG-13"? What would disqualify a generated image at the prof demo? | AI (1&2) | Make sure you're not violating any of UCSD's Student Conduct or Harassment policies — you might just have the LLM have a set of instructions basically being like "make sure whatever you generate is within these terms as well." Remember Powell has said if it gets nasty you will all fail immediately so try to keep that in mind. Make sure you have something you can point to (i.e. instructions for the AI) so that you can say you made a good faith effort to keep things civil. |
+| Q6 | Can we use Cloudflare Workers AI (their hosted model inference) as our backend instead of external paid APIs? | API (7&8) | Yes! |
+
+---
+
+## 13. Contributions
+
+| Member | Summary of What You Did |
+|--------|------------------------|
+| Sanjana | |
+| Andrew | |
+| Paul | |
+| Mohamed | |
+| Sohum | |
+| Luke | |
+| Aayan | |
+| Ivan | |
+| Raymond | |
+| Jorell | |
+| Cathlyn | |
