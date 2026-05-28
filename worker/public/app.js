@@ -666,14 +666,10 @@ function positionTextHandles() {
   const textRect = dom.memeTextPreview?.getBoundingClientRect();
   if (!artRect?.width || !textRect?.width) return;
 
-  const left = textRect.left - artRect.left;
-  const top = textRect.top - artRect.top;
-  const width = textRect.width;
-  const height = textRect.height;
   const centerX = (clamp(state.editor.overlayX, 5, 95) / 100) * artRect.width;
   const centerY = (clamp(state.editor.overlayY, 5, 95) / 100) * artRect.height;
-  const unrotatedWidth = dom.memeTextPreview.offsetWidth || width;
-  const unrotatedHeight = dom.memeTextPreview.offsetHeight || height;
+  const unrotatedWidth = dom.memeTextPreview.offsetWidth || textRect.width;
+  const unrotatedHeight = dom.memeTextPreview.offsetHeight || textRect.height;
   const radians = ((Number(state.editor.overlayRotation) || 0) * Math.PI) / 180;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
@@ -684,6 +680,7 @@ function positionTextHandles() {
     se: [unrotatedWidth / 2, unrotatedHeight / 2],
   };
 
+  // Resize handles stay absolute (relative to art container) — no change here.
   dom.memeTextResizeHandles.forEach((handle) => {
     const corner = handle.dataset.resizeCorner || "se";
     const handleSize = handle.offsetWidth || 14;
@@ -693,14 +690,40 @@ function positionTextHandles() {
     handle.style.left = `${x - handleSize / 2}px`;
     handle.style.top = `${y - handleSize / 2}px`;
   });
+
+  // Local controls: fixed positioning so overflow:hidden on the art never clips them.
   if (dom.textLocalControls) {
-    dom.textLocalControls.style.left = `${left + width / 2}px`;
-    dom.textLocalControls.style.top = `${Math.max(12, top - 52)}px`;
+    const controlsWidth = dom.textLocalControls.offsetWidth || 230;
+    const rawLeft = textRect.left + textRect.width / 2;
+    const clampedLeft = clamp(
+      rawLeft,
+      artRect.left + controlsWidth / 2 + 8,
+      artRect.right - controlsWidth / 2 - 8
+    );
+    // Prefer above the text; if too close to the top of the art, flip below.
+    const spaceAbove = textRect.top - artRect.top;
+    const controlsTop = spaceAbove >= 48
+      ? textRect.top - 50
+      : Math.min(textRect.bottom + 8, artRect.bottom - 44);
+
+    dom.textLocalControls.style.position = "fixed";
+    dom.textLocalControls.style.left = `${clampedLeft}px`;
+    dom.textLocalControls.style.top = `${controlsTop}px`;
     dom.textLocalControls.style.transform = "translateX(-50%)";
   }
+
+  // More menu: same fixed-positioning treatment.
   if (dom.textMoreMenu) {
-    dom.textMoreMenu.style.left = `${left + width / 2}px`;
-    dom.textMoreMenu.style.top = `${Math.max(12, top - 8)}px`;
+    const menuWidth = dom.textMoreMenu.offsetWidth || 160;
+    const rawLeft = textRect.left + textRect.width / 2;
+    const clampedLeft = clamp(
+      rawLeft,
+      artRect.left + menuWidth / 2 + 8,
+      artRect.right - menuWidth / 2 - 8
+    );
+    dom.textMoreMenu.style.position = "fixed";
+    dom.textMoreMenu.style.left = `${clampedLeft}px`;
+    dom.textMoreMenu.style.top = `${textRect.top - 8}px`;
     dom.textMoreMenu.style.transform = "translate(-50%, -100%)";
   }
 }
@@ -1552,6 +1575,11 @@ function render() {
   dom.textLocalControls.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
   const showTextPopups = showingStudio && state.editor.overlayVisible && state.isTextSelected;
   dom.textMoreMenu.classList.toggle("hidden", !showTextPopups || !state.showTextMore);
+  if (dom.textBorderToggleCta) {
+    const outlineOn = !!state.editor.overlayOutlineEnabled;
+    dom.textBorderToggleCta.textContent = `border: ${outlineOn ? "on" : "off"}`;
+    dom.textBorderToggleCta.classList.toggle("active", outlineOn);
+  }
   dom.textLockCta.textContent = state.isTextLocked ? "🔒" : "🔓";
   dom.memeFontSelect.value = state.editor.overlayFontKey;
   dom.memeFontSizeInput.value = String(Math.round(state.editor.overlayFontPx || 22));
@@ -1879,6 +1907,9 @@ dom.textLockCta.addEventListener("click", () => {
   state.isTextLocked = !state.isTextLocked;
   state.isEditingMemeText = false;
   render();
+});
+dom.textBorderToggleCta?.addEventListener("click", () => {
+  updateEditorTextSetting("overlayOutlineEnabled", !state.editor.overlayOutlineEnabled);
 });
 dom.textSizeDecCta.addEventListener("click", () => {
   const next = clamp(Math.round((state.editor.overlayFontPx || 22) - 2), 8, 120);
