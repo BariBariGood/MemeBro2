@@ -28,6 +28,7 @@ cse110-sp26-group17-MemeBro/
 
 ## Install
 ```bash
+cd worker
 npm install
 ```
 
@@ -35,6 +36,7 @@ This also sets up the MediaPipe browser files under `public/.generated/mediapipe
 
 ## Local Development
 ```bash
+cd worker
 npm run dev
 ```
 
