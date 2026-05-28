@@ -17,11 +17,10 @@ async function expectPublicFile(relativePath, minBytes = 1) {
 }
 
 describe("frontend runtime assets", () => {
-  test("MediaPipe files required by public/app.js are generated", async () => {
-    const appSource = await readFile(path.join(publicDir, "app.js"), "utf8");
-    const importMatch = appSource.match(/from "\.\/([^"]*vision_bundle\.mjs)"/);
+  test("MediaPipe files required by public/lib/faceDetect.js are generated", async () => {
+    const faceDetectSource = await readFile(path.join(publicDir, "lib", "faceDetect.js"), "utf8");
 
-    expect(importMatch?.[1]).toBe(".generated/mediapipe/vision_bundle.mjs");
+    expect(faceDetectSource).toContain('from "../.generated/mediapipe/vision_bundle.mjs"');
 
     await expectPublicFile(".generated/mediapipe/vision_bundle.mjs", 100_000);
     await expectPublicFile(".generated/mediapipe/models/blaze_face_short_range.tflite", 100_000);
