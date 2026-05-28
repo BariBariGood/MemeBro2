@@ -568,6 +568,10 @@ function getMemeTextColor(colorKey = DEFAULT_MEME_TEXT_COLOR) {
   return MEME_TEXT_COLORS[colorKey] || MEME_TEXT_COLORS[DEFAULT_MEME_TEXT_COLOR];
 }
 
+function getEditableTextValue(node) {
+  return node?.innerText ?? node?.textContent ?? "";
+}
+
 function getMemeBaseScale(sizeMode = DEFAULT_MEME_FONT_SIZE_MODE) {
   return MEME_FONT_SIZE_SCALES[sizeMode] || MEME_FONT_SIZE_SCALES[DEFAULT_MEME_FONT_SIZE_MODE];
 }
@@ -657,7 +661,7 @@ function fitMemeTextToCanvas() {
 }
 
 function positionTextHandles() {
-  if (!dom.memeTextDelete || !dom.memeTextRotateHandle) return;
+  if (!dom.memeTextResizeHandles?.length) return;
   const artRect = dom.studioTemplateArt?.getBoundingClientRect();
   const textRect = dom.memeTextPreview?.getBoundingClientRect();
   if (!artRect?.width || !textRect?.width) return;
@@ -666,15 +670,29 @@ function positionTextHandles() {
   const top = textRect.top - artRect.top;
   const width = textRect.width;
   const height = textRect.height;
+  const centerX = (clamp(state.editor.overlayX, 5, 95) / 100) * artRect.width;
+  const centerY = (clamp(state.editor.overlayY, 5, 95) / 100) * artRect.height;
+  const unrotatedWidth = dom.memeTextPreview.offsetWidth || width;
+  const unrotatedHeight = dom.memeTextPreview.offsetHeight || height;
+  const radians = ((Number(state.editor.overlayRotation) || 0) * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const cornerOffsets = {
+    nw: [-unrotatedWidth / 2, -unrotatedHeight / 2],
+    ne: [unrotatedWidth / 2, -unrotatedHeight / 2],
+    sw: [-unrotatedWidth / 2, unrotatedHeight / 2],
+    se: [unrotatedWidth / 2, unrotatedHeight / 2],
+  };
 
-  dom.memeTextDelete.style.left = `${left + width - 16}px`;
-  dom.memeTextDelete.style.top = `${top - 16}px`;
-  dom.memeTextDragHandle.style.left = `${left - 16}px`;
-  dom.memeTextDragHandle.style.top = `${top - 16}px`;
-  dom.memeTextRotateHandle.style.left = `${left - 16}px`;
-  dom.memeTextRotateHandle.style.top = `${top + height - 16}px`;
-  dom.memeTextResizeHandle.style.left = `${left + width - 16}px`;
-  dom.memeTextResizeHandle.style.top = `${top + height - 16}px`;
+  dom.memeTextResizeHandles.forEach((handle) => {
+    const corner = handle.dataset.resizeCorner || "se";
+    const handleSize = handle.offsetWidth || 14;
+    const [offsetX, offsetY] = cornerOffsets[corner] || cornerOffsets.se;
+    const x = centerX + offsetX * cos - offsetY * sin;
+    const y = centerY + offsetX * sin + offsetY * cos;
+    handle.style.left = `${x - handleSize / 2}px`;
+    handle.style.top = `${y - handleSize / 2}px`;
+  });
   if (dom.textLocalControls) {
     dom.textLocalControls.style.left = `${left + width / 2}px`;
     dom.textLocalControls.style.top = `${Math.max(12, top - 52)}px`;
@@ -783,15 +801,14 @@ function createOrSelectTextAtPointer(event) {
   state.isTextLocked = false;
   state.editor.overlayX = xPercent;
   state.editor.overlayY = yPercent;
-  state.isEditingMemeText = true;
+  state.isEditingMemeText = false;
   state.editor.overlayVisible = true;
   state.isTextSelected = true;
   state.showTextMore = false;
   // Ensure new textboxes never inherit prior DOM text content.
   dom.memeTextPreview.textContent = DEFAULT_MEME_TEXT;
   recordEditorSnapshot();
-  render();
-  if (state.isEditingMemeText) dom.memeTextPreview.focus();
+  beginInlineTextEdit();
 }
 
 function updateEditorTextSetting(key, value) {
@@ -1317,8 +1334,7 @@ function beginInlineTextEdit(event) {
 
   state.isEditingMemeText = true;
   state.isTextSelected = true;
-  const isPlaceholder = (state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT;
-  if (isPlaceholder) {
+  if ((state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
     state.editor.overlayText = "";
   }
 
@@ -1326,14 +1342,6 @@ function beginInlineTextEdit(event) {
 
   requestAnimationFrame(() => {
     dom.memeTextPreview.focus();
-
-    if (isPlaceholder) {
-      const selection = window.getSelection();
-      const range = document.createRange();
-      range.selectNodeContents(dom.memeTextPreview);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    }
   });
 
   render();
@@ -1350,7 +1358,7 @@ function selectTextObject(event) {
 
 function finishInlineTextEdit() {
   state.isEditingMemeText = false;
-  state.editor.overlayText = (dom.memeTextPreview.textContent || "").trim() || DEFAULT_MEME_TEXT;
+  state.editor.overlayText = getEditableTextValue(dom.memeTextPreview).trim() || DEFAULT_MEME_TEXT;
   if (!state.isEditingMemeText) {
     dom.memeTextPreview.textContent = state.editor.overlayText;
   }
@@ -1392,10 +1400,12 @@ function startTextDrag(event) {
 function startTextResize(event) {
   if (!state.editor.overlayVisible || state.isTextLocked) return;
   event.preventDefault();
+  event.stopPropagation();
   state.textResizePointerId = event.pointerId;
   state.textPointerStartX = event.clientX;
   state.textStartWidth = state.editor.overlayWidthPct;
-  dom.memeTextResizeHandle.setPointerCapture(event.pointerId);
+  state.textResizeDirection = event.currentTarget?.dataset?.resizeCorner?.includes("w") ? -1 : 1;
+  event.currentTarget?.setPointerCapture?.(event.pointerId);
 }
 
 function moveTextResize(event) {
@@ -1403,7 +1413,7 @@ function moveTextResize(event) {
   event.preventDefault();
   const artRect = dom.studioTemplateArt.getBoundingClientRect();
   const dxPct = ((event.clientX - state.textPointerStartX) / artRect.width) * 100;
-  state.editor.overlayWidthPct = clamp(state.textStartWidth + dxPct, 18, 90);
+  state.editor.overlayWidthPct = clamp(state.textStartWidth + dxPct * state.textResizeDirection, 18, 90);
   render();
 }
 
@@ -1530,16 +1540,14 @@ function render() {
   dom.memeTextPreview.setAttribute("contenteditable", state.isEditingMemeText ? "true" : "false");
   dom.memeTextPreview.classList.toggle("hidden", !state.editor.overlayVisible);
   dom.memeTextHint?.classList.toggle("hidden", showingStudio && (state.editor.overlayVisible || state.editor.frozenTextItems.length > 0));
-  dom.memeTextDelete.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
-  dom.memeTextDragHandle.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
-  dom.memeTextRotateHandle.classList.toggle(
-    "hidden",
-    !showingStudio || !state.editor.overlayVisible || !state.isTextSelected
-  );
-  dom.memeTextResizeHandle.classList.toggle(
-    "hidden",
-    !showingStudio || !state.editor.overlayVisible || !state.isTextSelected
-  );
+  const noTextSelection = !showingStudio || !state.editor.overlayVisible || !state.isTextSelected;
+  const transformDisabled = noTextSelection || state.isTextLocked;
+  dom.memeTextDelete.disabled = noTextSelection;
+  dom.memeTextRotateHandle.disabled = transformDisabled;
+  dom.memeTextResizeHandles?.forEach((handle) => {
+    handle.classList.toggle("hidden", transformDisabled);
+    handle.disabled = transformDisabled;
+  });
   dom.textToolbar.classList.toggle("hidden", !showingStudio);
   dom.textLocalControls.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
   const showTextPopups = showingStudio && state.editor.overlayVisible && state.isTextSelected;
@@ -1805,14 +1813,13 @@ dom.studioTemplateArt.addEventListener("pointerup", (event) => {
 });
 dom.memeTextPreview.addEventListener("pointerdown", (event) => {
   if (state.isEditingMemeText) return;
-  if (event.target === dom.memeTextDragHandle) return;
   startTextDrag(event);
 });
 dom.memeTextPreview.addEventListener("pointermove", moveTextDrag);
 dom.memeTextPreview.addEventListener("pointerup", endTextDrag);
 dom.memeTextPreview.addEventListener("pointercancel", endTextDrag);
 dom.memeTextPreview.addEventListener("input", () => {
-  state.editor.overlayText = dom.memeTextPreview.textContent || "";
+  state.editor.overlayText = getEditableTextValue(dom.memeTextPreview);
   state.editor.overlayVisible = true;
   state.showResetConfirmation = false;
 
@@ -1821,12 +1828,6 @@ dom.memeTextPreview.addEventListener("input", () => {
   // DO NOT render() while actively editing
 });
 dom.memeTextPreview.addEventListener("blur", finishInlineTextEdit);
-dom.memeTextPreview.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    finishInlineTextEdit();
-  }
-});
 dom.memeTextDelete.addEventListener("click", deleteMemeText);
 dom.textDuplicateCta.addEventListener("click", () => {
   if (!state.editor.overlayVisible) return;
@@ -1879,10 +1880,6 @@ dom.textLockCta.addEventListener("click", () => {
   state.isEditingMemeText = false;
   render();
 });
-dom.textMoreCta.addEventListener("click", () => {
-  state.showTextMore = !state.showTextMore;
-  render();
-});
 dom.textSizeDecCta.addEventListener("click", () => {
   const next = clamp(Math.round((state.editor.overlayFontPx || 22) - 2), 8, 120);
   updateEditorTextSetting("overlayFontPx", next);
@@ -1923,14 +1920,12 @@ dom.textLinkCta.addEventListener("click", () => {
   render();
 });
 dom.memeTextRotateHandle.addEventListener("click", rotateTextOneStep);
-dom.memeTextDragHandle.addEventListener("pointerdown", startTextDrag);
-dom.memeTextDragHandle.addEventListener("pointermove", moveTextDrag);
-dom.memeTextDragHandle.addEventListener("pointerup", endTextDrag);
-dom.memeTextDragHandle.addEventListener("pointercancel", endTextDrag);
-dom.memeTextResizeHandle.addEventListener("pointerdown", startTextResize);
-dom.memeTextResizeHandle.addEventListener("pointermove", moveTextResize);
-dom.memeTextResizeHandle.addEventListener("pointerup", endTextResize);
-dom.memeTextResizeHandle.addEventListener("pointercancel", endTextResize);
+dom.memeTextResizeHandles?.forEach((handle) => {
+  handle.addEventListener("pointerdown", startTextResize);
+  handle.addEventListener("pointermove", moveTextResize);
+  handle.addEventListener("pointerup", endTextResize);
+  handle.addEventListener("pointercancel", endTextResize);
+});
 dom.memeFontSelect.addEventListener("change", () => {
   updateEditorTextSetting("overlayFontKey", dom.memeFontSelect.value);
 });
@@ -2027,10 +2022,19 @@ dom.backConfirmCta?.addEventListener("click", () => {
   confirmBackAndResetStudio();
 });
 
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Backspace") return;
+  if (!state.editor.overlayVisible || !state.isTextSelected || state.isEditingMemeText) return;
+  const target = event.target;
+  if (target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+  event.preventDefault();
+  deleteMemeText();
+});
+
 document.addEventListener("pointerdown", (event) => {
   const clickedInsideEditor =
     event.target.closest(
-      "#meme-text-preview, .frozen-text-item, .text-toolbar, .text-local-controls, .text-menu, #meme-text-delete, #meme-text-rotate-handle, #meme-text-drag-handle, #meme-text-resize-handle"
+      "#meme-text-preview, .frozen-text-item, .text-toolbar, .text-local-controls, .text-menu, .meme-text-resize-handle"
     );
 
   if (clickedInsideEditor) return;
