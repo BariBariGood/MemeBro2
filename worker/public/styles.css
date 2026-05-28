@@ -563,7 +563,7 @@ body {
 
 .text-local-controls {
   position: absolute;
-  z-index: 9;
+  z-index: 50;
   display: flex;
   gap: 5px;
   padding: 6px;
@@ -655,7 +655,8 @@ body {
   color: rgba(240, 242, 255, 0.92);
   padding: 0 10px;
   font-size: 0.9rem;
-  max-width: min(46vw, 210px);
+  width: 105px;
+  max-width: min(30vw, 130px);;
   flex: 0 0 auto;
 }
 
@@ -765,7 +766,7 @@ body {
   left: 50%;
   top: 66px;
   transform: translateX(-50%);
-  z-index: 9;
+  z-index: 50;
   background: rgba(14, 16, 28, 0.96);
   backdrop-filter: blur(18px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.14);
