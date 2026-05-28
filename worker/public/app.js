@@ -247,8 +247,6 @@ const state = {
 
 const RECENTS_STORAGE_KEY = "meme-template-recents";
 
-const adapter = createFaceDetectionAdapter();
-
 function setStatus(next) {
   state.status = next;
   render();

@@ -4,6 +4,10 @@ import {
   FilesetResolver,
 } from "./.generated/mediapipe/vision_bundle.mjs";
 
+//Module Default Export
+const adapter = createFaceDetectionAdapter();
+export default adapter;
+
 //Face Detection Adapter
 function createFaceDetectionAdapter() {
   let detector = null;
