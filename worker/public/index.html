@@ -80,14 +80,15 @@
             <span id="studio-template-initials" class="studio-template-initials"></span>
             <span id="studio-template-regions" class="studio-template-regions"></span>
             <div id="meme-text-preview" class="meme-text-preview" role="textbox" aria-label="Edit meme text" tabindex="0">Tap to edit text</div>
-            <button id="meme-text-drag-handle" class="meme-text-drag-handle" type="button" aria-label="Drag text">✥</button>
-            <button id="meme-text-delete" class="meme-text-delete" type="button" aria-label="Delete text">×</button>
-            <button id="meme-text-rotate-handle" class="meme-text-rotate-handle" type="button" aria-label="Drag to rotate text">↻</button>
-            <button id="meme-text-resize-handle" class="meme-text-resize-handle" type="button" aria-label="Resize text box">◢</button>
+            <button id="meme-text-resize-handle" class="meme-text-resize-handle meme-text-resize-handle--nw" type="button" aria-label="Resize text box from top left" data-resize-corner="nw"></button>
+            <button class="meme-text-resize-handle meme-text-resize-handle--ne" type="button" aria-label="Resize text box from top right" data-resize-corner="ne"></button>
+            <button class="meme-text-resize-handle meme-text-resize-handle--sw" type="button" aria-label="Resize text box from bottom left" data-resize-corner="sw"></button>
+            <button class="meme-text-resize-handle meme-text-resize-handle--se" type="button" aria-label="Resize text box from bottom right" data-resize-corner="se"></button>
             <div id="text-local-controls" class="text-local-controls hidden" aria-label="Text object controls">
               <button id="text-duplicate-cta" type="button" class="toolbar-btn">⧉</button>
               <button id="text-lock-cta" type="button" class="toolbar-btn">🔓</button>
-              <button id="text-more-cta" type="button" class="toolbar-btn">⋯</button>
+              <button id="meme-text-rotate-handle" type="button" class="toolbar-btn toolbar-btn--rotate" aria-label="Rotate text" title="Rotate text">↻</button>
+              <button id="meme-text-delete" type="button" class="toolbar-btn toolbar-btn--danger" aria-label="Delete text" title="Delete text">×</button>
             </div>
             <div id="text-more-menu" class="text-menu hidden">
               <button id="text-copy-cta" type="button">Copy</button>
@@ -142,11 +143,6 @@
         <div class="studio-sidebar">
           <section class="vibe-panel" aria-label="Pick a vibe">
             <p class="vibe-title">Pick a vibe</p>
-            <div class="vibe-options">
-              <button class="vibe-pill active" type="button">Normal</button>
-              <button class="vibe-pill roast" type="button">Extra Roast</button>
-              <button class="vibe-pill friendly" type="button">Friendly Roast</button>
-            </div>
             <p class="vibe-copy">Face-swap into a meme template.</p>
           </section>
 

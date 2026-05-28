@@ -37,6 +37,7 @@ export const state = {
     textStartX: 50,
     textStartY: 80,
     textStartWidth: 48,
+    textResizeDirection: 1,
     textDidDrag: false,
     cameraStream: null,
     cameraFacingMode: "user",
