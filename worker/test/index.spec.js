@@ -48,7 +48,7 @@ function fakeJpeg(size = 1024) {
   return buf;
 }
 
-async function fakePng(width = 64, height = 64) {
+async function fakePng(width = 128, height = 128) {
   const rgba = new Uint8Array(width * height * 4);
   rgba.fill(255);
   return encodePNG(width, height, rgba);
@@ -135,7 +135,7 @@ describe("MemeBro API gateway", () => {
   });
 
   it("runs local face compositing when a cropped face upload includes crop metadata", async () => {
-    const generatedPng = await fakePng(32, 32);
+    const generatedPng = await fakePng();
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ data: [{ b64_json: arrayBufferToBase64(generatedPng) }] }),
@@ -144,7 +144,7 @@ describe("MemeBro API gateway", () => {
     );
     vi.stubGlobal("fetch", mockFetch);
 
-    const cropPng = await fakePng(80, 80);
+    const cropPng = await fakePng();
     const templatePng = await fakePng(128, 128);
     const assets = {
       fetch: vi.fn(async (request) => {
@@ -179,7 +179,7 @@ describe("MemeBro API gateway", () => {
       headers: {
         "Content-Type": "image/png",
         "X-MemeBro-Filename": "face.png",
-        "X-MemeBro-Face-Crop": JSON.stringify({ x: 0, y: 0, width: 80, height: 80 }),
+        "X-MemeBro-Face-Crop": JSON.stringify({ x: 0, y: 0, width: 128, height: 128 }),
         "X-MemeBro-Template": "drake",
         "X-MemeBro-Meme-Text": "test meme",
       },
