@@ -1,8 +1,5 @@
+import { dom } from "./lib/dom.js";
 import {
-  FaceDetector as MediaPipeFaceDetector,
-  FilesetResolver,
-} from "./.generated/mediapipe/vision_bundle.mjs";
-import { dom } from "./dom.js";
   clearCameraStream,
   clearCameraReview,
   clearFaceFitState,
