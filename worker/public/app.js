@@ -1,8 +1,4 @@
 import {
-  FaceDetector as MediaPipeFaceDetector,
-  FilesetResolver,
-} from "./.generated/mediapipe/vision_bundle.mjs";
-import {
   clearCameraStream,
   clearCameraReview,
   clearFaceFitState,
@@ -1106,35 +1102,6 @@ function toggleDetectedFaceSelection(faceId) {
   }
 
   setSelectedFaceIds(nextFaceIds);
-}
-
-async function decodeImage(file) {
-  const url = state.previewUrl || URL.createObjectURL(file);
-  const shouldRevokeUrl = !state.previewUrl;
-
-  try {
-    const image = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.decoding = "async";
-      img.src = url;
-    });
-    const width = image.naturalWidth || image.width;
-    const height = image.naturalHeight || image.height;
-
-    if (!width || !height) {
-      throw new Error("Decoded image has no dimensions.");
-    }
-
-    return { source: image, width, height };
-  } catch {
-    const err = new Error("Image cannot be decoded.");
-    err.code = "CORRUPT_IMAGE";
-    throw err;
-  } finally {
-    if (shouldRevokeUrl) URL.revokeObjectURL(url);
-  }
 }
 
 async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
