@@ -23,6 +23,7 @@ import {
   moveManualDrag,
   configureUpload,
 } from "./lib/upload.js";
+import adapter from "./lib/faceDetect.js";
 
 const STATES = {
   IDLE: "idle",
@@ -272,256 +273,6 @@ const state = {
 };
 
 const RECENTS_STORAGE_KEY = "meme-template-recents";
-
-function createFaceDetectionAdapter() {
-  let detector = null;
-  let vision = null;
-  let available = true;
-  let initPromise = null;
-
-  return {
-    async init() {
-      if (detector) return true;
-      if (initPromise) return initPromise;
-
-      initPromise = (async () => {
-        try {
-          vision = vision || await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_PATH);
-          detector = await MediaPipeFaceDetector.createFromOptions(vision, {
-            baseOptions: {
-              modelAssetPath: MEDIAPIPE_FACE_MODEL_PATH,
-              delegate: "CPU",
-            },
-            runningMode: "IMAGE",
-            minDetectionConfidence: 0.35,
-            minSuppressionThreshold: 0.3,
-          });
-          available = true;
-          return true;
-        } catch (error) {
-          console.warn("Face detection failed to initialize.", error);
-          detector = null;
-          available = false;
-          return false;
-        } finally {
-          initPromise = null;
-        }
-      })();
-
-      return initPromise;
-    },
-
-    async detect(decodedImage, options = {}) {
-      if (!detector) return [];
-
-      const targetFaceCount = Math.max(1, Number(options.faceLimit) || 1);
-      let faces = detectFacesInRegion(detector, decodedImage.source, {
-        x: 0,
-        y: 0,
-        width: decodedImage.width,
-        height: decodedImage.height,
-      });
-      faces = mergeDetectedFaces(faces, decodedImage);
-
-      if (targetFaceCount <= 1 || faces.length >= targetFaceCount) {
-        return assignFaceIds(faces);
-      }
-
-      const tilePlan = buildDetectionTiles(decodedImage, targetFaceCount);
-
-      for (let index = 0; index < tilePlan.length; index += 1) {
-        const tileCanvas = createDetectionTileCanvas(decodedImage.source, tilePlan[index]);
-        const tileFaces = detectFacesInRegion(detector, tileCanvas, tilePlan[index]);
-        faces = mergeDetectedFaces([...faces, ...tileFaces], decodedImage);
-
-        if (faces.length >= targetFaceCount) break;
-      }
-
-      return assignFaceIds(faces);
-    },
-
-    isAvailable() {
-      return available;
-    },
-  };
-}
-
-function detectFacesInRegion(detector, source, region) {
-  const result = detector.detect(source);
-  const detections = Array.isArray(result?.detections) ? result.detections : [];
-  const sourceWidth = source.naturalWidth || source.width || region.width;
-  const sourceHeight = source.naturalHeight || source.height || region.height;
-  const scaleX = region.width / sourceWidth;
-  const scaleY = region.height / sourceHeight;
-
-  return detections
-    .filter((face) => face.boundingBox)
-    .map((face) => {
-      const box = face.boundingBox;
-      const x = region.x + box.originX * scaleX;
-      const y = region.y + box.originY * scaleY;
-      const width = box.width * scaleX;
-      const height = box.height * scaleY;
-
-      return {
-        score: Number(face.categories?.[0]?.score ?? 1),
-        boxNatural: {
-          x,
-          y,
-          width,
-          height,
-        },
-      };
-    });
-}
-
-function buildDetectionTiles(decodedImage, targetFaceCount) {
-  const tiles = [];
-  const seen = new Set();
-  const gridPlans = targetFaceCount >= 3
-    ? [[2, 1], [1, 2], [2, 2], [3, 2]]
-    : [[2, 1], [1, 2], [2, 2]];
-
-  gridPlans.forEach(([columns, rows]) => {
-    const tileWidth = decodedImage.width / (columns - (columns - 1) * DETECTION_TILE_OVERLAP);
-    const tileHeight = decodedImage.height / (rows - (rows - 1) * DETECTION_TILE_OVERLAP);
-    const stepX = columns === 1 ? 0 : (decodedImage.width - tileWidth) / (columns - 1);
-    const stepY = rows === 1 ? 0 : (decodedImage.height - tileHeight) / (rows - 1);
-
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        const x = Math.round(column * stepX);
-        const y = Math.round(row * stepY);
-        const width = Math.round(Math.min(tileWidth, decodedImage.width - x));
-        const height = Math.round(Math.min(tileHeight, decodedImage.height - y));
-        const key = `${x}:${y}:${width}:${height}`;
-
-        if (seen.has(key)) continue;
-        seen.add(key);
-        tiles.push({ x, y, width, height });
-      }
-    }
-  });
-
-  return tiles.slice(0, DETECTION_TILE_MAX_PASSES);
-}
-
-function createDetectionTileCanvas(source, tile) {
-  const canvas = document.createElement("canvas");
-  const scale = Math.min(1, DETECTION_TILE_MAX_EDGE / Math.max(tile.width, tile.height));
-  canvas.width = Math.max(1, Math.round(tile.width * scale));
-  canvas.height = Math.max(1, Math.round(tile.height * scale));
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(
-    source,
-    tile.x,
-    tile.y,
-    tile.width,
-    tile.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height
-  );
-  return canvas;
-}
-
-function mergeDetectedFaces(faces, decodedImage) {
-  const candidates = faces
-    .map((face) => {
-      const box = face.boxNatural;
-      const x = clamp(box.x, 0, decodedImage.width);
-      const y = clamp(box.y, 0, decodedImage.height);
-      const right = clamp(box.x + box.width, x, decodedImage.width);
-      const bottom = clamp(box.y + box.height, y, decodedImage.height);
-
-      return {
-        ...face,
-        boxNatural: {
-          x,
-          y,
-          width: right - x,
-          height: bottom - y,
-        },
-      };
-    })
-    .filter((face) => face.boxNatural.width >= 8 && face.boxNatural.height >= 8)
-    .sort((left, right) => {
-      if (right.score !== left.score) return right.score - left.score;
-      return getFaceArea(right) - getFaceArea(left);
-    });
-
-  const merged = [];
-
-  candidates.forEach((candidate) => {
-    const duplicateIndex = merged.findIndex((face) => areDuplicateFaces(face, candidate));
-
-    if (duplicateIndex === -1) {
-      merged.push(candidate);
-      return;
-    }
-
-    const existing = merged[duplicateIndex];
-    if (
-      candidate.score > existing.score ||
-      (candidate.score >= existing.score - 0.08 && getFaceArea(candidate) > getFaceArea(existing) * 1.35)
-    ) {
-      merged[duplicateIndex] = candidate;
-    }
-  });
-
-  return merged.sort((left, right) => (
-    left.boxNatural.y - right.boxNatural.y || left.boxNatural.x - right.boxNatural.x
-  ));
-}
-
-function assignFaceIds(faces) {
-  return faces.map((face, index) => ({
-    ...face,
-    id: `face-${index}`,
-  }));
-}
-
-function getFaceArea(face) {
-  return face.boxNatural.width * face.boxNatural.height;
-}
-
-function areDuplicateFaces(left, right) {
-  const overlap = getFaceOverlap(left.boxNatural, right.boxNatural);
-  const leftCenter = getBoxCenter(left.boxNatural);
-  const rightCenter = getBoxCenter(right.boxNatural);
-  const centerDistance = Math.hypot(leftCenter.x - rightCenter.x, leftCenter.y - rightCenter.y);
-  const smallerFaceEdge = Math.min(
-    left.boxNatural.width,
-    left.boxNatural.height,
-    right.boxNatural.width,
-    right.boxNatural.height
-  );
-
-  return overlap >= DETECTION_DUPLICATE_OVERLAP || (overlap >= 0.18 && centerDistance <= smallerFaceEdge * 0.45);
-}
-
-function getFaceOverlap(left, right) {
-  const x1 = Math.max(left.x, right.x);
-  const y1 = Math.max(left.y, right.y);
-  const x2 = Math.min(left.x + left.width, right.x + right.width);
-  const y2 = Math.min(left.y + left.height, right.y + right.height);
-  const width = Math.max(0, x2 - x1);
-  const height = Math.max(0, y2 - y1);
-  const intersection = width * height;
-  const smallerArea = Math.min(left.width * left.height, right.width * right.height);
-
-  return smallerArea ? intersection / smallerArea : 0;
-}
-
-function getBoxCenter(box) {
-  return {
-    x: box.x + box.width / 2,
-    y: box.y + box.height / 2,
-  };
-}
-
-const adapter = createFaceDetectionAdapter();
 
 function setStatus(next) {
   state.status = next;
@@ -1357,6 +1108,35 @@ function toggleDetectedFaceSelection(faceId) {
   setSelectedFaceIds(nextFaceIds);
 }
 
+async function decodeImage(file) {
+  const url = state.previewUrl || URL.createObjectURL(file);
+  const shouldRevokeUrl = !state.previewUrl;
+
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.decoding = "async";
+      img.src = url;
+    });
+    const width = image.naturalWidth || image.width;
+    const height = image.naturalHeight || image.height;
+
+    if (!width || !height) {
+      throw new Error("Decoded image has no dimensions.");
+    }
+
+    return { source: image, width, height };
+  } catch {
+    const err = new Error("Image cannot be decoded.");
+    err.code = "CORRUPT_IMAGE";
+    throw err;
+  } finally {
+    if (shouldRevokeUrl) URL.revokeObjectURL(url);
+  }
+}
+
 async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
   await adapter.init();
   state.detectorAvailable = adapter.isAvailable();
@@ -1440,6 +1220,125 @@ async function detectFaces(file) {
     enterManualMode();
     setStatus(STATES.READY);
   }
+}
+
+function getManualCircleBox() {
+  const shellRect = dom.overlayShell.getBoundingClientRect();
+  const circleRect = dom.manualCircle.getBoundingClientRect();
+  return {
+    x: circleRect.left - shellRect.left,
+    y: circleRect.top - shellRect.top,
+    width: circleRect.width,
+    height: circleRect.height,
+  };
+}
+
+function buildManualFaceBoxNatural() {
+  if (!state.imageBitmap) return null;
+  const nw = state.imageBitmap.width;
+  const nh = state.imageBitmap.height;
+  const rendered = getRenderedSize();
+  const base = Math.max(rendered.width / nw, rendered.height / nh);
+  const finalScale = base * state.manualScale;
+  const displayedW = nw * finalScale;
+  const displayedH = nh * finalScale;
+  const imageLeft = (rendered.width - displayedW) / 2 + state.manualOffsetX;
+  const imageTop = (rendered.height - displayedH) / 2 + state.manualOffsetY;
+  const circle = getManualCircleBox();
+  return {
+    x: clamp((circle.x - imageLeft) / finalScale, 0, nw),
+    y: clamp((circle.y - imageTop) / finalScale, 0, nh),
+    width: clamp(circle.width / finalScale, 10, nw),
+    height: clamp(circle.height / finalScale, 10, nh),
+  };
+}
+
+function updateManualFaceSelection() {
+  if (!state.manualMode || !state.imageBitmap) return;
+  const boxNatural = buildManualFaceBoxNatural();
+  if (!boxNatural) return;
+  const rendered = getRenderedSize();
+  state.faces = [{
+    id: "face-manual-0",
+    score: 1,
+    boxNatural,
+    transform: {
+      scale: state.manualScale,
+      rotation: state.manualRotation,
+      offsetX: state.manualOffsetX,
+      offsetY: state.manualOffsetY,
+    },
+    boxRendered: normalizeBox(
+      boxNatural,
+      { width: state.imageBitmap.width, height: state.imageBitmap.height },
+      rendered
+    ),
+  }];
+  selectSingleFace("face-manual-0");
+}
+
+function applyManualTransform() {
+  if (!state.manualMode) {
+    dom.previewImage.style.transform = "";
+    return;
+  }
+  dom.previewImage.style.transform = `translate(${state.manualOffsetX}px, ${state.manualOffsetY}px) rotate(${state.manualRotation}deg) scale(${state.manualScale})`;
+  updateManualFaceSelection();
+}
+
+function alignManualViewToFace(face) {
+  if (!face?.boxNatural || !state.imageBitmap) return;
+
+  const rendered = getRenderedSize();
+  const circle = getManualCircleBox();
+  const natural = {
+    width: state.imageBitmap.width,
+    height: state.imageBitmap.height,
+  };
+  const base = Math.max(rendered.width / natural.width, rendered.height / natural.height);
+  const targetScale = Math.min(
+    circle.width / (face.boxNatural.width * 1.18),
+    circle.height / (face.boxNatural.height * 1.18)
+  );
+  const manualScale = clamp(targetScale / base, 0.5, 2.2);
+  const finalScale = base * manualScale;
+  const displayedW = natural.width * finalScale;
+  const displayedH = natural.height * finalScale;
+  const baseLeft = (rendered.width - displayedW) / 2;
+  const baseTop = (rendered.height - displayedH) / 2;
+  const faceCenterX = face.boxNatural.x + face.boxNatural.width / 2;
+  const faceCenterY = face.boxNatural.y + face.boxNatural.height / 2;
+  const circleCenterX = circle.x + circle.width / 2;
+  const circleCenterY = circle.y + circle.height / 2;
+
+  state.manualScale = manualScale;
+  state.manualRotation = 0;
+  state.manualOffsetX = circleCenterX - faceCenterX * finalScale - baseLeft;
+  state.manualOffsetY = circleCenterY - faceCenterY * finalScale - baseTop;
+  dom.manualZoom.value = String(manualScale);
+  dom.manualRotation.value = "0";
+}
+
+function enterManualMode(faceToAlign = null) {
+  state.manualMode = true;
+  state.manualScale = 1;
+  state.manualRotation = 0;
+  state.manualOffsetX = 0;
+  state.manualOffsetY = 0;
+  dom.manualZoom.value = "1";
+  dom.manualRotation.value = "0";
+  requestAnimationFrame(() => {
+    alignManualViewToFace(faceToAlign);
+    applyManualTransform();
+    renderOverlay();
+  });
+}
+
+function startManualFitFromSelection() {
+  const faceToAlign = getSelectedFaces()[0] || state.faces[0] || null;
+  state.usedDetectedFace = Boolean(faceToAlign);
+  enterManualMode(faceToAlign);
+  setStatus(STATES.READY);
 }
 
 function renderOverlay() {

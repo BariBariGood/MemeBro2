@@ -293,19 +293,5 @@ I also added a guard test in worker/test/app.inline-edit-loader.test.js that ver
 npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
 One assumption I kept on purpose: for templates that currently behave like single-face templates in the flow, I preserved the existing face-region count and only moved the boxes to the right locations. That avoids accidentally changing how many upload faces the editor asks for while still fixing the outlines.
 
-## Improve Undo Button
-### __Task__
-__PR Review: Sanjana__
 
-
-__PR Review: Andrew__
-
-
-### __Prompt__
-Using the current `app.js` file, add settings to the 
-
-### __Reasoning/Concerns__
-
-
-### __AI Summary__
 
