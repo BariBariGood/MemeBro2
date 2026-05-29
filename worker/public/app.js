@@ -2,6 +2,7 @@ import {
   FaceDetector as MediaPipeFaceDetector,
   FilesetResolver,
 } from "./.generated/mediapipe/vision_bundle.mjs";
+import { loadTemplates, requestFaceSwap } from "./lib/api.js";
 
 const STATES = {
   IDLE: "idle",
@@ -663,23 +664,6 @@ function getFaceCropMimeType(file) {
   return ["image/jpeg", "image/png", "image/webp"].includes(file?.type)
     ? file.type
     : FACE_CROP_DEFAULT_TYPE;
-}
-
-function getFaceCropFilename(file, cropType) {
-  const extensionByType = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  };
-  const extension = extensionByType[cropType] || "jpg";
-  const sourceName = typeof file?.name === "string" ? file.name : "upload";
-  const baseName = sourceName
-    .replace(/\.[^/.\\]+$/, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    || "upload";
-
-  return `${baseName}-face-crop.${extension}`;
 }
 
 async function canvasToBlob(canvas, type, quality) {
@@ -1672,8 +1656,7 @@ async function loadTemplateCatalog() {
   if (state.templateCatalog.length) return;
 
   try {
-    const response = await fetch("/templates.json");
-    const catalog = await response.json();
+    const catalog = await loadTemplates();
     state.templateCatalog = Array.isArray(catalog.templates) ? catalog.templates : [];
   } catch {
     state.templateCatalog = [];
@@ -2166,7 +2149,7 @@ async function submitSelectedFace() {
 
   state.faceSwapAbortController = new AbortController();
   startFaceSwapLoadingState();
-  let response;
+  let payload;
 
   try {
     const cropType = getFaceCropMimeType(state.file);
@@ -2175,63 +2158,38 @@ async function submitSelectedFace() {
       type: cropType,
     });
 
-    response = await fetch("/api/process", {
-      method: "POST",
-      headers: {
-        "Content-Type": faceCrop.type,
-        "X-MemeBro-Mode": "face_swap",
-        "X-MemeBro-Filename": getFaceCropFilename(state.file, faceCrop.type),
-        "X-MemeBro-Selected-Face": JSON.stringify(selectedFace),
-        "X-MemeBro-Selected-Faces": JSON.stringify(selectedFaces),
-        "X-MemeBro-Face-Crop": JSON.stringify(faceCrop.bounds),
-        "X-MemeBro-Template": state.selectedTemplateId || "",
-        "X-MemeBro-Meme-Text": state.editor.overlayText || "",
-        "X-MemeBro-Text-Style": JSON.stringify({
-          fontKey: state.editor.overlayFontKey,
-          fontPx: state.editor.overlayFontPx,
-          textColor: state.editor.overlayTextColor,
-          outlineEnabled: state.editor.overlayOutlineEnabled,
-          outlineColor: state.editor.overlayOutlineColor,
-        }),
+    payload = await requestFaceSwap({
+      file: state.file,
+      faceCrop,
+      templateId: state.selectedTemplateId,
+      selectedFaces,
+      memeText: state.editor.overlayText || "",
+      textStyle: {
+        fontKey: state.editor.overlayFontKey,
+        fontPx: state.editor.overlayFontPx,
+        textColor: state.editor.overlayTextColor,
+        outlineEnabled: state.editor.overlayOutlineEnabled,
+        outlineColor: state.editor.overlayOutlineColor,
       },
-      body: faceCrop.blob,
       signal: state.faceSwapAbortController.signal,
     });
   } finally {
     stopFaceSwapLoadingState();
   }
 
-  if (response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const generatedImage = extractGeneratedImageUrl(payload);
+  const generatedImage = extractGeneratedImageUrl(payload);
 
-    if (!generatedImage) {
-      const error = new Error("Face swap completed, but no composited image URL was returned.");
-      error.code = "MISSING_GENERATED_IMAGE";
-      throw error;
-    }
-
-    state.editor.generatedImage = generatedImage;
-    state.showResetConfirmation = false;
-    recordEditorSnapshot();
-    render();
-    return payload;
+  if (!generatedImage) {
+    const error = new Error("Face swap completed, but no composited image URL was returned.");
+    error.code = "MISSING_GENERATED_IMAGE";
+    throw error;
   }
 
-  let message = `Upload failed with HTTP ${response.status}.`;
-  let code = "UPLOAD_FAILED";
-
-  try {
-    const body = await response.json();
-    code = body?.code || code;
-    message = [body?.code, body?.message].filter(Boolean).join(": ") || message;
-  } catch {
-    // Keep the HTTP status fallback when the gateway does not return JSON.
-  }
-
-  const error = new Error(message);
-  error.code = code;
-  throw error;
+  state.editor.generatedImage = generatedImage;
+  state.showResetConfirmation = false;
+  recordEditorSnapshot();
+  render();
+  return payload;
 }
 
 async function startCameraCapture() {
