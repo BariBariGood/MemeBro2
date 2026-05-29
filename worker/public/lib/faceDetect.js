@@ -1,14 +1,39 @@
-//Imports
+/**
+ * @module faceDetect
+ * MediaPipe face detection adapter and pure helpers.
+ *
+ * This module owns:
+ *   - Loading MediaPipe vision tasks.
+ *   - Running the face detector across a full image and across tiled regions.
+ *   - Merging and deduplicating detections.
+ *
+ * It deliberately has no dependency on app state, DOM, or other app helpers,
+ * so the adapter can be unit tested and reused. The only consumer in app code
+ * is the orchestrator in worker/public/app.js, which wraps adapter.init() and
+ * adapter.detect() with state mutations and UI updates.
+ */
+
 import {
   FaceDetector as MediaPipeFaceDetector,
   FilesetResolver,
 } from "../.generated/mediapipe/vision_bundle.mjs";
 
-//Module Default Export
-const adapter = createFaceDetectionAdapter();
-export default adapter;
+// MediaPipe asset paths (served from the static binding).
+const MEDIAPIPE_WASM_PATH = "/.generated/mediapipe/wasm";
+const MEDIAPIPE_FACE_MODEL_PATH =
+  "/.generated/mediapipe/models/blaze_face_short_range.tflite";
 
-//Face Detection Adapter
+// Detection tuning knobs. Tweaking these affects multi-face coverage and
+// duplicate suppression; they're intentionally local to this module.
+const DETECTION_TILE_OVERLAP = 0.18;
+const DETECTION_TILE_MAX_EDGE = 900;
+const DETECTION_TILE_MAX_PASSES = 12;
+const DETECTION_DUPLICATE_OVERLAP = 0.45;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function createFaceDetectionAdapter() {
   let detector = null;
   let vision = null;
@@ -82,7 +107,6 @@ function createFaceDetectionAdapter() {
   };
 }
 
-//Face Detection Primary Functionalities
 function detectFacesInRegion(detector, source, region) {
   const result = detector.detect(source);
   const detections = Array.isArray(result?.detections) ? result.detections : [];
@@ -258,88 +282,5 @@ function getBoxCenter(box) {
   };
 }
 
-//submitSelectedFace High level entry points
-async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
-  await adapter.init();
-  state.detectorAvailable = adapter.isAvailable();
-
-  if (!state.detectorAvailable) return [];
-  return withTimeout(adapter.detect(imageBitmap, { faceLimit }), DETECTION_TIMEOUT_MS);
-}
-
-async function detectFaces(file) {
-  state.sequence += 1;
-  const mySequence = state.sequence;
-  state.file = file;
-  state.view = "fit";
-  state.uploadModalOpen = false;
-  state.isEditingMemeText = false;
-  clearFaceFitState();
-
-  if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
-    setError("UNSUPPORTED_FORMAT", "Unsupported format. Please use a standard image format.");
-    return;
-  }
-
-  setStatus(STATES.LOADING_IMAGE);
-
-  let imageBitmap;
-  try {
-    imageBitmap = await decodeImage(file);
-    if (mySequence !== state.sequence) return;
-  } catch (error) {
-    if (mySequence !== state.sequence) return;
-    setError(error.code || "CORRUPT_IMAGE", "Could not read this image. Please choose another photo.");
-    return;
-  }
-
-  state.imageBitmap = imageBitmap;
-  setStatus(STATES.DETECTING);
-
-  try {
-    const faces = await detectFacesForBitmap(imageBitmap, getTemplateFaceCapacity());
-
-    if (mySequence !== state.sequence) return;
-
-    const rendered = getRenderedSize();
-    const normalizedFaces = faces.map((face) => ({
-      ...face,
-      boxRendered: normalizeBox(
-        face.boxNatural,
-        { width: imageBitmap.width, height: imageBitmap.height },
-        rendered
-      ),
-    }));
-
-    state.usedDetectedFace = normalizedFaces.length > 0;
-
-    if (normalizedFaces.length === 0) {
-      setDetectionRecoveryError(
-        state.detectorAvailable ? "NO_FACE_DETECTED" : "DETECTOR_UNAVAILABLE"
-      );
-      enterManualMode();
-      setStatus(STATES.READY);
-      return;
-    }
-
-    state.faces = normalizedFaces;
-    state.error = null;
-
-    if (normalizedFaces.length === 1) {
-      state.manualMode = false;
-      selectSingleFace(normalizedFaces[0].id);
-      setStatus(STATES.READY);
-      return;
-    }
-
-    setSelectedFaceIds([]);
-    state.manualMode = false;
-    setStatus(STATES.FACES_FOUND);
-  } catch (error) {
-    if (mySequence !== state.sequence) return;
-    state.usedDetectedFace = false;
-    setDetectionRecoveryError(error.code || "DETECTION_FAILED");
-    enterManualMode();
-    setStatus(STATES.READY);
-  }
-}
+const adapter = createFaceDetectionAdapter();
+export default adapter;
