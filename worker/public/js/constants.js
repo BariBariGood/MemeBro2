@@ -40,6 +40,8 @@ export const DEFAULT_MEME_OUTLINE_ENABLED = false;
 export const DEFAULT_MEME_OUTLINE_COLOR = "#ffffff";
 export const RECENTS_STORAGE_KEY = "meme-template-recents";
 export const ROTATE_STEP = 90;
+export const FACE_CROP_DEFAULT_TYPE = "image/jpeg";
+export const FACE_CROP_QUALITY = 0.92;
 
 export const MEME_FONT_OPTIONS = {
     arial: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
