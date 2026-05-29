@@ -1,3 +1,5 @@
+import adapter from "./lib/faceDetect.js";
+
 const STATES = {
   IDLE: "idle",
   LOADING_IMAGE: "loading-image",
@@ -1141,6 +1143,91 @@ async function decodeImage(file) {
     throw err;
   } finally {
     if (shouldRevokeUrl) URL.revokeObjectURL(url);
+  }
+}
+
+async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
+  await adapter.init();
+  state.detectorAvailable = adapter.isAvailable();
+
+  if (!state.detectorAvailable) return [];
+  return withTimeout(adapter.detect(imageBitmap, { faceLimit }), DETECTION_TIMEOUT_MS);
+}
+
+async function detectFaces(file) {
+  state.sequence += 1;
+  const mySequence = state.sequence;
+  state.file = file;
+  state.view = "fit";
+  state.uploadModalOpen = false;
+  state.isEditingMemeText = false;
+  clearFaceFitState();
+
+  if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
+    setError("UNSUPPORTED_FORMAT", "Unsupported format. Please use a standard image format.");
+    return;
+  }
+
+  setStatus(STATES.LOADING_IMAGE);
+
+  let imageBitmap;
+  try {
+    imageBitmap = await decodeImage(file);
+    if (mySequence !== state.sequence) return;
+  } catch (error) {
+    if (mySequence !== state.sequence) return;
+    setError(error.code || "CORRUPT_IMAGE", "Could not read this image. Please choose another photo.");
+    return;
+  }
+
+  state.imageBitmap = imageBitmap;
+  setStatus(STATES.DETECTING);
+
+  try {
+    const faces = await detectFacesForBitmap(imageBitmap, getTemplateFaceCapacity());
+
+    if (mySequence !== state.sequence) return;
+
+    const rendered = getRenderedSize();
+    const normalizedFaces = faces.map((face) => ({
+      ...face,
+      boxRendered: normalizeBox(
+        face.boxNatural,
+        { width: imageBitmap.width, height: imageBitmap.height },
+        rendered
+      ),
+    }));
+
+    state.usedDetectedFace = normalizedFaces.length > 0;
+
+    if (normalizedFaces.length === 0) {
+      setDetectionRecoveryError(
+        state.detectorAvailable ? "NO_FACE_DETECTED" : "DETECTOR_UNAVAILABLE"
+      );
+      enterManualMode();
+      setStatus(STATES.READY);
+      return;
+    }
+
+    state.faces = normalizedFaces;
+    state.error = null;
+
+    if (normalizedFaces.length === 1) {
+      state.manualMode = false;
+      selectSingleFace(normalizedFaces[0].id);
+      setStatus(STATES.READY);
+      return;
+    }
+
+    setSelectedFaceIds([]);
+    state.manualMode = false;
+    setStatus(STATES.FACES_FOUND);
+  } catch (error) {
+    if (mySequence !== state.sequence) return;
+    state.usedDetectedFace = false;
+    setDetectionRecoveryError(error.code || "DETECTION_FAILED");
+    enterManualMode();
+    setStatus(STATES.READY);
   }
 }
 
