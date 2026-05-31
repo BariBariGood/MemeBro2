@@ -254,7 +254,6 @@ body {
 .studio-template-art {
   position: relative;
   width: min(100%, 560px);
-  width: min(100%, 560px);
   max-width: 100%;
   overflow: hidden;
   border-radius: 28px;

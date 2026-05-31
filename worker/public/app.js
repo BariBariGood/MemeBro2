@@ -26,77 +26,27 @@ import adapter from "./lib/faceDetect.js";
 import {
   STATES,
   ALLOWED_TYPES,
-  DETECTION_TIMEOUT_MS,
-  FACE_BOX_TAP_TARGET,
-  DETECTION_TILE_OVERLAP,
-  DETECTION_TILE_MAX_EDGE,
-  DETECTION_TILE_MAX_PASSES,
-  DETECTION_DUPLICATE_OVERLAP,
-  MEDIAPIPE_WASM_PATH,
-  MEDIAPIPE_FACE_MODEL_PATH,
   DETECTION_FAILURE_MESSAGES,
   DEFAULT_MEME_TEXT,
-  EDITOR_HISTORY_STORAGE_KEY,
   DEFAULT_MEME_FONT_KEY,
   DEFAULT_MEME_FONT_SIZE_MODE,
   DEFAULT_MEME_TEXT_COLOR,
   DEFAULT_MEME_OUTLINE_ENABLED,
   DEFAULT_MEME_OUTLINE_COLOR,
-  MEME_FONT_OPTIONS,
-  MEME_TEXT_COLORS,
-  MEME_FONT_SIZE_SCALES,
-  RECENTS_STORAGE_KEY,
+  ROTATE_STEP,
+  FACE_BOX_TAP_TARGET,
+  FACE_CROP_DEFAULT_TYPE,
+  FACE_CROP_QUALITY,
 } from "./lib/constants.js";
 import { state } from "./lib/state.js";
 
+import * as Editor from "./lib/editor.js";
+import * as TextOverlay from "./lib/textOverlay.js";
+import * as Templates from "./lib/templates.js";
+import * as Faces from "./lib/faces.js";
+
 function setStatus(next) {
   state.status = next;
-  render();
-}
-
-function resetState() {
-  if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
-  clearCameraStream();
-  clearCameraReview();
-
-  state.status = STATES.IDLE;
-  state.faces = [];
-  state.selectedFaceId = null;
-  state.selectedFaceIds = [];
-  state.error = null;
-  state.imageBitmap = null;
-  state.previewUrl = "";
-  state.file = null;
-  state.sequence += 1;
-  state.detectorAvailable = true;
-  state.usedDetectedFace = false;
-  state.manualMode = false;
-  state.manualScale = 1;
-  state.manualRotation = 0;
-  state.manualOffsetX = 0;
-  state.manualOffsetY = 0;
-  state.dragPointerId = null;
-  state.cameraFacingMode = "user";
-  state.selectedTemplateId = null;
-  state.activeTemplateTab = "trending";
-  state.templateSearchQuery = "";
-  state.uploadModalOpen = false;
-  state.view = "templates";
-  state.isEditingMemeText = false;
-  state.isSubmittingFaceSwap = false;
-  state.showSlowFaceSwapMessage = false;
-  state.faceSwapAbortController = null;
-  if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
-  state.faceSwapSlowTimer = null;
-  state.showResetConfirmation = false;
-  initializeEditorState();
-  clearEditorHistoryPersistence();
-  dom.cameraInput.value = "";
-  dom.libraryInput.value = "";
-  dom.templateSearch.value = "";
-  dom.manualZoom.value = "1";
-  dom.manualRotation.value = "0";
-  dom.previewImage.style.transform = "";
   render();
 }
 
@@ -134,111 +84,8 @@ function normalizeBox(boxNatural, natural, rendered) {
   };
 }
 
-function getFaceCropBounds(detectedFace, natural) {
-  const box = detectedFace?.boxNatural || detectedFace;
-  const naturalWidth = Math.max(1, Math.floor(Number(natural?.width) || 0));
-  const naturalHeight = Math.max(1, Math.floor(Number(natural?.height) || 0));
-  const rawX = Number(box?.x);
-  const rawY = Number(box?.y);
-  const rawWidth = Number(box?.width);
-  const rawHeight = Number(box?.height);
-
-  if (
-    !Number.isFinite(rawX)
-    || !Number.isFinite(rawY)
-    || !Number.isFinite(rawWidth)
-    || !Number.isFinite(rawHeight)
-    || rawWidth <= 0
-    || rawHeight <= 0
-  ) {
-    const error = new Error("Selected face is missing a valid crop box.");
-    error.code = "INVALID_FACE_CROP";
-    throw error;
-  }
-
-  const left = clamp(Math.floor(rawX), 0, naturalWidth);
-  const top = clamp(Math.floor(rawY), 0, naturalHeight);
-  const right = clamp(Math.ceil(rawX + rawWidth), left, naturalWidth);
-  const bottom = clamp(Math.ceil(rawY + rawHeight), top, naturalHeight);
-  const width = right - left;
-  const height = bottom - top;
-
-  if (width <= 0 || height <= 0) {
-    const error = new Error("Selected face crop is outside the image bounds.");
-    error.code = "INVALID_FACE_CROP";
-    throw error;
-  }
-
-  return { x: left, y: top, width, height };
-}
-
-function getFaceCropMimeType(file) {
-  return ["image/jpeg", "image/png", "image/webp"].includes(file?.type)
-    ? file.type
-    : FACE_CROP_DEFAULT_TYPE;
-}
-
-async function canvasToBlob(canvas, type, quality) {
-  const blob = await new Promise((resolve) => {
-    canvas.toBlob(resolve, type, quality);
-  });
-
-  if (!blob) {
-    const error = new Error("Could not export the selected face crop.");
-    error.code = "FACE_CROP_EXPORT_FAILED";
-    throw error;
-  }
-
-  return blob;
-}
-
-async function extractFaceCrop(fullImageBlob, detectedFace, options = {}) {
-  if (!fullImageBlob && !options.decodedImage) {
-    const error = new Error("A source image is required before cropping a face.");
-    error.code = "MISSING_SOURCE_IMAGE";
-    throw error;
-  }
-
-  const decodedImage = options.decodedImage || await decodeImage(fullImageBlob);
-  const source = decodedImage.source || decodedImage;
-  const natural = {
-    width: decodedImage.width || source.naturalWidth || source.width,
-    height: decodedImage.height || source.naturalHeight || source.height,
-  };
-  const crop = getFaceCropBounds(detectedFace, natural);
-  const canvas = document.createElement("canvas");
-  canvas.width = crop.width;
-  canvas.height = crop.height;
-
-  const ctx = canvas.getContext("2d");
-  if (!ctx) {
-    const error = new Error("Canvas is unavailable for face crop extraction.");
-    error.code = "FACE_CROP_UNAVAILABLE";
-    throw error;
-  }
-
-  ctx.drawImage(
-    source,
-    crop.x,
-    crop.y,
-    crop.width,
-    crop.height,
-    0,
-    0,
-    crop.width,
-    crop.height
-  );
-
-  const type = options.type || getFaceCropMimeType(fullImageBlob);
-  const blob = await canvasToBlob(canvas, type, options.quality ?? FACE_CROP_QUALITY);
-
-  return {
-    blob,
-    bounds: crop,
-    width: crop.width,
-    height: crop.height,
-    type: blob.type || type,
-  };
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function getRenderedSize() {
@@ -246,751 +93,286 @@ function getRenderedSize() {
   return { width: rect.width || 320, height: rect.height || 320 };
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function getFaceCropBounds(detectedFace, natural) {
+  return Faces.getFaceCropBounds(detectedFace, natural, { clamp });
 }
 
-function cloneSnapshot(snapshot) {
-  return JSON.parse(JSON.stringify(snapshot));
+function getFaceCropMimeType(file) {
+  return Faces.getFaceCropMimeType(file);
 }
 
-function getTemplatePreviewImage(template = getSelectedTemplate()) {
-  return template?.previewImage
-    || template?.images?.preview
-    || template?.images?.thumbnail
-    || template?.images?.main
-    || "/assets/memes/placeholder-preview.svg";
+async function extractFaceCrop(fullImageBlob, detectedFace, options = {}) {
+  return Faces.extractFaceCrop(fullImageBlob, detectedFace, options, { decodeImage, clamp });
 }
 
-function getTemplateMainImage(template = getSelectedTemplate()) {
-  return template?.templateImage
-    || template?.images?.main
-    || getTemplatePreviewImage(template)
-    || "/assets/memes/placeholder.svg";
+function getTemplatePreviewImage(template) {
+  return Templates.getTemplatePreviewImage(template);
 }
 
-function getTemplateImageDimensions(template = getSelectedTemplate()) {
-  return {
-    width: Math.max(1, Number(template?.images?.width) || 1),
-    height: Math.max(1, Number(template?.images?.height) || 1),
-  };
+function getTemplateMainImage(template) {
+  return Templates.getTemplateMainImage(template);
+}
+
+function getTemplateImageDimensions(template) {
+  return Templates.getTemplateImageDimensions(template);
 }
 
 function getTemplateImageSources(primarySource, fallbacks = []) {
-  return [primarySource, ...fallbacks]
-    .filter(Boolean)
-    .filter((source, index, list) => list.indexOf(source) === index);
+  return Templates.getTemplateImageSources(primarySource, fallbacks);
 }
 
 function updateImageWithFallback(image, sources) {
-  if (!image) return;
-  const serializedSources = JSON.stringify(sources);
-  const nextSource = sources[0] || "";
-
-  if (
-    image.dataset.fallbackSources === serializedSources
-    && image.dataset.fallbackIndex === "0"
-    && image.getAttribute("src") === nextSource
-  ) {
-    return;
-  }
-
-  image.dataset.fallbackSources = serializedSources;
-  image.dataset.fallbackIndex = "0";
-  image.src = nextSource;
+  return Templates.updateImageWithFallback(image, sources);
 }
 
-function getStudioTemplateBox(template = getSelectedTemplate()) {
-  const { width, height } = getTemplateImageDimensions(template);
-  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1280;
-  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 900;
-  const maxWidth = Math.max(220, Math.min(
-    viewportWidth <= 520 ? viewportWidth - 24 : viewportWidth - 32,
-    viewportWidth * 0.6,
-    560
-  ));
-  const maxHeight = Math.max(220, Math.min(viewportHeight * 0.72, 760));
-  const scale = Math.min(maxWidth / width, maxHeight / height);
-
-  return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
-  };
-}
-
-function createEditorSnapshot(overrides = {}) {
-  return {
-    selectedTemplateId: overrides.selectedTemplateId ?? state.selectedTemplateId ?? null,
-    templateImage: overrides.templateImage ?? state.editor.templateImage,
-    generatedImage: overrides.generatedImage ?? state.editor.generatedImage,
-    overlayText: overrides.overlayText ?? state.editor.overlayText,
-    overlayFontKey: overrides.overlayFontKey ?? state.editor.overlayFontKey,
-    overlaySizeMode: overrides.overlaySizeMode ?? state.editor.overlaySizeMode,
-    overlayFontPx: overrides.overlayFontPx ?? state.editor.overlayFontPx,
-    overlayTextColor: overrides.overlayTextColor ?? state.editor.overlayTextColor,
-    overlayOutlineEnabled: overrides.overlayOutlineEnabled ?? state.editor.overlayOutlineEnabled,
-    overlayOutlineColor: overrides.overlayOutlineColor ?? state.editor.overlayOutlineColor,
-    overlayBold: overrides.overlayBold ?? state.editor.overlayBold,
-    overlayItalic: overrides.overlayItalic ?? state.editor.overlayItalic,
-    overlayUnderline: overrides.overlayUnderline ?? state.editor.overlayUnderline,
-    overlayX: overrides.overlayX ?? state.editor.overlayX,
-    overlayY: overrides.overlayY ?? state.editor.overlayY,
-    overlayWidthPct: overrides.overlayWidthPct ?? state.editor.overlayWidthPct,
-    overlayRotation: overrides.overlayRotation ?? state.editor.overlayRotation,
-    overlayVisible: overrides.overlayVisible ?? state.editor.overlayVisible,
-    frozenTextItems: overrides.frozenTextItems ?? state.editor.frozenTextItems,
-  };
-}
-
-function applyEditorSnapshot(snapshot) {
-  if (!snapshot) return;
-  state.editor.templateImage = snapshot.templateImage || getTemplateMainImage();
-  state.editor.generatedImage = snapshot.generatedImage || "";
-  state.editor.overlayText = snapshot.overlayText ?? DEFAULT_MEME_TEXT;
-  state.editor.overlayFontKey = snapshot.overlayFontKey || DEFAULT_MEME_FONT_KEY;
-  state.editor.overlaySizeMode = snapshot.overlaySizeMode || DEFAULT_MEME_FONT_SIZE_MODE;
-  state.editor.overlayFontPx = Number.isFinite(snapshot.overlayFontPx) ? snapshot.overlayFontPx : 22;
-  state.editor.overlayTextColor = snapshot.overlayTextColor || DEFAULT_MEME_TEXT_COLOR;
-  state.editor.overlayOutlineEnabled = snapshot.overlayOutlineEnabled ?? DEFAULT_MEME_OUTLINE_ENABLED;
-  state.editor.overlayOutlineColor = snapshot.overlayOutlineColor || DEFAULT_MEME_OUTLINE_COLOR;
-  state.editor.overlayBold = snapshot.overlayBold ?? false;
-  state.editor.overlayItalic = snapshot.overlayItalic ?? false;
-  state.editor.overlayUnderline = snapshot.overlayUnderline ?? false;
-  state.editor.overlayX = Number.isFinite(snapshot.overlayX) ? snapshot.overlayX : 50;
-  state.editor.overlayY = Number.isFinite(snapshot.overlayY) ? snapshot.overlayY : 80;
-  state.editor.overlayWidthPct = Number.isFinite(snapshot.overlayWidthPct) ? snapshot.overlayWidthPct : 48;
-  state.editor.overlayRotation = Number.isFinite(snapshot.overlayRotation) ? snapshot.overlayRotation : 0;
-  state.editor.overlayVisible = snapshot.overlayVisible ?? false;
-  state.editor.frozenTextItems = Array.isArray(snapshot.frozenTextItems) ? snapshot.frozenTextItems : [];
-  state.editor.overlayAutoScale = 1;
-}
-
-function editorSnapshotsEqual(left, right) {
-  return Boolean(left && right)
-    && left.selectedTemplateId === right.selectedTemplateId
-    && left.templateImage === right.templateImage
-    && left.generatedImage === right.generatedImage
-    && left.overlayText === right.overlayText
-    && left.overlayFontKey === right.overlayFontKey
-    && left.overlaySizeMode === right.overlaySizeMode
-    && left.overlayFontPx === right.overlayFontPx
-    && left.overlayTextColor === right.overlayTextColor
-    && left.overlayOutlineEnabled === right.overlayOutlineEnabled
-    && left.overlayOutlineColor === right.overlayOutlineColor
-    && left.overlayBold === right.overlayBold
-    && left.overlayItalic === right.overlayItalic
-    && left.overlayUnderline === right.overlayUnderline
-    && left.overlayX === right.overlayX
-    && left.overlayY === right.overlayY
-    && left.overlayWidthPct === right.overlayWidthPct
-    && left.overlayRotation === right.overlayRotation
-    && left.overlayVisible === right.overlayVisible
-    && JSON.stringify(left.frozenTextItems || []) === JSON.stringify(right.frozenTextItems || []);
-}
-
-function persistEditorHistory() {
-  try {
-    localStorage.setItem(EDITOR_HISTORY_STORAGE_KEY, JSON.stringify({
-      selectedTemplateId: state.selectedTemplateId,
-      initialSnapshot: state.editor.initialSnapshot,
-      historyStack: state.editor.historyStack,
-      futureStack: state.editor.futureStack,
-      currentSnapshot: createEditorSnapshot(),
-    }));
-  } catch {
-    // Ignore storage errors to preserve core editing behavior.
-  }
-}
-
-function clearEditorHistoryPersistence() {
-  try {
-    localStorage.removeItem(EDITOR_HISTORY_STORAGE_KEY);
-  } catch {
-    // Ignore storage errors to preserve core editing behavior.
-  }
-}
-
-function initializeEditorState(template = getSelectedTemplate()) {
-  state.editor.initialSnapshot = createEditorSnapshot({
-    selectedTemplateId: state.selectedTemplateId,
-    templateImage: getTemplateMainImage(template),
-    generatedImage: "",
-    overlayText: DEFAULT_MEME_TEXT,
-    overlayFontKey: DEFAULT_MEME_FONT_KEY,
-    overlaySizeMode: DEFAULT_MEME_FONT_SIZE_MODE,
-    overlayFontPx: 22,
-    overlayTextColor: DEFAULT_MEME_TEXT_COLOR,
-    overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
-    overlayOutlineColor: DEFAULT_MEME_OUTLINE_COLOR,
-    overlayBold: false,
-    overlayItalic: false,
-    overlayUnderline: false,
-    overlayX: 50,
-    overlayY: 80,
-    overlayWidthPct: 48,
-    overlayRotation: 0,
-    overlayVisible: false,
-    frozenTextItems: [],
-  });
-  state.editor.historyStack = [];
-  state.editor.futureStack = [];
-  state.showResetConfirmation = false;
-  state.isTextSelected = false;
-  state.isTextLocked = false;
-  state.showTextMore = false;
-  applyEditorSnapshot(state.editor.initialSnapshot);
-}
-
-function ensureHistorySeed() {
-  if (!state.editor.initialSnapshot) {
-    initializeEditorState();
-  }
-
-  if (state.editor.historyStack.length === 0) {
-    state.editor.historyStack = [cloneSnapshot(state.editor.initialSnapshot)];
-  }
-}
-
-function recordEditorSnapshot(snapshot = createEditorSnapshot()) {
-  ensureHistorySeed();
-  const nextSnapshot = cloneSnapshot(snapshot);
-  const lastSnapshot = state.editor.historyStack[state.editor.historyStack.length - 1];
-
-  if (editorSnapshotsEqual(lastSnapshot, nextSnapshot)) return;
-
-  state.editor.historyStack.push(nextSnapshot);
-  state.editor.futureStack = [];
-  persistEditorHistory();
-}
-
-function restoreEditorSession() {
-  try {
-    const raw = localStorage.getItem(EDITOR_HISTORY_STORAGE_KEY);
-    if (!raw) return false;
-
-    const parsed = JSON.parse(raw);
-    if (parsed?.selectedTemplateId !== state.selectedTemplateId) return false;
-
-    state.editor.initialSnapshot = parsed.initialSnapshot || null;
-    state.editor.historyStack = Array.isArray(parsed.historyStack)
-      ? parsed.historyStack.filter(Boolean)
-      : [];
-    state.editor.futureStack = Array.isArray(parsed.futureStack)
-      ? parsed.futureStack.filter(Boolean)
-      : [];
-
-    const snapshot = parsed.currentSnapshot
-      || state.editor.historyStack[state.editor.historyStack.length - 1]
-      || state.editor.initialSnapshot;
-
-    if (!snapshot) return false;
-
-    applyEditorSnapshot(snapshot);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function openStudioForTemplate(templateId) {
-  state.selectedTemplateId = templateId;
-  recordTemplateUsage(templateId);
-  state.status = STATES.IDLE;
-  state.view = "studio";
-  state.uploadModalOpen = false;
-  state.isEditingMemeText = false;
-  state.showResetConfirmation = false;
-  state.showBackConfirmation = false;
-
-  initializeEditorState();
-  if (!restoreEditorSession()) {
-    persistEditorHistory();
-  }
-
-  render();
-}
-
-function undoEditorSnapshot() {
-  if (state.editor.historyStack.length <= 1) return;
-  const current = state.editor.historyStack.pop();
-  if (current) state.editor.futureStack.push(current);
-  applyEditorSnapshot(state.editor.historyStack[state.editor.historyStack.length - 1]);
-  state.showResetConfirmation = false;
-  state.isEditingMemeText = false;
-  persistEditorHistory();
-  render();
-}
-
-function redoEditorSnapshot() {
-  if (state.editor.futureStack.length === 0) return;
-  const next = state.editor.futureStack.pop();
-  if (!next) return;
-  state.editor.historyStack.push(cloneSnapshot(next));
-  applyEditorSnapshot(next);
-  state.showResetConfirmation = false;
-  state.isEditingMemeText = false;
-  persistEditorHistory();
-  render();
-}
-
-function resetEditorToTemplate() {
-  initializeEditorState();
-  state.isEditingMemeText = false;
-  state.showBackConfirmation = false;
-  clearEditorHistoryPersistence();
-  render();
-}
-
-function hasUnsavedStudioEdits() {
-  if (state.view !== "studio" || !state.selectedTemplateId) return false;
-  if (!state.editor.initialSnapshot) return false;
-  const current = createEditorSnapshot();
-  return !editorSnapshotsEqual(current, state.editor.initialSnapshot);
-}
-
-function confirmBackAndResetStudio() {
-  initializeEditorState();
-  clearEditorHistoryPersistence();
-  state.showBackConfirmation = false;
-  state.showResetConfirmation = false;
-  state.selectedTemplateId = null;
-  state.view = "templates";
-  render();
-  renderTemplates();
-}
-
-function getMemeFontFamily(fontKey = DEFAULT_MEME_FONT_KEY) {
-  return MEME_FONT_OPTIONS[fontKey] || MEME_FONT_OPTIONS[DEFAULT_MEME_FONT_KEY];
-}
-
-function getMemeTextColor(colorKey = DEFAULT_MEME_TEXT_COLOR) {
-  if (typeof colorKey === "string" && colorKey.startsWith("#")) return colorKey;
-  return MEME_TEXT_COLORS[colorKey] || MEME_TEXT_COLORS[DEFAULT_MEME_TEXT_COLOR];
-}
-
-function getEditableTextValue(node) {
-  return node?.innerText ?? node?.textContent ?? "";
-}
-
-function getMemeBaseScale(sizeMode = DEFAULT_MEME_FONT_SIZE_MODE) {
-  return MEME_FONT_SIZE_SCALES[sizeMode] || MEME_FONT_SIZE_SCALES[DEFAULT_MEME_FONT_SIZE_MODE];
-}
-
-function syncMemeTextAppearance() {
-  const preview = dom.memeTextPreview;
-  if (!preview) return 1;
-  const textColor = getMemeTextColor(state.editor.overlayTextColor);
-
-  preview.style.left = `${clamp(state.editor.overlayX, 5, 95)}%`;
-  preview.style.top = `${clamp(state.editor.overlayY, 5, 95)}%`;
-  preview.style.width = `${clamp(state.editor.overlayWidthPct, 18, 90)}%`;
-  preview.style.setProperty("--meme-text-rotate", `${state.editor.overlayRotation}deg`);
-  preview.style.transform = `translate(-50%, -50%) rotate(${state.editor.overlayRotation}deg)`;
-  preview.style.fontFamily = getMemeFontFamily(state.editor.overlayFontKey);
-  preview.style.fontWeight = state.editor.overlayBold ? "700" : "400";
-  preview.style.fontStyle = state.editor.overlayItalic ? "italic" : "normal";
-  preview.style.textDecoration = state.editor.overlayUnderline ? "underline" : "none";
-  preview.style.color = textColor;
-  preview.style.caretColor = textColor;
-
-  const scale = fitMemeTextToCanvas();
-  applyMemeOutline(preview);
-  positionTextHandles();
-  return scale;
-}
-
-function applyMemeOutline(preview) {
-  if (!state.editor.overlayOutlineEnabled) {
-    preview.style.textShadow = "none";
-    return;
-  }
-  const color = state.editor.overlayOutlineColor || "#ffffff";
-  const renderedPx = parseFloat(preview.style.fontSize) || Number(state.editor.overlayFontPx || 22);
-  const t = Math.max(1, Math.round(renderedPx / 12));
-  const offsets = [
-    [-t, -t], [t, -t], [-t, t], [t, t],
-    [0, -t], [0, t], [-t, 0], [t, 0],
-  ];
-  preview.style.textShadow = offsets.map(([x, y]) => `${x}px ${y}px 0 ${color}`).join(", ");
-}
-
-function syncOutlineSwatchState() {
-  const group = dom.outlineColorGroup;
-  const removeBtn = dom.memeOutlineRemoveCta;
-  const enabled = !!state.editor.overlayOutlineEnabled;
-  if (group) group.classList.toggle("is-off", !enabled);
-  if (removeBtn) removeBtn.classList.toggle("hidden", !enabled);
-}
-
-function fitMemeTextToCanvas() {
-  const preview = dom.memeTextPreview;
-  const art = dom.studioTemplateArt;
-  if (!preview || !art) return 1;
-
-  const artRect = art.getBoundingClientRect();
-  if (!artRect.width || !artRect.height) {
-    state.editor.overlayAutoScale = 1;
-    preview.dataset.fitScale = "1.00";
-    preview.style.fontSize = "";
-    return 1;
-  }
-
-  const baseScale = 1;
-  const basePx = Number(state.editor.overlayFontPx || 22);
-  let fitScale = 1;
-  const minScale = 0.42;
-
-  while (fitScale >= minScale) {
-    preview.style.fontSize = `${Math.max(8, basePx * fitScale)}px`;
-    const previewRect = preview.getBoundingClientRect();
-    const withinHorizontalBounds = previewRect.left >= artRect.left + 12 && previewRect.right <= artRect.right - 12;
-    const withinVerticalBounds = previewRect.top >= artRect.top + 12 && previewRect.bottom <= artRect.bottom - 12;
-
-    if (withinHorizontalBounds && withinVerticalBounds) {
-      break;
-    }
-
-    fitScale = Number((fitScale - 0.04).toFixed(2));
-  }
-
-  const clampedScale = Math.max(fitScale, minScale);
-  preview.style.fontSize = `${Math.max(8, basePx * clampedScale)}px`;
-  preview.dataset.fitScale = clampedScale.toFixed(2);
-  state.editor.overlayAutoScale = clampedScale;
-  return clampedScale;
-}
-
-function positionTextHandles() {
-  if (!dom.memeTextResizeHandles?.length) return;
-  const artRect = dom.studioTemplateArt?.getBoundingClientRect();
-  const textRect = dom.memeTextPreview?.getBoundingClientRect();
-  if (!artRect?.width || !textRect?.width) return;
-
-  const centerX = (clamp(state.editor.overlayX, 5, 95) / 100) * artRect.width;
-  const centerY = (clamp(state.editor.overlayY, 5, 95) / 100) * artRect.height;
-  const unrotatedWidth = dom.memeTextPreview.offsetWidth || textRect.width;
-  const unrotatedHeight = dom.memeTextPreview.offsetHeight || textRect.height;
-  const radians = ((Number(state.editor.overlayRotation) || 0) * Math.PI) / 180;
-  const cos = Math.cos(radians);
-  const sin = Math.sin(radians);
-  const cornerOffsets = {
-    nw: [-unrotatedWidth / 2, -unrotatedHeight / 2],
-    ne: [unrotatedWidth / 2, -unrotatedHeight / 2],
-    sw: [-unrotatedWidth / 2, unrotatedHeight / 2],
-    se: [unrotatedWidth / 2, unrotatedHeight / 2],
-  };
-
-  // Resize handles stay absolute (relative to art container) — no change here.
-  dom.memeTextResizeHandles.forEach((handle) => {
-    const corner = handle.dataset.resizeCorner || "se";
-    const handleSize = handle.offsetWidth || 14;
-    const [offsetX, offsetY] = cornerOffsets[corner] || cornerOffsets.se;
-    const x = centerX + offsetX * cos - offsetY * sin;
-    const y = centerY + offsetX * sin + offsetY * cos;
-    handle.style.left = `${x - handleSize / 2}px`;
-    handle.style.top = `${y - handleSize / 2}px`;
-  });
-
-  // Local controls: fixed positioning so overflow:hidden on the art never clips them.
-  if (dom.textLocalControls) {
-    const controlsWidth = dom.textLocalControls.offsetWidth || 230;
-    const rawLeft = textRect.left + textRect.width / 2;
-    const clampedLeft = clamp(
-      rawLeft,
-      artRect.left + controlsWidth / 2 + 8,
-      artRect.right - controlsWidth / 2 - 8
-    );
-    // Prefer above the text; if too close to the top of the art, flip below.
-    const spaceAbove = textRect.top - artRect.top;
-    const controlsTop = spaceAbove >= 48
-      ? textRect.top - 50
-      : Math.min(textRect.bottom + 8, artRect.bottom - 44);
-
-    dom.textLocalControls.style.position = "fixed";
-    dom.textLocalControls.style.left = `${clampedLeft}px`;
-    dom.textLocalControls.style.top = `${controlsTop}px`;
-    dom.textLocalControls.style.transform = "translateX(-50%)";
-  }
-
-  // More menu: same fixed-positioning treatment.
-  if (dom.textMoreMenu) {
-    const menuWidth = dom.textMoreMenu.offsetWidth || 160;
-    const rawLeft = textRect.left + textRect.width / 2;
-    const clampedLeft = clamp(
-      rawLeft,
-      artRect.left + menuWidth / 2 + 8,
-      artRect.right - menuWidth / 2 - 8
-    );
-    dom.textMoreMenu.style.position = "fixed";
-    dom.textMoreMenu.style.left = `${clampedLeft}px`;
-    dom.textMoreMenu.style.top = `${textRect.top - 8}px`;
-    dom.textMoreMenu.style.transform = "translate(-50%, -100%)";
-  }
-}
-
-function freezeCurrentTextItem() {
-  if (!state.editor.overlayVisible) return;
-  const text = (state.editor.overlayText || "").trim();
-  if (!text) return;
-  state.editor.frozenTextItems.push({
-    text,
-    fontKey: state.editor.overlayFontKey,
-    fontPx: state.editor.overlayFontPx,
-    color: state.editor.overlayTextColor,
-    outline: state.editor.overlayOutlineEnabled,
-    outlineColor: state.editor.overlayOutlineColor,
-    bold: state.editor.overlayBold,
-    italic: state.editor.overlayItalic,
-    underline: state.editor.overlayUnderline,
-    x: state.editor.overlayX,
-    y: state.editor.overlayY,
-    widthPct: state.editor.overlayWidthPct,
-    rotation: state.editor.overlayRotation,
-    locked: state.isTextLocked,
-  });
-}
-
-function renderFrozenTextItems() {
-  if (!dom.studioTemplateArt) return;
-  dom.studioTemplateArt.querySelectorAll(".frozen-text-item").forEach((node) => node.remove());
-  state.editor.frozenTextItems.forEach((item, index) => {
-    const node = document.createElement("div");
-    node.className = "frozen-text-item";
-    node.dataset.textIndex = String(index);
-    node.textContent = item.text;
-    node.style.left = `${item.x}%`;
-    node.style.top = `${item.y}%`;
-    node.style.width = `${clamp(Number(item.widthPct) || 48, 18, 90)}%`;
-    node.style.transform = `translate(-50%, -50%) rotate(${item.rotation || 0}deg)`;
-    node.style.fontFamily = getMemeFontFamily(item.fontKey);
-    node.style.fontSize = `${Math.max(8, Number(item.fontPx) || 22)}px`;
-    node.style.color = item.color?.startsWith?.("#") ? item.color : getMemeTextColor(item.color);
-    node.style.fontWeight = item.bold ? "700" : "400";
-    node.style.fontStyle = item.italic ? "italic" : "normal";
-    node.style.textDecoration = item.underline ? "underline" : "none";
-    node.style.textShadow = item.outline
-      ? `-2px -2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}, 2px -2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}, -2px 2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}, 2px 2px 0 ${item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR}`
-      : "none";
-    node.style.cursor = "text";
-    dom.studioTemplateArt.appendChild(node);
-  });
-}
-
-function selectFrozenTextItem(index) {
-  const item = state.editor.frozenTextItems[index];
-  if (!item) return;
-  // Preserve the currently active textbox before switching selection.
-  freezeCurrentTextItem();
-  state.editor.frozenTextItems.splice(index, 1);
-  state.editor.overlayText = item.text;
-  state.editor.overlayFontKey = item.fontKey;
-  state.editor.overlayFontPx = Number(item.fontPx) || 22;
-  state.editor.overlayTextColor = item.color;
-  state.editor.overlayOutlineEnabled = item.outline ?? false;
-  state.editor.overlayOutlineColor = item.outlineColor || DEFAULT_MEME_OUTLINE_COLOR;
-  state.editor.overlayBold = item.bold ?? false;
-  state.editor.overlayItalic = item.italic ?? false;
-  state.editor.overlayUnderline = item.underline ?? false;
-  state.editor.overlayX = item.x;
-  state.editor.overlayY = item.y;
-  state.editor.overlayWidthPct = Number(item.widthPct) || 48;
-  state.editor.overlayRotation = item.rotation || 0;
-  state.editor.overlayVisible = true;
-  state.isTextLocked = Boolean(item.locked);
-  state.isTextSelected = true;
-  state.isEditingMemeText = false;
-  state.showTextMore = false;
-  recordEditorSnapshot();
-  render();
-}
-
-function createOrSelectTextAtPointer(event) {
-  const artRect = dom.studioTemplateArt.getBoundingClientRect();
-  const xPercent = clamp(((event.clientX - artRect.left) / artRect.width) * 100, 5, 95);
-  const yPercent = clamp(((event.clientY - artRect.top) / artRect.height) * 100, 5, 95);
-  if (state.editor.overlayVisible) freezeCurrentTextItem();
-  // Create a fresh text object at the tapped location
-  state.editor.overlayText = DEFAULT_MEME_TEXT;
-  state.editor.overlayFontKey = DEFAULT_MEME_FONT_KEY;
-  state.editor.overlaySizeMode = DEFAULT_MEME_FONT_SIZE_MODE;
-  state.editor.overlayFontPx = 22;
-  state.editor.overlayTextColor = DEFAULT_MEME_TEXT_COLOR;
-  state.editor.overlayOutlineEnabled = DEFAULT_MEME_OUTLINE_ENABLED;
-  state.editor.overlayOutlineColor = DEFAULT_MEME_OUTLINE_COLOR;
-  state.editor.overlayBold = false;
-  state.editor.overlayItalic = false;
-  state.editor.overlayUnderline = false;
-  state.editor.overlayRotation = 0;
-  state.isTextLocked = false;
-  state.editor.overlayX = xPercent;
-  state.editor.overlayY = yPercent;
-  state.isEditingMemeText = false;
-  state.editor.overlayVisible = true;
-  state.isTextSelected = true;
-  state.showTextMore = false;
-  // Ensure new textboxes never inherit prior DOM text content.
-  dom.memeTextPreview.textContent = DEFAULT_MEME_TEXT;
-  recordEditorSnapshot();
-  beginInlineTextEdit();
-}
-
-function updateEditorTextSetting(key, value) {
-  state.editor[key] = value;
-  state.showResetConfirmation = false;
-  recordEditorSnapshot();
-  render();
-}
-
-function extractGeneratedImageUrl(payload) {
-  return payload?.generatedImageUrl
-    || payload?.imageUrl
-    || payload?.compositedImageUrl
-    || payload?.compositedImage
-    || payload?.outputUrl
-    || payload?.url
-    || (payload?.b64 ? `data:${payload.mimeType || "image/png"};base64,${payload.b64}` : "")
-    || "";
+function getStudioTemplateBox(template) {
+  return Templates.getStudioTemplateBox(template);
 }
 
 function getSelectedTemplate() {
-  return state.templateCatalog.find((template) => template.id === state.selectedTemplateId);
+  return Templates.getSelectedTemplate();
 }
 
 function getTemplateFaceCapacity() {
-  const selectedTemplate = getSelectedTemplate();
-  return Math.max(1, selectedTemplate?.faceRegions?.length || 1);
+  return Templates.getTemplateFaceCapacity();
 }
 
-function getSelectableFaceLimit() {
-  return Math.max(1, Math.min(getTemplateFaceCapacity(), state.faces.length || 1));
+function extractGeneratedImageUrl(payload) {
+  return Templates.extractGeneratedImageUrl(payload);
+}
+
+function getRecentTemplateIds() {
+  return Templates.getRecentTemplateIds();
+}
+
+function recordTemplateUsage(templateId) {
+  return Templates.recordTemplateUsage(templateId);
+}
+
+function getVisibleTemplates() {
+  return Templates.getVisibleTemplates();
+}
+
+async function loadTemplateCatalog() {
+  return Templates.loadTemplateCatalog({ loadTemplates });
+}
+
+function renderTemplates() {
+  return Templates.renderTemplates({ dom, clamp, openStudioForTemplate });
+}
+
+function renderStudioTemplate(template) {
+  return Templates.renderStudioTemplate(template, { dom, state });
+}
+
+async function showTemplateSelection() {
+  return Templates.showTemplateSelection({
+    loadTemplates,
+    dom,
+    render,
+    renderTemplates: () => Templates.renderTemplates({ dom, clamp, openStudioForTemplate }),
+  });
+}
+
+function openStudioForTemplate(templateId) {
+  const result = Templates.openStudioForTemplate(templateId, {
+    recordTemplateUsage,
+    initializeEditorState,
+    restoreEditorSession,
+    persistEditorHistory: Editor.persistEditorHistory,
+    render,
+    STATES,
+  });
+
+  if (state.view === "studio" && !state.editor.overlayVisible && !state.editor.frozenTextItems.length) {
+    state.editor.overlayVisible = true;
+    state.isTextSelected = false;
+  }
+
+  return result;
+}
+
+function getMemeFontFamily(fontKey = DEFAULT_MEME_FONT_KEY) {
+  return TextOverlay.getMemeFontFamily(fontKey);
+}
+
+function getMemeTextColor(colorKey = DEFAULT_MEME_TEXT_COLOR) {
+  return TextOverlay.getMemeTextColor(colorKey);
+}
+
+function getEditableTextValue(node) {
+  return TextOverlay.getEditableTextValue(node);
+}
+
+function applyMemeOutline(preview) {
+  return TextOverlay.applyMemeOutline(preview);
+}
+
+function syncOutlineSwatchState() {
+  return TextOverlay.syncOutlineSwatchState({ dom });
+}
+
+function fitMemeTextToCanvas() {
+  return TextOverlay.fitMemeTextToCanvas({ dom });
+}
+
+function positionTextHandles() {
+  return TextOverlay.positionTextHandles({ dom, clamp });
+}
+
+function syncMemeTextAppearance() {
+  return TextOverlay.syncMemeTextAppearance({ dom, clamp });
+}
+
+function freezeCurrentTextItem() {
+  return TextOverlay.freezeCurrentTextItem();
+}
+
+function renderFrozenTextItems() {
+  return TextOverlay.renderFrozenTextItems({ dom, clamp });
+}
+
+function selectFrozenTextItem(index) {
+  return TextOverlay.selectFrozenTextItem(index, { recordEditorSnapshot, render });
+}
+
+function createOrSelectTextAtPointer(event) {
+  return TextOverlay.createOrSelectTextAtPointer(event, {
+    dom,
+    clamp,
+    recordEditorSnapshot,
+    beginInlineTextEdit,
+  });
+}
+
+function updateEditorTextSetting(key, value) {
+  return TextOverlay.updateEditorTextSetting(key, value, { recordEditorSnapshot, render });
+}
+
+function beginInlineTextEdit(event) {
+  return TextOverlay.beginInlineTextEdit(event, { dom, render });
+}
+
+function selectTextObject(event) {
+  return TextOverlay.selectTextObject(event, { render });
+}
+
+function finishInlineTextEdit() {
+  return TextOverlay.finishInlineTextEdit({ dom, recordEditorSnapshot, render });
+}
+
+function deleteMemeText() {
+  return TextOverlay.deleteMemeText({ recordEditorSnapshot, render });
+}
+
+function startTextDrag(event) {
+  return TextOverlay.startTextDrag(event, { dom });
+}
+
+function moveTextDrag(event) {
+  return TextOverlay.moveTextDrag(event, { dom, clamp, render });
+}
+
+function endTextDrag(event) {
+  return TextOverlay.endTextDrag(event, { recordEditorSnapshot });
+}
+
+function startTextResize(event) {
+  return TextOverlay.startTextResize(event);
+}
+
+function moveTextResize(event) {
+  return TextOverlay.moveTextResize(event, { dom, clamp, render });
+}
+
+function endTextResize(event) {
+  return TextOverlay.endTextResize(event, { recordEditorSnapshot });
+}
+
+function rotateTextOneStep(event) {
+  return TextOverlay.rotateTextOneStep(event, { recordEditorSnapshot, render });
 }
 
 function setSelectedFaceIds(faceIds) {
-  const knownFaceIds = new Set(state.faces.map((face) => face.id));
-  state.selectedFaceIds = faceIds.filter((faceId, index) => (
-    faceId && knownFaceIds.has(faceId) && faceIds.indexOf(faceId) === index
-  ));
-  state.selectedFaceId = state.selectedFaceIds[0] || null;
+  return Faces.setSelectedFaceIds(faceIds);
 }
 
 function selectSingleFace(faceId) {
-  setSelectedFaceIds(faceId ? [faceId] : []);
+  return Faces.selectSingleFace(faceId);
 }
 
 function getSelectedFaces() {
-  return state.selectedFaceIds
-    .map((faceId) => state.faces.find((face) => face.id === faceId))
-    .filter(Boolean);
+  return Faces.getSelectedFaces();
+}
+
+function getSelectableFaceLimit() {
+  return Faces.getSelectableFaceLimit({ getTemplateFaceCapacity });
 }
 
 function toggleDetectedFaceSelection(faceId) {
-  const faceCapacity = getTemplateFaceCapacity();
-
-  if (faceCapacity <= 1) {
-    selectSingleFace(faceId);
-    return;
-  }
-
-  if (state.selectedFaceIds.includes(faceId)) {
-    setSelectedFaceIds(state.selectedFaceIds.filter((selectedFaceId) => selectedFaceId !== faceId));
-    return;
-  }
-
-  const nextFaceIds = [...state.selectedFaceIds, faceId];
-  const selectableLimit = getSelectableFaceLimit();
-
-  if (nextFaceIds.length > selectableLimit) {
-    nextFaceIds.shift();
-  }
-
-  setSelectedFaceIds(nextFaceIds);
+  return Faces.toggleDetectedFaceSelection(faceId, {
+    getTemplateFaceCapacity,
+    getSelectableFaceLimit,
+  });
 }
 
 async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
-  await adapter.init();
-  state.detectorAvailable = adapter.isAvailable();
-
-  if (!state.detectorAvailable) return [];
-  return withTimeout(adapter.detect(imageBitmap, { faceLimit }), DETECTION_TIMEOUT_MS);
+  return Faces.detectFacesForBitmap(imageBitmap, faceLimit, { adapter });
 }
 
 async function detectFaces(file) {
-  state.sequence += 1;
-  const mySequence = state.sequence;
-  state.file = file;
-  state.view = "fit";
-  state.uploadModalOpen = false;
-  state.isEditingMemeText = false;
-  clearFaceFitState();
-
-  if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
-    setError("UNSUPPORTED_FORMAT", "Unsupported format. Please use a standard image format.");
-    return;
-  }
-
-  setStatus(STATES.LOADING_IMAGE);
-
-  let imageBitmap;
-  try {
-    imageBitmap = await decodeImage(file);
-    if (mySequence !== state.sequence) return;
-  } catch (error) {
-    if (mySequence !== state.sequence) return;
-    setError(error.code || "CORRUPT_IMAGE", "Could not read this image. Please choose another photo.");
-    return;
-  }
-
-  state.imageBitmap = imageBitmap;
-  setStatus(STATES.DETECTING);
-
-  try {
-    const faces = await detectFacesForBitmap(imageBitmap, getTemplateFaceCapacity());
-
-    if (mySequence !== state.sequence) return;
-
-    const rendered = getRenderedSize();
-    const normalizedFaces = faces.map((face) => ({
-      ...face,
-      boxRendered: normalizeBox(
-        face.boxNatural,
-        { width: imageBitmap.width, height: imageBitmap.height },
-        rendered
-      ),
-    }));
-
-    state.usedDetectedFace = normalizedFaces.length > 0;
-
-    if (normalizedFaces.length === 0) {
-      setDetectionRecoveryError(
-        state.detectorAvailable ? "NO_FACE_DETECTED" : "DETECTOR_UNAVAILABLE"
-      );
-      enterManualMode();
-      setStatus(STATES.READY);
-      return;
-    }
-
-    state.faces = normalizedFaces;
-    state.error = null;
-
-    if (normalizedFaces.length === 1) {
-      state.manualMode = false;
-      selectSingleFace(normalizedFaces[0].id);
-      setStatus(STATES.READY);
-      return;
-    }
-
-    setSelectedFaceIds([]);
-    state.manualMode = false;
-    setStatus(STATES.FACES_FOUND);
-  } catch (error) {
-    if (mySequence !== state.sequence) return;
-    state.usedDetectedFace = false;
-    setDetectionRecoveryError(error.code || "DETECTION_FAILED");
-    enterManualMode();
-    setStatus(STATES.READY);
-  }
+  return Faces.detectFaces(file, {
+    adapter,
+    decodeImage,
+    clamp,
+    normalizeBox,
+    clearFaceFitState,
+    enterManualMode,
+    setStatus,
+    setError,
+    setDetectionRecoveryError,
+    getRenderedSize,
+    getTemplateFaceCapacity,
+    selectSingleFace,
+  });
 }
 
+function initializeEditorState() {
+  return Editor.initializeEditorState({ getTemplateMainImage, getSelectedTemplate });
+}
+
+function recordEditorSnapshot() {
+  return Editor.recordEditorSnapshot({ getTemplateMainImage, getSelectedTemplate });
+}
+
+function restoreEditorSession() {
+  return Editor.restoreEditorSession({ getTemplateMainImage });
+}
+
+function undoEditorSnapshot() {
+  return Editor.undoEditorSnapshot({ getTemplateMainImage, render });
+}
+
+function redoEditorSnapshot() {
+  return Editor.redoEditorSnapshot({ getTemplateMainImage, render });
+}
+
+function resetEditorToTemplate() {
+  return Editor.resetEditorToTemplate({ getTemplateMainImage, getSelectedTemplate, render });
+}
+
+function hasUnsavedStudioEdits() {
+  return Editor.hasUnsavedStudioEdits();
+}
+
+function confirmBackAndResetStudio() {
+  return Editor.confirmBackAndResetStudio({
+    getTemplateMainImage,
+    getSelectedTemplate,
+    render,
+    renderTemplates,
+  });
+}
 function renderOverlay() {
   dom.overlayLayer.innerHTML = "";
   dom.overlayLayer.style.pointerEvents = state.manualMode ? "none" : "";
@@ -1056,315 +438,6 @@ function renderOverlay() {
   });
 }
 
-async function loadTemplateCatalog() {
-  if (state.templateCatalog.length) return;
-
-  try {
-    const catalog = await loadTemplates();
-    state.templateCatalog = Array.isArray(catalog.templates) ? catalog.templates : [];
-  } catch {
-    state.templateCatalog = [];
-  }
-}
-
-function getRecentTemplateIds() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(RECENTS_STORAGE_KEY) || "{}");
-    return Object.entries(parsed)
-      .sort((left, right) => right[1] - left[1])
-      .map(([templateId]) => templateId);
-  } catch {
-    return [];
-  }
-}
-
-function recordTemplateUsage(templateId) {
-  let usageMap = {};
-  try {
-    usageMap = JSON.parse(localStorage.getItem(RECENTS_STORAGE_KEY) || "{}") || {};
-  } catch {
-    usageMap = {};
-  }
-
-  usageMap[templateId] = Date.now();
-  localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(usageMap));
-}
-
-function getVisibleTemplates() {
-  const query = state.templateSearchQuery.trim().toLowerCase();
-  const sorted = [...state.templateCatalog].sort((left, right) => right.popularityScore - left.popularityScore);
-  const tabTemplates = state.activeTemplateTab === "recents"
-    ? getRecentTemplateIds()
-      .map((templateId) => state.templateCatalog.find((template) => template.id === templateId))
-      .filter(Boolean)
-    : sorted;
-
-  if (!query) return tabTemplates;
-
-  return tabTemplates.filter((template) => {
-    const fields = [template.name, ...(template.tags || [])];
-    return fields.some((field) => field.toLowerCase().includes(query));
-  });
-}
-
-function renderTemplates() {
-  const templates = getVisibleTemplates();
-  dom.templateGrid.innerHTML = "";
-  dom.templateEmpty.classList.toggle("hidden", templates.length > 0);
-
-  templates.forEach((template, index) => {
-    const { width, height } = getTemplateImageDimensions(template);
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "template-card";
-    card.dataset.templateId = template.id;
-    card.style.setProperty("--template-hue", String((index * 37) % 360));
-
-    const art = document.createElement("span");
-    art.className = "template-art";
-    art.style.aspectRatio = `${width} / ${height}`;
-    const previewImage = document.createElement("img");
-    previewImage.className = "template-art-image";
-    previewImage.alt = template.name;
-    previewImage.loading = "lazy";
-    previewImage.decoding = "async";
-    previewImage.width = width;
-    previewImage.height = height;
-    previewImage.addEventListener("load", () => {
-      art.classList.add("image-ready");
-      previewImage.classList.add("is-loaded");
-    });
-    previewImage.addEventListener("error", () => {
-      const sources = JSON.parse(previewImage.dataset.fallbackSources || "[]");
-      const nextIndex = Number(previewImage.dataset.fallbackIndex || "0") + 1;
-
-      if (nextIndex < sources.length) {
-        previewImage.dataset.fallbackIndex = String(nextIndex);
-        previewImage.src = sources[nextIndex];
-        return;
-      }
-
-      art.classList.add("image-error");
-    });
-    updateImageWithFallback(previewImage, getTemplateImageSources(
-      getTemplatePreviewImage(template),
-      [template.images?.thumbnail, getTemplateMainImage(template), "/assets/memes/placeholder-preview.svg"]
-    ));
-
-    const initials = document.createElement("span");
-    initials.className = "template-initials";
-    initials.textContent = template.name
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((word) => word[0])
-      .join("");
-
-    const regions = document.createElement("span");
-    regions.className = "template-regions";
-    (template.faceRegions || []).slice(0, 4).forEach((region) => {
-      const marker = document.createElement("span");
-      marker.className = "template-region";
-      marker.style.left = `${(region.x / width) * 100}%`;
-      marker.style.top = `${(region.y / height) * 100}%`;
-      marker.style.width = `${Math.max(12, (region.width / width) * 100)}%`;
-      marker.style.height = `${Math.max(12, (region.height / height) * 100)}%`;
-      regions.appendChild(marker);
-    });
-
-    const name = document.createElement("span");
-    name.className = "template-name";
-    name.textContent = template.name;
-
-    art.append(previewImage, initials, regions);
-    card.append(art, name);
-
-    card.addEventListener("click", () => {
-      openStudioForTemplate(template.id);
-    });
-
-    if (state.selectedTemplateId === template.id) {
-      card.classList.add("selected");
-    }
-
-    dom.templateGrid.appendChild(card);
-  });
-}
-
-function renderStudioTemplate(template) {
-  if (!template) return;
-  const { width, height } = getTemplateImageDimensions(template);
-  const box = getStudioTemplateBox(template);
-  const studioImageSources = getTemplateImageSources(
-    state.editor.generatedImage || state.editor.templateImage || getTemplateMainImage(template),
-    [getTemplateMainImage(template), getTemplatePreviewImage(template), "/assets/memes/placeholder.svg"]
-  );
-  const serializedStudioImageSources = JSON.stringify(studioImageSources);
-  const shouldResetStudioImageState = dom.studioTemplateImage.dataset.fallbackSources !== serializedStudioImageSources;
-
-  dom.studioTemplateArt.style.setProperty(
-    "--template-hue",
-    String(Math.abs(template.id.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0)) % 360)
-  );
-  dom.studioTemplateArt.style.width = `${box.width}px`;
-  dom.studioTemplateArt.style.height = `${box.height}px`;
-  dom.studioTemplateInitials.textContent = template.name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("");
-  dom.studioTemplateRegions.innerHTML = "";
-  if (shouldResetStudioImageState) {
-    dom.studioTemplateArt.classList.remove("image-ready", "image-error");
-    dom.studioTemplateImage.classList.remove("is-loaded");
-  }
-  dom.studioTemplateImage.alt = template.name;
-  updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
-
-  (template.faceRegions || []).slice(0, 4).forEach((region) => {
-    const marker = document.createElement("span");
-    marker.className = "studio-template-region";
-    marker.style.left = `${(region.x / width) * 100}%`;
-    marker.style.top = `${(region.y / height) * 100}%`;
-    marker.style.width = `${Math.max(10, (region.width / width) * 100)}%`;
-    marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
-    dom.studioTemplateRegions.appendChild(marker);
-  });
-}
-
-function beginInlineTextEdit(event) {
-  event?.stopPropagation();
-  if (state.textDidDrag) return;
-  if (!state.editor.overlayVisible) return;
-
-  state.isEditingMemeText = true;
-  state.isTextSelected = true;
-  if ((state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
-    state.editor.overlayText = "";
-  }
-
-  dom.memeTextPreview.contentEditable = "true";
-
-  requestAnimationFrame(() => {
-    dom.memeTextPreview.focus();
-  });
-
-  render();
-}
-
-function selectTextObject(event) {
-  event?.stopPropagation();
-  if (!state.editor.overlayVisible) return;
-  if (state.textDidDrag) return;
-  state.isTextSelected = true;
-  state.showTextMore = false;
-  render();
-}
-
-function finishInlineTextEdit() {
-  state.isEditingMemeText = false;
-  state.editor.overlayText = getEditableTextValue(dom.memeTextPreview).trim() || DEFAULT_MEME_TEXT;
-  if (!state.isEditingMemeText) {
-    dom.memeTextPreview.textContent = state.editor.overlayText;
-  }
-  recordEditorSnapshot();
-  render();
-}
-
-function deleteMemeText() {
-  state.editor.overlayVisible = false;
-  state.isTextSelected = false;
-  state.isEditingMemeText = false;
-  state.showResetConfirmation = false;
-  recordEditorSnapshot();
-  render();
-}
-
-function getTextCenterInArt() {
-  const artRect = dom.studioTemplateArt.getBoundingClientRect();
-  return {
-    x: (clamp(state.editor.overlayX, 5, 95) / 100) * artRect.width,
-    y: (clamp(state.editor.overlayY, 5, 95) / 100) * artRect.height,
-    artRect,
-  };
-}
-
-function startTextDrag(event) {
-  if (!state.editor.overlayVisible || state.isTextLocked) return;
-  event.preventDefault();
-  state.isTextSelected = true;
-  state.textDidDrag = false;
-  state.textDragPointerId = event.pointerId;
-  state.textPointerStartX = event.clientX;
-  state.textPointerStartY = event.clientY;
-  state.textStartX = state.editor.overlayX;
-  state.textStartY = state.editor.overlayY;
-  dom.memeTextPreview.setPointerCapture(event.pointerId);
-}
-
-function startTextResize(event) {
-  if (!state.editor.overlayVisible || state.isTextLocked) return;
-  event.preventDefault();
-  event.stopPropagation();
-  state.textResizePointerId = event.pointerId;
-  state.textPointerStartX = event.clientX;
-  state.textStartWidth = state.editor.overlayWidthPct;
-  state.textResizeDirection = event.currentTarget?.dataset?.resizeCorner?.includes("w") ? -1 : 1;
-  event.currentTarget?.setPointerCapture?.(event.pointerId);
-}
-
-function moveTextResize(event) {
-  if (state.textResizePointerId !== event.pointerId) return;
-  event.preventDefault();
-  const artRect = dom.studioTemplateArt.getBoundingClientRect();
-  const dxPct = ((event.clientX - state.textPointerStartX) / artRect.width) * 100;
-  state.editor.overlayWidthPct = clamp(state.textStartWidth + dxPct * state.textResizeDirection, 18, 90);
-  render();
-}
-
-function endTextResize(event) {
-  if (state.textResizePointerId !== event.pointerId) return;
-  event.preventDefault();
-  state.textResizePointerId = null;
-  recordEditorSnapshot();
-}
-
-function moveTextDrag(event) {
-  if (state.textDragPointerId !== event.pointerId) return;
-  event.preventDefault();
-  const { artRect } = getTextCenterInArt();
-  const dxPercent = (event.clientX - state.textPointerStartX) / artRect.width * 100;
-  const dyPercent = (event.clientY - state.textPointerStartY) / artRect.height * 100;
-  state.editor.overlayX = clamp(state.textStartX + dxPercent, 5, 95);
-  state.editor.overlayY = clamp(state.textStartY + dyPercent, 5, 95);
-  if (Math.abs(dxPercent) > 0.1 || Math.abs(dyPercent) > 0.1) {
-    state.textDidDrag = true;
-  }
-  render();
-}
-
-function endTextDrag(event) {
-  if (state.textDragPointerId !== event.pointerId) return;
-  event.preventDefault();
-  state.textDragPointerId = null;
-  if (state.textDidDrag) {
-    recordEditorSnapshot();
-    setTimeout(() => {
-      state.textDidDrag = false;
-    }, 0);
-  }
-}
-
-function rotateTextOneStep(event) {
-  if (!state.editor.overlayVisible || state.isTextLocked) return;
-  event?.preventDefault();
-  event?.stopPropagation();
-  const current = Number.isFinite(state.editor.overlayRotation) ? state.editor.overlayRotation : 0;
-  const next = (((current + ROTATE_STEP) % 360) + 360) % 360;
-  state.editor.overlayRotation = next === 360 ? 0 : next;
-  recordEditorSnapshot();
-  render();
-}
-
 function startFaceSwapLoadingState() {
   state.isSubmittingFaceSwap = true;
   state.showSlowFaceSwapMessage = false;
@@ -1383,21 +456,6 @@ function stopFaceSwapLoadingState() {
   if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
   state.faceSwapSlowTimer = null;
   render();
-}
-
-async function showTemplateSelection() {
-  await loadTemplateCatalog();
-  state.view = "templates";
-  state.activeTemplateTab = "trending";
-  state.templateSearchQuery = "";
-  dom.templateSearch.value = "";
-  [...dom.templateTabs.querySelectorAll("[data-tab]")].forEach((button) => {
-    const active = button.dataset.tab === state.activeTemplateTab;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
-  render();
-  renderTemplates();
 }
 
 function render() {
@@ -1457,6 +515,8 @@ function render() {
     const outlineOn = !!state.editor.overlayOutlineEnabled;
     dom.textBorderToggleCta.textContent = `border: ${outlineOn ? "on" : "off"}`;
     dom.textBorderToggleCta.classList.toggle("active", outlineOn);
+    dom.textBorderToggleCta.disabled = noTextSelection;
+    dom.textBorderToggleCta.setAttribute("aria-pressed", String(outlineOn));
   }
   dom.textLockCta.textContent = state.isTextLocked ? "🔒" : "🔓";
   dom.memeFontSelect.value = state.editor.overlayFontKey;
