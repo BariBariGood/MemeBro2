@@ -27,15 +27,10 @@ cse110-sp26-group17-MemeBro/
 │   ├── design/             # Design diagrams and wireframes
 │   └── research/           # Research notes
 └── worker/                 # Main project code
-    ├── .vscode/            # VS Code settings
-    ├── .wrangler/          # Local Cloudflare files
-    ├── node_modules/       # Installed packages
-    ├── public/             # Frontend files
+    ├── public/             # FRONTEND: HTML, CSS, client-side JS
     ├── scripts/            # Helper scripts
-    ├── src/                # Source code
-    ├── test/               # Test files
-    ├── .dev.vars           # Secret environment variables
-    └── wrangler.jsonc      # Cloudflare config
+    ├── src/                # BACKEND: Cloudflare Worker API gateway
+    ├── test/               # TESTING: Vitest test suites
 ```
 
 ## Prerequisites
