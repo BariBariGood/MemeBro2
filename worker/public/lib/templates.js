@@ -55,12 +55,15 @@ export function getStudioTemplateBox(template) {
     const { width, height } = getTemplateImageDimensions(template);
     const viewportWidth  = typeof window !== "undefined" ? window.innerWidth  : 1280;
     const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 900;
-    const maxWidth = Math.max(220, Math.min(
-        viewportWidth <= 520 ? viewportWidth - 24 : viewportWidth - 32,
-        viewportWidth * 0.6,
-        560
-    ));
-    const maxHeight = Math.max(220, Math.min(viewportHeight * 0.72, 760));
+    const isCompact = viewportWidth <= 899;
+    const reservedHeight = isCompact ? 285 : 255;
+    const sideReserve = isCompact ? 0 : Math.min(420, viewportWidth * 0.30);
+    const maxWidth = Math.max(220, isCompact
+        ? viewportWidth - sideReserve
+        : Math.min(viewportWidth - sideReserve - 48, viewportWidth * 0.62, 760));
+    const maxHeight = Math.max(220, isCompact
+        ? viewportHeight - reservedHeight
+        : Math.min(viewportHeight - reservedHeight, viewportHeight * 0.76, 780));
     const scale = Math.min(maxWidth / width, maxHeight / height);
     return {
         width:  Math.max(1, Math.round(width  * scale)),

@@ -1,0 +1,50 @@
+.text-settings {
+  display: none;
+}
+
+.rotate-mode-cta {
+  width: 100%;
+  min-height: 48px;
+}
+
+.text-setting-field {
+  display: grid;
+  gap: 8px;
+}
+
+.text-setting-field label,
+.text-setting-toggle span {
+  color: var(--text-muted-76);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.text-setting-field select {
+  min-height: 48px;
+  border-radius: 14px;
+  border: 1px solid var(--white-18);
+  background: var(--white-08);
+  color: var(--color-text);
+  padding: 0 14px;
+  font: inherit;
+}
+
+.text-setting-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid var(--white-18);
+  background: var(--white-08);
+}
+
+.text-setting-toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-lime);
+}

@@ -59,6 +59,8 @@ export const state = {
     isTextSelected: false,
     isTextLocked: false,
     showTextMore: false,
+    isAiPromptPanelOpen: false,
+    aiPromptHistory: [],
     clipboardText: "",
     textLink: "",
     editor: {
