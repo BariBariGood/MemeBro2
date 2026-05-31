@@ -289,15 +289,12 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     render();
 
     const template = catalog.templates.find((entry) => entry.id === "expanding-brain");
-    const maxWidth = Math.max(220, Math.min(window.innerWidth - 32, window.innerWidth * 0.6, 560));
-    const maxHeight = Math.max(220, Math.min(window.innerHeight * 0.72, 760));
-    const scale = Math.min(maxWidth / template.images.width, maxHeight / template.images.height);
-    const expectedWidth = Math.round(template.images.width * scale);
-    const expectedHeight = Math.round(template.images.height * scale);
+    const { getStudioTemplateBox } = await import("../public/lib/templates.js");
+    const expectedBox = getStudioTemplateBox(template);
 
     expect(dom.studioTemplateImage.getAttribute("src")).toBe(template.templateImage);
-    expect(dom.studioTemplateArt.style.width).toBe(`${expectedWidth}px`);
-    expect(dom.studioTemplateArt.style.height).toBe(`${expectedHeight}px`);
+    expect(dom.studioTemplateArt.style.width).toBe(`${expectedBox.width}px`);
+    expect(dom.studioTemplateArt.style.height).toBe(`${expectedBox.height}px`);
   });
 
   test("custom: selected face crop matches clamped dimensions without black borders", async () => {

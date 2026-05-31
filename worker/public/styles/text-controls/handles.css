@@ -1,0 +1,168 @@
+.meme-text-preview {
+  position: absolute;
+  left: 50%;
+  top: 80%;
+  transform: translate(-50%, -50%) rotate(0deg);
+  min-width: 120px;
+  max-width: 92%;
+  z-index: 3;
+  min-height: 46px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-black);
+  border: 1.5px solid transparent;
+  box-shadow: none;
+  font-size: clamp(1.15rem, 4vw, 1.75rem);
+  font-family: var(--font-meme);
+  line-height: 1.15;
+  text-transform: none;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-shadow: none;
+  cursor: text;
+  caret-color: var(--color-black);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    color 160ms ease,
+    transform 140ms ease;
+}
+
+.meme-text-hint {
+  margin: 2px 0 0;
+  text-align: center;
+  color: var(--white-95);
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(151, 103, 255, 0.8);
+  animation: hint-glow 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes hint-glow {
+  from { opacity: 0.55; }
+  to { opacity: 1; }
+}
+
+.studio-template-art.text-selected .meme-text-preview:not(:disabled):hover,
+.studio-template-art.text-selected .meme-text-preview:not(:disabled):active {
+  cursor: move;
+}
+
+.studio-template-art.editing-text .meme-text-preview:not(:disabled):hover,
+.studio-template-art.editing-text .meme-text-preview:not(:disabled):active {
+  cursor: text;
+}
+
+.studio-template-art.text-rotate-mode .meme-text-preview {
+  border-color: rgba(184, 247, 58, 0.92);
+  box-shadow:
+    0 0 0 1px var(--color-editor-shadow),
+    0 0 18px var(--lime-34);
+  animation: rotate-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes rotate-pulse {
+  from { box-shadow: 0 0 0 1px var(--color-editor-shadow), 0 0 12px var(--lime-20); }
+  to   { box-shadow: 0 0 0 1px var(--color-editor-shadow), 0 0 22px var(--lime-42); }
+}
+
+.studio-template-art.editing-text .meme-text-preview {
+  border-style: dashed;
+  border-color: var(--white-92);
+  box-shadow:
+    0 0 0 1px var(--color-editor-shadow-strong),
+    0 0 18px var(--white-22);
+  cursor: text;
+}
+
+.studio-template-art.text-selected .meme-text-preview {
+  border: 2px dashed var(--color-editor-blue);
+}
+
+.studio-template-art.editing-text.text-selected .meme-text-preview {
+  border: 2px dashed var(--white-92);
+}
+
+.studio-template-art.text-selected:not(.editing-text) .meme-text-preview::after {
+  content: "✥";
+  position: absolute;
+  left: 50%;
+  top: -26px;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(14, 16, 25, 0.8);
+  border: 1px solid var(--white-18);
+  color: var(--white-82);
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.studio-template-art.text-selected:not(.editing-text) .meme-text-preview:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.meme-text-editor {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  z-index: 4;
+  transform: translateX(-50%);
+  width: min(92%, 520px);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.meme-text-resize-handle {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  min-height: 13px;
+  min-width: 13px;
+  border-radius: 3px;
+  padding: 0;
+  z-index: 5;
+  background: rgba(60, 136, 244, 0.96);
+  border: 2px solid var(--color-editor-blue-border);
+  touch-action: none;
+}
+
+.meme-text-resize-handle--nw,
+.meme-text-resize-handle--se {
+  cursor: nwse-resize;
+}
+
+.meme-text-resize-handle--ne,
+.meme-text-resize-handle--sw {
+  cursor: nesw-resize;
+}
+
+.meme-text-resize-handle:not(:disabled):hover {
+  color: #3a56f7;
+  transform: scale(1.12);
+  box-shadow:
+    0 0 0 1px var(--color-editor-shadow-strong),
+    0 0 14px var(--lime-34),
+    0 4px 12px rgba(0, 0, 0, 0.32);
+}
+
+.frozen-text-item {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-transform: none;
+  text-align: center;
+  line-height: 1.15;
+  pointer-events: auto;
+}

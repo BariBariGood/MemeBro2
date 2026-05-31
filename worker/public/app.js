@@ -184,11 +184,6 @@ function openStudioForTemplate(templateId) {
     STATES,
   });
 
-  if (state.view === "studio" && !state.editor.overlayVisible && !state.editor.frozenTextItems.length) {
-    state.editor.overlayVisible = true;
-    state.isTextSelected = false;
-  }
-
   return result;
 }
 
@@ -473,11 +468,15 @@ function render() {
   dom.titleScreen?.classList.toggle("hidden", !showingHome);
   dom.topbar?.classList.toggle("hidden", showingHome);
   dom.backBtn?.classList.toggle("hidden", showingHome);
+  dom.saveCta?.classList.toggle("hidden", !showingStudio);
   dom.cameraShell.classList.toggle("hidden", !cameraActive);
   dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
   dom.templateScreen.classList.toggle("hidden", !showingTemplates);
   dom.studioScreen.classList.toggle("hidden", !showingStudio);
   dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
+  dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !state.isAiPromptPanelOpen);
+  dom.vibePanel?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
+  dom.vibeContainer?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
   dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
   dom.backConfirmation.classList.toggle("hidden", !showingStudio || !state.showBackConfirmation);
   dom.overlayShell.classList.toggle("hidden", !editingPhoto || showingTemplates || showingStudio);
@@ -595,6 +594,23 @@ function render() {
   renderOverlay();
   renderFrozenTextItems();
   syncMemeTextAppearance();
+  renderAiPromptHistory();
+}
+
+
+function renderAiPromptHistory() {
+  if (!dom.aiPromptHistory) return;
+  const messages = state.aiPromptHistory.length
+    ? state.aiPromptHistory
+    : [{ role: "system", text: "Tell me what to change — caption, mood, style, or face-swap direction." }];
+  dom.aiPromptHistory.innerHTML = "";
+  messages.forEach((message) => {
+    const node = document.createElement("article");
+    node.className = `ai-prompt-message ai-prompt-message--${message.role}`;
+    node.textContent = message.text;
+    dom.aiPromptHistory.appendChild(node);
+  });
+  dom.aiPromptHistory.scrollTop = dom.aiPromptHistory.scrollHeight;
 }
 
 async function submitSelectedFace() {
@@ -705,7 +721,26 @@ dom.addTextCta?.addEventListener("click", () => {
 });
 dom.openUploadModalCta.addEventListener("click", () => {
   state.uploadModalOpen = true;
+  state.isAiPromptPanelOpen = false;
   render();
+});
+dom.aiPromptCta?.addEventListener("click", () => {
+  // AI prompt panel is temporarily disabled.
+  state.isAiPromptPanelOpen = false;
+  render();
+});
+dom.aiPromptCloseCta?.addEventListener("click", () => {
+  state.isAiPromptPanelOpen = false;
+  render();
+});
+dom.aiPromptForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const prompt = dom.aiPromptInput?.value.trim();
+  if (!prompt) return;
+  state.aiPromptHistory.push({ role: "user", text: prompt });
+  state.aiPromptHistory.push({ role: "assistant", text: "Got it — AI variant generation will use this prompt once connected." });
+  dom.aiPromptInput.value = "";
+  renderAiPromptHistory();
 });
 dom.uploadModalBackdrop.addEventListener("click", () => {
   state.uploadModalOpen = false;
@@ -819,7 +854,13 @@ dom.textDuplicateCta.addEventListener("click", () => {
 
   // Persist original, then make duplicate a separate active textbox.
   freezeCurrentTextItem();
-  const duplicateOffset = 3;
+  const duplicateOffset = clamp(Math.max(10, duplicateSource.widthPct * 0.22), 10, 18);
+  const duplicateX = duplicateSource.x + duplicateOffset > 95
+    ? duplicateSource.x - duplicateOffset
+    : duplicateSource.x + duplicateOffset;
+  const duplicateY = duplicateSource.y + duplicateOffset > 95
+    ? duplicateSource.y - duplicateOffset
+    : duplicateSource.y + duplicateOffset;
   state.editor.overlayText = duplicateSource.text;
   state.editor.overlayFontKey = duplicateSource.fontKey;
   state.editor.overlayFontPx = duplicateSource.fontPx;
@@ -829,8 +870,8 @@ dom.textDuplicateCta.addEventListener("click", () => {
   state.editor.overlayBold = duplicateSource.bold;
   state.editor.overlayItalic = duplicateSource.italic;
   state.editor.overlayUnderline = duplicateSource.underline;
-  state.editor.overlayX = clamp(duplicateSource.x + duplicateOffset, 5, 95);
-  state.editor.overlayY = clamp(duplicateSource.y + duplicateOffset, 5, 95);
+  state.editor.overlayX = clamp(duplicateX, 5, 95);
+  state.editor.overlayY = clamp(duplicateY, 5, 95);
   state.editor.overlayWidthPct = duplicateSource.widthPct;
   state.editor.overlayRotation = duplicateSource.rotation;
   state.isTextLocked = duplicateSource.locked;
@@ -953,9 +994,6 @@ dom.memeOutlineColorInput.addEventListener("blur", () => {
     state.editor.overlayOutlineEnabled = true;
     updateEditorTextSetting("overlayOutlineColor", state.editor.overlayOutlineColor);
   }
-});
-dom.memeOutlineRemoveCta?.addEventListener("click", () => {
-  updateEditorTextSetting("overlayOutlineEnabled", false);
 });
 dom.undoCta.addEventListener("click", () => {
   undoEditorSnapshot();
