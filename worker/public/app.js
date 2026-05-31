@@ -991,125 +991,6 @@ async function detectFaces(file) {
   }
 }
 
-function getManualCircleBox() {
-  const shellRect = dom.overlayShell.getBoundingClientRect();
-  const circleRect = dom.manualCircle.getBoundingClientRect();
-  return {
-    x: circleRect.left - shellRect.left,
-    y: circleRect.top - shellRect.top,
-    width: circleRect.width,
-    height: circleRect.height,
-  };
-}
-
-function buildManualFaceBoxNatural() {
-  if (!state.imageBitmap) return null;
-  const nw = state.imageBitmap.width;
-  const nh = state.imageBitmap.height;
-  const rendered = getRenderedSize();
-  const base = Math.max(rendered.width / nw, rendered.height / nh);
-  const finalScale = base * state.manualScale;
-  const displayedW = nw * finalScale;
-  const displayedH = nh * finalScale;
-  const imageLeft = (rendered.width - displayedW) / 2 + state.manualOffsetX;
-  const imageTop = (rendered.height - displayedH) / 2 + state.manualOffsetY;
-  const circle = getManualCircleBox();
-  return {
-    x: clamp((circle.x - imageLeft) / finalScale, 0, nw),
-    y: clamp((circle.y - imageTop) / finalScale, 0, nh),
-    width: clamp(circle.width / finalScale, 10, nw),
-    height: clamp(circle.height / finalScale, 10, nh),
-  };
-}
-
-function updateManualFaceSelection() {
-  if (!state.manualMode || !state.imageBitmap) return;
-  const boxNatural = buildManualFaceBoxNatural();
-  if (!boxNatural) return;
-  const rendered = getRenderedSize();
-  state.faces = [{
-    id: "face-manual-0",
-    score: 1,
-    boxNatural,
-    transform: {
-      scale: state.manualScale,
-      rotation: state.manualRotation,
-      offsetX: state.manualOffsetX,
-      offsetY: state.manualOffsetY,
-    },
-    boxRendered: normalizeBox(
-      boxNatural,
-      { width: state.imageBitmap.width, height: state.imageBitmap.height },
-      rendered
-    ),
-  }];
-  selectSingleFace("face-manual-0");
-}
-
-function applyManualTransform() {
-  if (!state.manualMode) {
-    dom.previewImage.style.transform = "";
-    return;
-  }
-  dom.previewImage.style.transform = `translate(${state.manualOffsetX}px, ${state.manualOffsetY}px) rotate(${state.manualRotation}deg) scale(${state.manualScale})`;
-  updateManualFaceSelection();
-}
-
-function alignManualViewToFace(face) {
-  if (!face?.boxNatural || !state.imageBitmap) return;
-
-  const rendered = getRenderedSize();
-  const circle = getManualCircleBox();
-  const natural = {
-    width: state.imageBitmap.width,
-    height: state.imageBitmap.height,
-  };
-  const base = Math.max(rendered.width / natural.width, rendered.height / natural.height);
-  const targetScale = Math.min(
-    circle.width / (face.boxNatural.width * 1.18),
-    circle.height / (face.boxNatural.height * 1.18)
-  );
-  const manualScale = clamp(targetScale / base, 0.5, 2.2);
-  const finalScale = base * manualScale;
-  const displayedW = natural.width * finalScale;
-  const displayedH = natural.height * finalScale;
-  const baseLeft = (rendered.width - displayedW) / 2;
-  const baseTop = (rendered.height - displayedH) / 2;
-  const faceCenterX = face.boxNatural.x + face.boxNatural.width / 2;
-  const faceCenterY = face.boxNatural.y + face.boxNatural.height / 2;
-  const circleCenterX = circle.x + circle.width / 2;
-  const circleCenterY = circle.y + circle.height / 2;
-
-  state.manualScale = manualScale;
-  state.manualRotation = 0;
-  state.manualOffsetX = circleCenterX - faceCenterX * finalScale - baseLeft;
-  state.manualOffsetY = circleCenterY - faceCenterY * finalScale - baseTop;
-  dom.manualZoom.value = String(manualScale);
-  dom.manualRotation.value = "0";
-}
-
-function enterManualMode(faceToAlign = null) {
-  state.manualMode = true;
-  state.manualScale = 1;
-  state.manualRotation = 0;
-  state.manualOffsetX = 0;
-  state.manualOffsetY = 0;
-  dom.manualZoom.value = "1";
-  dom.manualRotation.value = "0";
-  requestAnimationFrame(() => {
-    alignManualViewToFace(faceToAlign);
-    applyManualTransform();
-    renderOverlay();
-  });
-}
-
-function startManualFitFromSelection() {
-  const faceToAlign = getSelectedFaces()[0] || state.faces[0] || null;
-  state.usedDetectedFace = Boolean(faceToAlign);
-  enterManualMode(faceToAlign);
-  setStatus(STATES.READY);
-}
-
 function renderOverlay() {
   dom.overlayLayer.innerHTML = "";
   dom.overlayLayer.style.pointerEvents = state.manualMode ? "none" : "";
@@ -1472,9 +1353,6 @@ function endTextDrag(event) {
     }, 0);
   }
 }
-
-// Rotation now works as a discrete 90-degree step: click the handle to advance.
-const ROTATE_STEP = 90;
 
 function rotateTextOneStep(event) {
   if (!state.editor.overlayVisible || state.isTextLocked) return;
