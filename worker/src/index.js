@@ -27,7 +27,11 @@ const IMAGE_PATH = "/api/image";
 const HEALTH_PATH = "/api/health";
 
 /**
- * Builds a JSON Response with the gateway's common content type.
+ * Use at Worker route boundaries once the response body has already been
+ * validated or normalized. This keeps successful responses and deliberate
+ * client-facing errors on the gateway's JSON media type; caught exceptions
+ * should usually flow through errorResponse so their status, retryability, and
+ * secret redaction stay consistent.
  *
  * @param {unknown} body - JSON-serializable response body
  * @param {number} status - HTTP status code
