@@ -11,6 +11,7 @@
       <header class="topbar">
         <button class="back-btn" type="button" aria-label="Back">← back</button>
         <p class="brand">MEMEBRO</p>
+        <button id="save-cta" class="save-action" type="button" aria-label="Save meme">Save</button>
       </header>
       <section id="title-screen" class="title-screen hidden" aria-label="MemeBro title screen">
         <div class="title-grid-glow title-grid-glow-left" aria-hidden="true"></div>
@@ -35,7 +36,7 @@
         </div>
         <div class="title-center-copy">
           <p class="title-kicker">MemeBro</p>
-          <h1>MEME IT BEFORE THE MOMENT DIES.</h1>
+          <h1>MEME IT BEFORE THE MOMENT <br class="mobile-title-break" />DIES.</h1>
           <button id="title-start-cta" class="title-start-cta" type="button">
             <span>Get started</span>
             <span aria-hidden="true">→</span>
@@ -80,14 +81,16 @@
             <span id="studio-template-initials" class="studio-template-initials"></span>
             <span id="studio-template-regions" class="studio-template-regions"></span>
             <div id="meme-text-preview" class="meme-text-preview" role="textbox" aria-label="Edit meme text" tabindex="0">Tap to edit text</div>
-            <button id="meme-text-drag-handle" class="meme-text-drag-handle" type="button" aria-label="Drag text">✥</button>
-            <button id="meme-text-delete" class="meme-text-delete" type="button" aria-label="Delete text">×</button>
-            <button id="meme-text-rotate-handle" class="meme-text-rotate-handle" type="button" aria-label="Drag to rotate text">↻</button>
-            <button id="meme-text-resize-handle" class="meme-text-resize-handle" type="button" aria-label="Resize text box">◢</button>
+            <button id="meme-text-resize-handle" class="meme-text-resize-handle meme-text-resize-handle--nw" type="button" aria-label="Resize text box from top left" data-resize-corner="nw"></button>
+            <button class="meme-text-resize-handle meme-text-resize-handle--ne" type="button" aria-label="Resize text box from top right" data-resize-corner="ne"></button>
+            <button class="meme-text-resize-handle meme-text-resize-handle--sw" type="button" aria-label="Resize text box from bottom left" data-resize-corner="sw"></button>
+            <button class="meme-text-resize-handle meme-text-resize-handle--se" type="button" aria-label="Resize text box from bottom right" data-resize-corner="se"></button>
             <div id="text-local-controls" class="text-local-controls hidden" aria-label="Text object controls">
+              <button id="text-border-toggle-cta" type="button" class="toolbar-btn toolbar-btn--text-toggle" aria-label="Toggle editing border" title="Toggle border visibility">border: off</button>
               <button id="text-duplicate-cta" type="button" class="toolbar-btn">⧉</button>
               <button id="text-lock-cta" type="button" class="toolbar-btn">🔓</button>
-              <button id="text-more-cta" type="button" class="toolbar-btn">⋯</button>
+              <button id="meme-text-rotate-handle" type="button" class="toolbar-btn toolbar-btn--rotate" aria-label="Rotate text" title="Rotate text">↻</button>
+              <button id="meme-text-delete" type="button" class="toolbar-btn toolbar-btn--danger" aria-label="Delete text" title="Delete text">×</button>
             </div>
             <div id="text-more-menu" class="text-menu hidden">
               <button id="text-copy-cta" type="button">Copy</button>
@@ -96,6 +99,8 @@
             </div>
           </div>
           <div id="text-toolbar" class="text-toolbar" aria-label="Text controls">
+            <button id="add-text-cta" type="button" class="toolbar-btn toolbar-btn--add-text" aria-label="Add text" title="Add text"><span aria-hidden="true">T</span><small>Add</small></button>
+            <span class="toolbar-separator" aria-hidden="true"></span>
               <select id="meme-font-select" class="toolbar-select">
                 <option value="arial">Arial</option>
                 <option value="impact">Impact</option>
@@ -125,10 +130,9 @@
               <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" />
             </label>
             <label class="toolbar-color-group toolbar-color-group--outline is-off" for="meme-outline-color-input">
-              <span>Outline</span>
+              <span>Border</span>
               <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" />
             </label>
-            <button id="meme-outline-remove-cta" class="outline-remove-btn hidden" type="button" aria-label="Remove outline" title="Remove outline">×</button>
           </div>
           <section class="template-bottom-actions" aria-label="Edit history actions">
             <div class="history-left">
@@ -140,21 +144,31 @@
         </article>
 
         <div class="studio-sidebar">
-          <section class="vibe-panel" aria-label="Pick a vibe">
-            <p class="vibe-title">Pick a vibe</p>
-            <div class="vibe-options">
-              <button class="vibe-pill active" type="button">Normal</button>
-              <button class="vibe-pill roast" type="button">Extra Roast</button>
-              <button class="vibe-pill friendly" type="button">Friendly Roast</button>
+          <section class="studio-actions vibe-container" aria-label="Template actions">
+            <button id="open-upload-modal-cta" class="primary studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">↥</span><span class="vibe-label">Upload</span></button>
+            <button id="ai-prompt-cta" class="pink-action studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">✣</span><span class="vibe-label">AI Prompt</span></button>
+          </section>
+          <!-- AI prompt panel temporarily disabled
+          <section id="ai-prompt-panel" class="ai-prompt-panel hidden" aria-label="AI prompt chat">
+            <div class="ai-prompt-header">
+              <div>
+                <p class="vibe-title">AI Prompt</p>
+                <p class="vibe-copy">Generate meme variants iteratively.</p>
+              </div>
+              <button id="ai-prompt-close-cta" class="toolbar-btn" type="button" aria-label="Close AI prompt">×</button>
             </div>
-            <p class="vibe-copy">Face-swap into a meme template.</p>
+            <div id="ai-prompt-history" class="ai-prompt-history" aria-live="polite">
+              <article class="ai-prompt-message ai-prompt-message--system">
+                Tell me what to change — caption, mood, style, or face-swap direction.
+              </article>
+            </div>
+            <form id="ai-prompt-form" class="ai-prompt-form">
+              <label class="sr-only" for="ai-prompt-input">Prompt AI</label>
+              <input id="ai-prompt-input" type="text" autocomplete="off" placeholder="Ask for a variant…" />
+              <button type="submit" class="primary">Send</button>
+            </form>
           </section>
-
-          <section class="studio-actions" aria-label="Template actions">
-            <button id="open-upload-modal-cta" class="primary studio-action" type="button">↥ Upload <span>→</span></button>
-            <button class="pink-action studio-action" type="button">✣ AI Prompt <span>→</span></button>
-            <button id="add-text-cta" class="secondary studio-action" type="button">＋ Add Text</button>
-          </section>
+          -->
           <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
             <div id="reset-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
             <div class="reset-confirmation-card">

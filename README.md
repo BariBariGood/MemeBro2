@@ -12,14 +12,26 @@ MemeBro is a meme generation platform built on Cloudflare Workers.
 ## Architecture
 ```text
 cse110-sp26-group17-MemeBro/
-├── .github/               # CI/CD workflows and PR templates
-├── docs/                  # Project documentation, wireframes, and ADRs
-│   └── ADRs/              # Architecture Decision Records (0001-0006)
-├── public/                # FRONTEND: HTML, CSS, client-side JS
-├── src/                   # BACKEND: Cloudflare Worker API gateway
-└── test/                  # TESTING: Vitest test suites
+├── .github/                # GitHub setup files
+│   └── PULL_REQUEST_TEMPLATE.md  # PR template
+├── admin/                  # Team management files
+│   ├── branding/           # Team branding
+│   ├── feedback/           # Feedback notes
+│   ├── images/             # Unrelated images and screenshots
+│   ├── meetings/           # Meeting notes
+│   ├── misc/               # Other files 
+│   ├── videos/             # Demo videos
+│   └── team.md             # Team page
+├── docs/                   # Documentation
+│   ├── ADRs/               # Architecture decisions
+│   ├── design/             # Design diagrams and wireframes
+│   └── research/           # Research notes
+└── worker/                 # Main project code
+    ├── public/             # FRONTEND: HTML, CSS, client-side JS
+    ├── scripts/            # Helper scripts
+    ├── src/                # BACKEND: Cloudflare Worker API gateway
+    ├── test/               # TESTING: Vitest test suites
 ```
-
 
 ## Prerequisites
 - Node.js (LTS recommended)
@@ -27,6 +39,7 @@ cse110-sp26-group17-MemeBro/
 
 ## Install
 ```bash
+cd worker
 npm install
 ```
 
@@ -34,6 +47,7 @@ This also sets up the MediaPipe browser files under `public/.generated/mediapipe
 
 ## Local Development
 ```bash
+cd worker
 npm run dev
 ```
 
