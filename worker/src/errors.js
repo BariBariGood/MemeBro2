@@ -21,7 +21,12 @@ export const ErrorCodes = {
 };
 
 /**
- * Builds a structured error response object.
+ * Use when a module needs to return a serialized API error payload instead of
+ * interrupting control flow. Throw an Error with code/retryable fields when
+ * the caller should stop the current request and let the Worker catch boundary
+ * choose the HTTP status; use makeError for values that are already becoming
+ * JSON response bodies.
+ *
  * @param {string} code - One of ErrorCodes
  * @param {string} message - Human-readable message
  * @param {boolean} retryable - Whether the client should retry
