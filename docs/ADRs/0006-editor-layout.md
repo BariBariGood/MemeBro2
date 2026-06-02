@@ -1,297 +1,302 @@
-# Editor Layout Task ADR
-Primary Task: Build a scrollable grid of 20+ meme templates. Users browse, search by name/tags, and tap to select. Recent and trending tabs show favorite or popular templates. All templates have face region metadata.
+## Editor Layout and Meme Editing Experience
 
-Preface: To portion out the process, I will go through and prompt to build off of each sub-issue, building off the previous generation.
+### Context
 
-## Creating the Editor Layout - Sub Issue #1
-### __Task__: 
-- Image canvas center (60% of screen height)
-- Text editing controls below canvas
-- Generate, Undo, Reset, Download buttons
-- One-thumb reachable on mobile
-- Tests: Custom (layout responsive, buttons positioned)
-- Acceptance: All controls reachable comfortably for the user
+The application required a dedicated meme editing workspace where users could:
 
-### __Propmt 1__: 
-Using the existing `styles.css` file, create the layout for the editing page.
+* View the selected meme template.
+* Edit meme text directly on the canvas.
+* Generate face-swapped results.
+* Undo and reset changes.
+* Download completed memes.
+* Customize text appearance.
+* Continue editing after face-swap generation.
 
-__Canvas__
-- The center of the canvas should start in the middle of the screen
-- The size of the canvas should be at max 60% of the screen.
-- Ensure that the canvas scales properly with desktop and mobile devices.
-- No horizontal scroll
-  
-__Text Editing__
-- The main controls of the editor should be underneath the canvas
-- There should be generate, undo, reset, and download buttons
-- On mobile screens, the buttons should be reachable using only one thumb
-- Scrolling should not be excessive and should be easy for the user
-- The buttons should scale properly to fit desktop and mobile devices
-- Buttons should not overlap each other or the canvas
+The editor needed to work across desktop and mobile devices while remaining comfortable to use on small touch screens. Particular emphasis was placed on:
 
-Do not edit other files.
+* Mobile accessibility.
+* Preventing horizontal scrolling.
+* Keeping controls reachable with one hand.
+* Preserving editing state.
+* Maintaining alignment between meme templates, overlays, and face-region metadata.
 
-### __Reasoning/Concerns__: 
-My primary concerns is with how specific some of our terms are. Since we do not have anything specifically mentioned, I tried to specify with behavior. I thought that by separating the task into two parts, it would be easier for the AI to not mix up specifications. 
+The implementation evolved across several sub-issues, beginning with layout structure and later extending into image rendering, editor state management, text customization, asset replacement, preview loading fixes, and face-region alignment corrections.
 
-### __AI Summary__
-Updated styles.css to make the editing layout responsive without touching any other files.
-The main changes are:
-- Prevented horizontal scroll at the page level.
-- Constrained the editor canvas to about 60vw on larger screens, while letting it expand safely on mobile.
-- Centered the editing surface more intentionally and kept the control area aligned underneath it.
-- Improved mobile reachability by making the lower editor actions sticky near the bottom and increasing tap target sizes.
-- Made the studio action area flexible so multiple buttons can sit underneath the canvas without overlapping as the screen narrows.
-One important note: the current markup does not actually contain generate, undo, reset, and download buttons, so I only changed the layout CSS to support that control pattern cleanly when those controls are present. I didn’t run a browser preview here, so visual verification is still worth doing once the page is loaded locally.
+### Decision
 
-## Implement Result Display After Face-Swap - Sub Issue #4
-### __Task__: 
-- Show composited image (from backend)
-- Text overlay editable
-- Undo/Reset available
-Tests: Custom (image displays, buttons work)
-Acceptance: Image renders within 1 second of API response
-Dependencies: F-1, F-2, B-1, B-3, BF-1
+#### Responsive Editor Layout
 
-1. User is on the editor canvas screen.
-2. They trigger face-swap generation.
-3. The editor shows a loading/skeleton state.
-4. When the backend responds, the canvas swaps from the placeholder/template preview to the composited face-swapped image.
-5. The text overlay remains editable on top of that result.
-6. Undo/Reset work on the same canvas state.
+Implemented a responsive editor layout using only `styles.css`.
 
-The result display is the post-generation state of the editor
-### __Propmt 2__: 
-Using the existing `app.js`, extend the editor canvas flow to support post-face-swap rendering, inline text editing, undo, and reset functionality.
+Layout behavior includes:
 
-__Display generated image__
-- After the face swap api returns a face-swapped image, replace the current template preview image in the canvas with the returned composited image URL.
-- Keep the existing canvas structure and overlays intact.
+* Canvas centered within the viewport.
+* Canvas constrained to approximately 60% of available screen height.
+* Responsive scaling for desktop and mobile devices.
+* Horizontal scrolling disabled.
+* Editor controls positioned directly beneath the canvas.
+* Sticky action controls on mobile devices to improve one-thumb reachability.
+* Flexible button layouts that prevent overlap as screen size changes.
 
-__Inline text editing__
-- Continue using existing inline text editing logic in app.js.
-- Ensure text overlays remain editable after the swapped image is rendered.
-- Edited text should immediately update the displayed overlay state.
+The layout was designed to support:
 
-__Undo System__
-- Store every user action (face swap result + text edits) as a full state snapshot.
-- Persist undo history in localStorage.
-- Undo restores the previous state snapshot.
-- Undo actions themselves must NOT be recorded in history.
-  
-__Reset behavior__
-- Reset restores the original meme template (before face swap and edits).
-- Show a confirmation message before resetting:
-- Message: "Warning: Reset cannot be undone"
-- Buttons: “Cancel” and “Reset”
-- Only perform reset after confirmation.
-- Cancel closes the message without changes.
-- Clear undo history
-- Reset actions must NOT be stored in undo history.
+* Generate
+* Undo
+* Reset
+* Download
 
-__State handling__
-- Maintain a single source of truth state object in app.js for:
-  - template image
-  - generated image
-  - overlay text
-  - history stack
-- Sync UI updates directly from state changes.
+actions without requiring changes to existing markup.
 
-No modals should be used
+#### Post-Generation Result Rendering
 
-### __Reasoning/Concerns__: 
-My primary concern for this task was the functionality of the undo and reset button. The issue did not clearly state what to do so I came up with a skeleton prompt on how it should be done:
+Extended the editor workflow to support face-swap results.
+
+When generation completes:
+
+* The original template preview is replaced with the generated image.
+* Existing overlays remain intact.
+* Text editing remains available.
+* Canvas interactions continue without reloading the editor.
+
+The editor uses a centralized state object as the single source of truth containing:
+
+* Template image
+* Generated image
+* Overlay text
+* Undo history
+
+All UI updates are derived directly from state changes.
+
+#### Undo and Reset System
+
+Implemented snapshot-based editor history.
+
+Behavior includes:
+
+* Full-state snapshots stored for text edits and generation results.
+* Undo restores the previous snapshot.
+* Undo actions are not added to history.
+* History is persisted through localStorage.
+
+Reset behavior:
+
+* Restores the original template.
+* Removes generated face-swap results.
+* Restores default text content.
+* Clears persisted history.
+* Requires explicit user confirmation.
+
+A non-modal inline confirmation flow was selected rather than a popup dialog.
+
+#### Text Editing Controls
+
+Expanded the editor with common meme-text customization features.
+
+Supported options include:
+
+##### Font Selection
+
+Five recognizable meme-style fonts are available through a dropdown selector.
+
+##### Font Size Presets
+
+Instead of a freeform slider:
+
+* Default
+* Small (60% of default size)
+
+are provided.
+
+##### Automatic Text Fitting
+
+When text exceeds canvas boundaries:
+
+* Font size is reduced incrementally.
+* Text remains visible.
+* Feedback occurs in real time.
+* Distortion is minimized.
+
+##### Text Color
+
+Supported colors:
+
+* Black
+* White
+* Red
+* Blue
+* Yellow
+
+##### Meme Outline
+
+Implemented a toggleable white outline effect commonly used in meme captions.
+
+All text settings are stored within editor state and participate in:
+
+* Undo
+* Reset
+* Session restoration
+
+#### Asset Replacement
+
+Replaced placeholder meme images with real meme templates.
+
+The asset structure now includes:
+
+```text id="w8k0vg"
+worker/public/assets/preview-images/
+worker/public/assets/meme-templates/
 ```
-Using the existing `app.js` file, display the resulting image after the face swap.
 
-__Show Image__
-- After the face swap, switch out the template preview in the canvas with the generated image
+Preview assets:
 
-__Edit Text__
-- Using the inline text editing functionality in `app.js`, allow the text of the displayed image to be changed from what it was originally
+* Optimized for lazy loading.
+* Used in the template gallery.
 
-__Change State__
-- When the undo button is pressed, revert the last change made
-  - Actions should be stored in localStorage (includes the face swap, or text edits)
-  - The action of undoing and resetting should not be stored
-- When the reset button is pressed, remove the face swap and text changes and revert to the meme template
-  - Display a warning that asks the user if they are sure they want to reset, informing them that the action cannot be undone
-  - The warning display should have buttons to cancel or reset
-  - Only reset once the user clicks reset do you perform the function of reseting the image
-  - If the cancel button is pressed, do not reset. Hide the warning prompt.
-```
-Considering that this prompt looked sparse, I asked for the prompt to be revised, and after reviewing and editing the prompt I received, I had the prompt that was used. This prompt seemed fairly large, so I have a slight worry that there are too many things being asked in this prompt and the AI might get confused.
+Template assets:
 
-### __AI Summary__
-Implemented the editor flow in `app.js`, with supporting UI in `index.html` and `styles.css`.
-The canvas now uses a single state.editor source of truth for templateImage, generatedImage, overlayText, and historyStack. After /api/process returns, the studio canvas swaps to the returned composited image URL while keeping the existing text and face-region overlays intact. Inline text editing still uses the existing editor flow, but now updates state.editor.overlayText directly and records each edit as a full snapshot.
-I also added non-modal Undo and Reset controls in the studio area. Undo restores the previous persisted snapshot without recording the undo itself. Reset now shows an inline confirmation message, not a modal, with the exact warning text and Cancel / Reset actions. Confirming reset restores the original template image and default text, and clears persisted undo history.
-I updated `app.inline-edit-loader.test.js` to cover the generated-image render path plus undo/reset behavior. I wasn’t able to actually run the tests here because the workspace doesn’t have installed vitest dependencies and network access is blocked, so npx vitest could not fetch them.
+* Full-resolution originals.
+* Used within the editor.
 
-## Remove the gliding from hovering over the textbox while maintaining the highlight
-### __Task__
-When the user hovers over the inline text editor, remove the feature that slides the textbox
-Keep the darkening when it is hovered over
+The import process was automated through a script that:
 
-### __Prompt__
+* Downloads source memes.
+* Generates compressed previews.
+* Updates template metadata.
+* Maps asset paths automatically.
 
-### __Reasoning/Concerns__
-The gliding was an unintentional feature that was added in previous prompting. Because it was unintentional, it had to be removed. I did like the color changing when hovered over, so that should be kept.
+#### Preview Loading Improvements
 
-### __AI Summary__
+Fixed gallery image rendering behavior.
 
-## Add text edit settings
-### __Task__
-__PR Review: Sanjana__
-3. Some additional features I think would be nice to have which most basic editors have: customizable font size(just a few size options), text color(5-8 main colors max, not everything please), some common famous font sizes(4-5) and maybe outline option since meme text usually wants a white outline on black etc
+Enhancements include:
 
-__PR Review: Andrew__
-Nice-to-haves for a future pass
+* Proper use of `previewImage` paths.
+* Lazy-loading preservation.
+* Aspect-ratio reservation before image load.
+* Fade-in transitions after successful load.
+* Fallback chain for missing assets.
+* Prevention of broken image flashes and layout shifting.
 
-Font size options (a few presets, not a slider)
-Text color (5–8 common colors max)
-Font options (4–5 recognizable meme fonts)
-Text outline toggle (white outline on black is standard meme style)
+#### Meme Rendering and Cropping
 
-### __Prompt__
-Using the current `app.js` file, add settings underneath the buttons that adjusts the inline text.
+Replaced cropped background-image rendering with explicit image rendering.
 
-__Font__
-- Have an drop down menu for fonts
-  - The drop down menu should have 5 of the most recognizable meme fonts
-- Have a menu (NOT SLIDER) for font sizes
-  - Available font sizesfor selecting should be "Default" (the current size) and "Small" (60% of the current size)
-- When text does not fit in the screen size, shrink the text size automatically so that all text is visible within the canvas boundaries.
-  - Shrink should not be drastic
-  - Shrink should allow for all text to be visible
-  - Shrink size should have real time feedback and visible to the reader
+Changes include:
 
-__Text__
-- Have a toggle that enables a white meme outline on the text
-  - When it is on, there is a white meme outline
-  - When it is off, there is no white meme outline
-- Have a dropdown for text colors (NOT OUTLINE COLOR)
-  - Colors include: Black, White, Red, Blue, Yellow
-  - Default color will be black
+* Full template visibility.
+* Aspect-ratio preservation.
+* Responsive scaling.
+* No stretching.
+* No unintended clipping.
+* Consistent overlay positioning.
 
-### __Reasoning/Concerns__
-The gliding was an unintentional feature that was added in previous prompting. Because it was unintentional, it had to be removed. I did like the color changing when hovered over, so that should be kept.
+The editor canvas now sizes itself according to the true dimensions of the meme image rather than forcing images into a fixed crop area.
 
-### __AI Summary__
-Added the new text settings under the studio action buttons and wired them into the existing editor flow. The meme text now supports font selection, a Default/Small size menu, text color selection, and a white-outline toggle, all backed by editor snapshot state so undo/reset/session restore keep behaving consistently in app.js (line 40), index.html (line 77), and styles.css (line 139).
-I also changed the inline edit experience so the preview stays visible while typing, and added an automatic fit pass that gently shrinks the preview text when it would spill outside the meme canvas. That fit logic runs on text changes, setting changes, and window resize for live feedback.
-Verified with npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js from worker, and the updated UI spec passes. There was already an unrelated modified file in the repo: ADRs/editor-layout.md.
+#### Face Region Alignment
 
-## Replace template with the original memes
-### __Task__
-Replace the placeholders with the original memes
+Updated template face-region metadata to match the imported meme templates.
 
-### __Prompt__
-Replace the placeholders with the original memes
-- Find an API with the exisiting memes that match the names currently used and create two folders with the memes in `worker/public/assets/`
-  - First folder is `preview-images`, which holds the compressed images for the lazy-load style
-  - Second folder is the `meme-templates`, which contains the original full meme.
-- Download the images from the API and make compressed versions (stored in `preview-images`)
-- Store the regular images in `meme-templates`
-- Replace the placeholder images created in `templates.json` with images from the folders
-  - Update templates.json so each template contains:
-    - a preview image path from `preview-images/`
-    - a full template image path from `meme-templates/`
-  - In place of the preview image placeholders, use the images from `preview-images` that match the name
-  - When displaying the images in the editor page, use the images from `meme-templates`
+Changes include:
 
-### __Reasoning/Concerns__
-Right now it is hard to figure out if face swap works. We need to make sure that the memes and their face recognition are in the correct place. After running the prompt, I noticed that the images are not properly cropped. and as a result the face detection is off. Additionally, the preview images are not properly loaded.
+* Repositioned face boxes using real image dimensions.
+* Removed coordinates inherited from placeholder assets.
+* Ensured regions remain within image bounds.
+* Preserved existing face-region counts to avoid changing template behavior.
 
-### __AI Summary__
-Replaced the placeholder meme assets with local copies of the real templates and updated the catalog to point at them.
-templates.json now uses compressed previews from worker/public/assets/preview-images and full-resolution templates from worker/public/assets/meme-templates. I also added worker/scripts/import-meme-assets.ps1, which pulls matches from Imgflip’s get_memes API, downloads the originals, generates preview JPEGs, and rewrites worker/public/templates.json (line 127).
-A few names needed explicit mapping during import, like Awkward Look Monkey Puppet -> Monkey Puppet and Megamind No Bitches -> Megamind no bitches, but all 25 templates were matched and every referenced asset exists locally.
-Verified with:
-npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
-There’s still one unrelated pre-existing modified file in the repo: ADRs/editor-layout.md.
+Validation tests were added to ensure all face-region coordinates remain inside image boundaries.
 
-## Fix Issue with image loading
-### __Task__
-Fix the preview image loading
-Fix the cropping in the editor
+### Consequence
 
-### __Prompt__
-Fix issues with preview image loading and meme cropping in the editor.
+The editor now provides a complete meme-editing experience built around real meme assets and a responsive editing workflow.
 
-__Preview Image Loading__
-Fix the preview image behavior in the meme gallery/grid.
-- Ensure preview images load correctly from: `worker/public/assets/preview-images/`
-- Use the previewImage field from templates.json.
-- Preserve lazy-loading behavior.
-- Prevent layout shifting while images load.
-- Ensure images render with the correct aspect ratio.
-- Prevent broken image placeholders or flashing during load.
-- Add fallback handling for missing preview images if needed. 
+Benefits include:
 
-__Meme Editor Cropping__
-Fix the meme template rendering/cropping behavior in the editor.
-- Use the full-resolution image from: `worker/public/assets/meme-templates/`
-- Ensure the meme template is fully visible inside the editor canvas/container.
-- Prevent unintended cropping or clipping of the meme image.
-- Preserve the original image aspect ratio.
-- Scale the image responsively to fit within the editor viewport.
-- Ensure text positioning still aligns correctly after scaling changes.
-- Avoid stretching or distortion.
-- Make sure that the face location data matches properly with the image.
+* Consistent behavior across desktop and mobile devices.
+* Improved usability through thumb-reachable controls.
+* Persistent editing history.
+* Editable post-generation results.
+* Flexible text customization.
+* Accurate meme previews.
+* Correct image scaling.
+* Improved face-region alignment.
+* Reduced visual glitches during image loading.
+* Better consistency between template previews and editor rendering.
 
-### __Reasoning/Concerns__
-The previous prompt did not properly render all of the display images and in the editor the images were poorly cropped. This would hopefully fix the what images are displayed and adjust the canvas size to fit the meme.
+The centralized editor state model also simplifies future feature development by ensuring all editor behavior derives from a single source of truth.
 
-### __AI Summary__
-Fixed both the gallery preview path and the editor template rendering.
-The gallery now reads previewImage from worker/public/templates.json (line 168), keeps loading="lazy", reserves the right aspect ratio before load, fades images in once ready, and falls back through preview, thumbnail, full image, then placeholder instead of flashing broken images. That logic lives in worker/public/app.js (line 572) and worker/public/styles.css (line 981).
-The editor no longer uses a cropped background-image: cover. It now renders the full meme through a real <img> in worker/public/index.html (line 49), sizes the canvas to the meme’s true aspect ratio in worker/public/app.js (line 617), and overlays face markers/text on that correctly scaled frame so alignment stays consistent. I also updated the import script so future asset refreshes keep writing previewImage and templateImage fields: worker/scripts/import-meme-assets.ps1 (line 152).
-Verified with:
-npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
-Files changed:
-worker/public/app.js
-worker/public/index.html
-worker/public/styles.css
-worker/public/templates.json
-worker/scripts/import-meme-assets.ps1
-worker/test/app.inline-edit-loader.test.js
+### Trade-Offs/Risks
 
-## Fix Preview image loading
-### __Task__
+#### Responsive Layout
 
-### __Prompt__
-The preview images are still not fixed. 
-- The previews are still blank and do not show the actual meme
-- Use the images from the `preview-images` folder to render the image correctly 
+**Advantages**
 
-### __Reasoning/Concerns__
-Right now, the images do not show a proper preview. The images that are loaded are blank and do not properly reflect the image loaded in the editor.
+* Works across device sizes.
+* Improves accessibility on mobile devices.
+* Prevents control overlap and horizontal scrolling.
 
-### __AI Summary__
-You were right. The remaining blank previews were not a gallery rendering bug anymore; they were bad generated files in worker/public/assets/preview-images/. A subset of previews had been written as tiny 631-633 byte JPEGs, which is why some cards still looked empty.
-I fixed the preview-generation logic in worker/scripts/import-meme-assets.ps1 to use the simpler resize/export path that correctly renders these source images, then regenerated the whole preview folder. The formerly broken files like drake-hotline-bling.jpg, distracted-boyfriend.jpg, expanding-brain.jpg, two-buttons.jpg, and others are now normal-sized preview images instead of blank stubs.
-I rechecked the output and reran:
-npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
-All 8 tests pass. The current worktree changes are the regenerated preview assets, plus the updated import script and templates.json.
+**Risks**
 
-## Fix face detection
-### __Task__
-Fix the face detection
+* Complex responsive layouts require continued testing across devices.
+* Future editor tools may require additional space management.
 
-### __Prompt__
-Fix the face detection in the editor so that the face in the images in `meme-templates` is properly outlined. 
-Update the data stored in templates.json to follow where the face is in the image.
+#### Snapshot-Based Undo System
 
-### __Reasoning/Concerns__
-The outline for where the face is in the preview and editor do not match with the actual face. When the face detection is fixed in the editor, the data needs to be updated as well.
-After running the fix prompt, the area for the faces are more accurate, but not precise.
+**Advantages**
 
-### __AI Summary__
-Updated the face-region data in worker/public/templates.json so the editor outlines follow the actual faces in the imported meme-templates images instead of the old placeholder coordinates. A lot of the previous boxes were still based on the old fake sizes, and several were completely out of bounds on the real assets.
-I also added a guard test in worker/test/app.inline-edit-loader.test.js that verifies every faceRegions box stays inside its image dimensions. That passed with:
-npx vitest --config vitest.ui.config.js test/app.inline-edit-loader.test.js
-One assumption I kept on purpose: for templates that currently behave like single-face templates in the flow, I preserved the existing face-region count and only moved the boxes to the right locations. That avoids accidentally changing how many upload faces the editor asks for while still fixing the outlines.
+* Simple and reliable restoration.
+* Supports generation and text-edit actions equally.
+* Easy persistence through localStorage.
 
+**Risks**
 
+* Full snapshots consume more storage than action-based history.
+* History size may grow as editor complexity increases.
 
+#### Text Customization
+
+**Advantages**
+
+* Covers common meme-editing needs.
+* Simple UI with limited choices.
+* Consistent appearance across templates.
+
+**Risks**
+
+* Limited font and color options may restrict advanced users.
+* Automatic text fitting may occasionally produce unexpected sizing.
+
+#### Real Meme Asset Management
+
+**Advantages**
+
+* Accurate previews and editing experience.
+* Better validation of face-swap workflows.
+* Improved alignment between templates and face metadata.
+
+**Risks**
+
+* Asset imports require maintenance when templates change.
+* Preview generation failures can produce broken gallery images.
+* Imported templates may vary significantly in aspect ratio.
+
+#### Face Region Maintenance
+
+**Advantages**
+
+* More accurate face placement.
+* Better alignment between overlays and meme subjects.
+* Improved face-swap reliability.
+
+**Risks**
+
+* Face regions are manually maintained metadata.
+* Precision may still vary across templates.
+* Future template replacements require coordinate recalibration.
+
+#### Future Considerations
+
+* Add additional text formatting options if user demand increases.
+* Consider more efficient history storage mechanisms.
+* Improve automated face-region generation workflows.
+* Expand editor tooling while preserving mobile usability.
+* Add visual editor aids for face-region verification and adjustment.
