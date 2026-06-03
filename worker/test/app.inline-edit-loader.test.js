@@ -52,6 +52,81 @@ function createMemoryStorage() {
   };
 }
 
+function createRequest() {
+  return {
+    error: null,
+    result: undefined,
+    onerror: null,
+    onsuccess: null,
+    onupgradeneeded: null,
+  };
+}
+
+function createFakeIndexedDB() {
+  const stores = new Map();
+  let opened = false;
+
+  function ensureStore(name) {
+    if (!stores.has(name)) stores.set(name, new Map());
+    return stores.get(name);
+  }
+
+  const db = {
+    objectStoreNames: {
+      contains: (name) => stores.has(name),
+    },
+    createObjectStore: (name) => {
+      ensureStore(name);
+    },
+    transaction: (storeNames) => {
+      const transaction = {
+        error: null,
+        onabort: null,
+        oncomplete: null,
+        onerror: null,
+        objectStore: (name) => ({
+          put: (value) => {
+            ensureStore(name).set(value.id, value);
+          },
+          delete: (id) => {
+            ensureStore(name).delete(id);
+          },
+          get: (id) => {
+            const request = createRequest();
+            setTimeout(() => {
+              request.result = ensureStore(name).get(id);
+              request.onsuccess?.();
+            }, 0);
+            return request;
+          },
+        }),
+      };
+
+      const names = Array.isArray(storeNames) ? storeNames : [storeNames];
+      names.forEach(ensureStore);
+      setTimeout(() => transaction.oncomplete?.(), 0);
+      return transaction;
+    },
+    close: vi.fn(),
+    onversionchange: null,
+  };
+
+  return {
+    open: vi.fn(() => {
+      const request = createRequest();
+      setTimeout(() => {
+        request.result = db;
+        if (!opened) {
+          opened = true;
+          request.onupgradeneeded?.();
+        }
+        request.onsuccess?.();
+      }, 0);
+      return request;
+    }),
+  };
+}
+
 function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   const template = catalog.templates.find((entry) => entry.id === templateId) || catalog.templates[0];
 
@@ -137,6 +212,18 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: localStorage,
+    });
+    Object.defineProperty(globalThis, "indexedDB", {
+      configurable: true,
+      value: createFakeIndexedDB(),
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:http://localhost/recent-thumb"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
     });
     vi.stubGlobal("requestAnimationFrame", (cb) => cb());
     vi.stubGlobal("fetch", vi.fn(async (url) => {
@@ -225,6 +312,91 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(firstCardImage.getAttribute("src")).toBe(catalog.templates[0].previewImage);
     expect(firstCardImage.loading).toBe("lazy");
     expect(firstCardArt.style.aspectRatio).toBe(`${catalog.templates[0].images.width} / ${catalog.templates[0].images.height}`);
+  });
+
+  test("custom: empty recents tab shows CTA that switches back to trending", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { dom } = __testHooks;
+
+    dom.titleStartCta.click();
+    await settleApp();
+    dom.templateTabs.querySelector("[data-tab='recents']").click();
+    await settleApp();
+
+    expect(dom.templateEmpty.textContent).toContain("No Recent Memes Yet.");
+    expect(dom.templateEmpty.textContent).toContain("Create your first meme from the Trending Tab");
+
+    dom.templateEmpty.querySelector(".template-empty-cta").click();
+    await settleApp();
+
+    expect(dom.templateTabs.querySelector("[data-tab='trending']").classList.contains("active")).toBe(true);
+    expect(dom.templateGrid.querySelector(".template-card")).not.toBeNull();
+  });
+
+  test("custom: recents tab renders saved thumbnails and restores snapshots on click", async () => {
+    const app = await loadApp();
+    const { saveRecentMeme } = await import("../public/js/recents.js");
+    await settleApp();
+    const { __testHooks } = app;
+    const { state, dom } = __testHooks;
+    const template = catalog.templates[0];
+
+    state.templateCatalog = catalog.templates;
+    await saveRecentMeme({
+      id: "recent-editor-state",
+      savedAt: 2000,
+      currentImage: "/generated/recent.png",
+      mode: "face_swap",
+      editorSnapshot: {
+        selectedTemplateId: template.id,
+        templateImage: template.images.main,
+        generatedImage: "/generated/recent.png",
+        overlayText: "restored caption",
+        overlayVisible: true,
+        overlayX: 22,
+        overlayY: 33,
+        overlayWidthPct: 44,
+        overlayRotation: 90,
+        frozenTextItems: [{ text: "saved lower caption" }],
+      },
+      historyStack: [
+        { selectedTemplateId: template.id, overlayText: "seed" },
+        { selectedTemplateId: template.id, overlayText: "restored caption" },
+      ],
+      futureStack: [{ selectedTemplateId: template.id, overlayText: "redo caption" }],
+      thumbnail: {
+        blob: new Blob(["recent-thumb"], { type: "image/webp" }),
+        width: 256,
+        height: 144,
+        type: "image/webp",
+      },
+    });
+
+    dom.titleStartCta.click();
+    await settleApp();
+    dom.templateTabs.querySelector("[data-tab='recents']").click();
+    await settleApp();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const recentCard = dom.templateGrid.querySelector("[data-recent-meme-id='recent-editor-state']");
+    expect(recentCard).not.toBeNull();
+    expect(recentCard.querySelector("img").getAttribute("src")).toBe("blob:http://localhost/recent-thumb");
+
+    recentCard.click();
+    await settleApp();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(state.view).toBe("studio");
+    expect(state.selectedTemplateId).toBe(template.id);
+    expect(state.editor.generatedImage).toBe("/generated/recent.png");
+    expect(state.editor.overlayText).toBe("restored caption");
+    expect(state.editor.overlayX).toBe(22);
+    expect(state.editor.overlayY).toBe(33);
+    expect(state.editor.overlayWidthPct).toBe(44);
+    expect(state.editor.overlayRotation).toBe(90);
+    expect(state.editor.historyStack).toHaveLength(2);
+    expect(state.editor.futureStack).toHaveLength(1);
   });
 
   test("custom: template face regions stay inside the actual meme image bounds", () => {

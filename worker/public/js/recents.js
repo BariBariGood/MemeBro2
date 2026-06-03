@@ -536,6 +536,16 @@ export async function getRecentMeme(id) {
 }
 
 /**
+ * Loads only the stored thumbnail record for a recent meme.
+ *
+ * @param {string} id - Recent meme ID.
+ * @returns {Promise<object | null>} Stored thumbnail data, if found.
+ */
+export async function getRecentMemeThumbnail(id) {
+  return await getFromStore(THUMBNAIL_STORE, id) || null;
+}
+
+/**
  * Removes a recent meme from metadata, snapshot storage, and thumbnail storage.
  *
  * @param {string} id - Recent meme ID to remove.
@@ -554,6 +564,7 @@ export const recentMemeStorage = {
   save: saveRecentMeme,
   list: listRecentMemes,
   get: getRecentMeme,
+  getThumbnail: getRecentMemeThumbnail,
   remove: removeRecentMeme,
   createSnapshot: createRecentMemeSnapshot,
   createThumbnail: createRecentMemeThumbnail,

@@ -138,5 +138,26 @@
 }
 
 .template-empty {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
   color: var(--text-muted-72);
+}
+
+.template-empty-title {
+  color: var(--color-text);
+  font-weight: 800;
+}
+
+.template-empty-copy {
+  display: block;
+}
+
+.template-empty-cta {
+  min-height: 36px;
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-lime);
+  color: var(--color-ink);
+  font-weight: 800;
 }

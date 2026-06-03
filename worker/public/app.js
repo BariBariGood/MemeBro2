@@ -44,6 +44,7 @@ import * as Editor from "./lib/editor.js";
 import * as TextOverlay from "./lib/textOverlay.js";
 import * as Templates from "./lib/templates.js";
 import * as Faces from "./lib/faces.js";
+import { recentMemeStorage } from "./js/recents.js";
 
 function setStatus(next) {
   state.status = next;
@@ -158,7 +159,7 @@ async function loadTemplateCatalog() {
 }
 
 function renderTemplates() {
-  return Templates.renderTemplates({ dom, clamp, openStudioForTemplate });
+  return Templates.renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme });
 }
 
 function renderStudioTemplate(template) {
@@ -170,7 +171,7 @@ async function showTemplateSelection() {
     loadTemplates,
     dom,
     render,
-    renderTemplates: () => Templates.renderTemplates({ dom, clamp, openStudioForTemplate }),
+    renderTemplates,
   });
 }
 
@@ -185,6 +186,42 @@ function openStudioForTemplate(templateId) {
   });
 
   return result;
+}
+
+async function openStudioForRecentMeme(recentMemeId) {
+  const recent = await recentMemeStorage.get(recentMemeId);
+  const snapshot = recent?.snapshot;
+  const editorSnapshot = snapshot?.editorSnapshot;
+
+  if (!snapshot || !editorSnapshot) return null;
+
+  const restoredEditorSnapshot = {
+    ...editorSnapshot,
+    generatedImage: editorSnapshot.generatedImage || snapshot.currentImage || "",
+  };
+
+  state.selectedTemplateId = restoredEditorSnapshot.selectedTemplateId || state.selectedTemplateId;
+  state.status = STATES.IDLE;
+  state.view = "studio";
+  state.uploadModalOpen = false;
+  state.isEditingMemeText = false;
+  state.isTextSelected = false;
+  state.isTextLocked = false;
+  state.showTextMore = false;
+  state.showResetConfirmation = false;
+  state.showBackConfirmation = false;
+  state.isAiPromptPanelOpen = false;
+  state.editor.historyStack = Array.isArray(snapshot.editHistory?.historyStack)
+    ? snapshot.editHistory.historyStack
+    : [];
+  state.editor.futureStack = Array.isArray(snapshot.editHistory?.futureStack)
+    ? snapshot.editHistory.futureStack
+    : [];
+  state.editor.initialSnapshot = state.editor.historyStack[0] || restoredEditorSnapshot;
+  Editor.applyEditorSnapshot(restoredEditorSnapshot, { getTemplateMainImage });
+  Editor.persistEditorHistory();
+  render();
+  return recent;
 }
 
 function getMemeFontFamily(fontKey = DEFAULT_MEME_FONT_KEY) {
@@ -766,11 +803,7 @@ dom.templateTabs.addEventListener("click", (event) => {
   const tab = event.target.closest("[data-tab]");
   if (!tab) return;
   state.activeTemplateTab = tab.dataset.tab;
-  [...dom.templateTabs.querySelectorAll("[data-tab]")].forEach((button) => {
-    const active = button.dataset.tab === state.activeTemplateTab;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-selected", String(active));
-  });
+  Templates.syncTemplateTabs({ dom });
   renderTemplates();
 });
 dom.memeTextPreview.addEventListener("click", selectTextObject);
@@ -1152,9 +1185,11 @@ export const __testHooks = {
   dom,
   state,
   render,
+  renderTemplates,
   setStatus,
   selectSingleFace,
   submitSelectedFace,
+  openStudioForRecentMeme,
   undoEditorSnapshot,
   redoEditorSnapshot,
   resetEditorToTemplate,
