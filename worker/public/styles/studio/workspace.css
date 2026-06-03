@@ -1,16 +1,15 @@
-
 .template-bottom-actions {
-  width: min(100%, var(--studio-canvas-max));
+  width: min(94%, calc(var(--studio-canvas-max) - 16px)); /* Pulled inward from canvas bounds */
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px; 
+  margin: 16px auto 0; /* Centered with a generous 16px gap below the image canvas */
   padding: 0 4px; 
 }
 
 .history-left {
   display: inline-flex;
-  gap: 12px;
+  gap: 16px;
 }
 
 /* Undo / Redo — plain text links, no button chrome */
@@ -20,34 +19,39 @@
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
-  font-size: 0.82rem !important;
-  color: rgba(246, 247, 251, 0.55) !important;
+  font-size: 0.9rem !important; /* Slightly larger for clear reading */
+  color: rgba(246, 247, 251, 0.6) !important;
   letter-spacing: 0.01em;
+  cursor: pointer;
 }
 
 .icon-action:not(:disabled):hover {
-  color: rgba(246, 247, 251, 0.9) !important;
+  color: rgba(246, 247, 251, 0.95) !important;
   background: transparent !important;
   transform: none;
 }
 
 .icon-action:disabled {
-  opacity: 0.28 !important;
+  opacity: 0.25 !important;
 }
 
-/* Reset — compact red pill */
+/* Reset — pop up */
 .danger-action {
-  min-height: 36px !important;
-  height: 36px !important;
-  padding: 0 18px !important;
-  font-size: 0.85rem !important;
-  border-radius: 999px !important;
+  min-height: 38px !important; /* Height-matched to your modal style actions */
+  height: 38px !important;
+  padding: 0 24px !important; /* Wide horizontal padding matching the modal buttons */
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  border-radius: 999px !important; /* Smooth pill shape */
   background: linear-gradient(180deg, #dc2626, #b91c1c) !important;
-  color: #fff !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
   display: inline-flex !important;
   align-items: center !important;
+  justify-content: center !important;
   gap: 6px !important;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
 }
 
 .danger-action:hover {

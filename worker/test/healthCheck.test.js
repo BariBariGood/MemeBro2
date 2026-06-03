@@ -23,7 +23,7 @@ describe("getServiceHealth", () => {
   it("returns healthy:true when the upstream responds 2xx", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(new Response("", { status: 204 }))
+      vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
     );
 
     const result = await getServiceHealth("face_swap", env);

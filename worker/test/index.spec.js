@@ -1,4 +1,3 @@
-import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src";
 import { resetHealthCache } from "../src/healthCheck.js";
@@ -70,10 +69,8 @@ beforeEach(() => {
 describe("MemeBro API gateway", () => {
   it("returns gateway metadata at the root route", async () => {
     const request = new Request("http://example.com");
-    const ctx = createExecutionContext();
 
-    const response = await worker.fetch(request, testEnv, ctx);
-    await waitOnExecutionContext(ctx);
+    const response = await worker.fetch(request, testEnv);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
@@ -95,7 +92,7 @@ describe("MemeBro API gateway", () => {
       }
     );
 
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
     const body = await response.json();
 
     expect(response.status).toBe(413);
@@ -124,7 +121,7 @@ describe("MemeBro API gateway", () => {
       }
     );
 
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ result: "ok" });
@@ -186,7 +183,7 @@ describe("MemeBro API gateway", () => {
       body: cropPng,
     });
 
-    const response = await worker.fetch(request, { ...testEnv, ASSETS: assets }, createExecutionContext());
+    const response = await worker.fetch(request, { ...testEnv, ASSETS: assets });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -212,7 +209,7 @@ describe("MemeBro API gateway", () => {
       body: JSON.stringify({ mode: "extra_roast", prompt: "make it chaotic" }),
     });
 
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
 
     expect(response.status).toBe(200);
     expect(mockFetch).toHaveBeenCalledWith(
@@ -233,7 +230,7 @@ describe("MemeBro API gateway", () => {
       body: JSON.stringify({ mode: "unknown" }),
     });
 
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -259,7 +256,7 @@ describe("MemeBro API gateway", () => {
       }
     );
 
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
     const body = await response.json();
 
     expect(response.status).toBe(503);
@@ -280,7 +277,7 @@ describe("/api/health", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const request = new Request("http://example.com/api/health");
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -296,7 +293,7 @@ describe("/api/health", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     const request = new Request("http://example.com/api/health");
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -308,7 +305,7 @@ describe("/api/health", () => {
     const request = new Request("http://example.com/api/health", {
       method: "POST",
     });
-    const response = await worker.fetch(request, testEnv, createExecutionContext());
+    const response = await worker.fetch(request, testEnv);
 
     expect(response.status).toBe(405);
   });
