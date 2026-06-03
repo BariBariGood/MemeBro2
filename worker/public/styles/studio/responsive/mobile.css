@@ -1,0 +1,298 @@
+
+/* ════════════════════════════════════════════
+    MOBILE  (≤ 520px)
+   ════════════════════════════════════════════ */
+@media (max-width: 520px) {
+    /* ── Page shell ── */
+    .upload-page {
+        padding: 14px 16px 24px;
+    }
+
+    .upload-page:has(#studio-screen:not(.hidden)) {
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+    }
+
+    .upload-page:has(.editor-shell:not(.hidden)) {
+        padding: 12px 12px calc(110px + env(safe-area-inset-bottom));
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+        gap: 8px;
+        margin-bottom: 6px;
+        padding-inline: 8px;
+    }
+
+    .brand { font-size: 0.68rem; }
+
+    .save-action {
+        min-height: 34px;
+        padding: 0 12px;
+        font-size: 0.78rem;
+    }
+
+    /* ── Title screen ── */
+    .title-screen {
+        min-height: 100dvh;
+        height: 100dvh;
+        border-radius: 0;
+    }
+
+    .title-wheel {
+        --wheel-radius: clamp(135px, 33vw, 188px);
+        width: min(96vw, 480px);
+    }
+
+    .title-wheel-card {
+        --card-w: 62px;
+        --card-h: 82px;
+        border-radius: 12px;
+    }
+
+    /* Title copy — wordmark pinned top, h1 centred, CTA pinned bottom */
+    .title-center-copy {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        transform: none;
+        z-index: 12;
+        pointer-events: none;
+    }
+
+    .title-kicker {
+        position: fixed;
+        top: max(26px, env(safe-area-inset-top));
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 13;
+        margin: 0;
+        padding: 7px 10px;
+        font-size: 0.62rem;
+        letter-spacing: 0.14em;
+        pointer-events: auto;
+    }
+
+    .title-center-copy h1 {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        width: min(92vw, 520px);
+        margin: 0;
+        font-size: clamp(2.7rem, 12.5vw, 4.2rem);
+        line-height: 0.92;
+        pointer-events: auto;
+    }
+
+    .mobile-title-break { display: block; }
+
+    .title-start-cta {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: max(12px, env(safe-area-inset-bottom));
+        z-index: 14;
+        min-height: 56px;
+        width: auto;
+        justify-content: center;
+        font-size: 0.95rem;
+        pointer-events: auto;
+    }
+
+    /* ── Editor/upload shells ── */
+    .image-shell {
+        aspect-ratio: 1 / 1;
+        margin: 14px auto;
+    }
+
+    #overlay-shell {
+        width: min(100%, calc(100vw - 24px));
+        margin-top: 12px;
+        margin-bottom: 14px;
+    }
+
+    .upload-page:has(.editor-shell:not(.hidden)) .manual-fit-cta,
+    .upload-page:has(.editor-shell:not(.hidden)) #continue-btn {
+        position: sticky;
+        bottom: 12px;
+        z-index: 5;
+    }
+
+    .manual-circle {
+        width: min(60vw, 210px);
+        height: min(80vw, 280px);
+        max-width: 58%;
+        max-height: 82%;
+    }
+
+    /* ── Camera ── */
+    .camera-topbar     { height: 64px; padding: 0 18px; }
+    .camera-media      { top: 64px; height: calc(100vh - 198px); }
+
+    .camera-bottom-bar,
+    .review-bottom-bar { height: 134px; gap: 12px; padding: 0 16px; }
+
+    .shutter-button { width: 76px; height: 76px; min-height: 76px; }
+
+    .review-primary,
+    .review-secondary {
+        min-width: 0;
+        flex: 1;
+        min-height: 56px;
+        padding: 0 14px;
+        font-size: 1rem;
+    }
+
+    /* ── Templates ── */
+    .template-screen { margin-top: 10px; }
+    .template-grid   { gap: 12px; }
+    .template-tabs   { overflow-x: auto; padding-bottom: 2px; }
+
+    /* ── Studio layout ── */
+    .studio-screen {
+        min-height: 100dvh;
+        height: 100dvh;
+        box-sizing: border-box;
+        padding: calc(0px + env(safe-area-inset-top)) 0 calc(170px + env(safe-area-inset-bottom));
+        align-content: center;
+        place-items: center;
+        gap: 0;
+    }
+
+    .studio-template-card { width: 100%; gap: 0; }
+
+    .studio-template-art {
+        max-width: 100vw;
+        max-height: calc(100dvh - 250px - env(safe-area-inset-bottom));
+        border-radius: 0;
+        border-inline: none;
+    }
+
+    .studio-sidebar    { position: static; width: 100%; }
+    .vibe-panel        { display: none; }
+
+    /* ── Meme text ── */
+    .meme-text-preview {
+        max-width: 90%;
+        min-width: 96px;
+        min-height: 40px;
+        padding: 2px 4px;
+        font-size: clamp(1rem, 5vw, 1.4rem);
+        line-height: 1.12;
+    }
+
+    /* ── Text toolbar: floating pill ── */
+    .text-toolbar {
+        position: fixed;
+        left: 50%;
+        right: auto;
+        bottom: calc(72px + env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        z-index: 69;
+        width: max-content;
+        max-width: calc(100vw - 28px);
+        margin: 0;
+        padding: 9px 10px;
+        border-radius: 18px;
+        border: 1px solid var(--color-white-12);
+        justify-content: flex-start;
+        align-items: center;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .text-toolbar::-webkit-scrollbar { display: none; }
+
+    /* ── Toolbar control overrides ── */
+    .toolbar-select    { max-width: 46vw; min-width: 120px; }
+    .toolbar-size-input { width: 56px; }
+    .toolbar-btn       { min-height: 34px; min-width: 34px; padding: 0 6px; }
+    .toolbar-color-group { font-size: 0.62rem; }
+    .toolbar-color-input { width: 36px; min-height: 32px; }
+
+    /* ── Local text controls ── */
+    .text-local-controls { gap: 2px; padding: 5px; border-radius: 12px; }
+    .text-menu           { min-width: 148px; }
+
+    /* ── History controls ── */
+    .studio-template-card .template-bottom-actions {
+        bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+        width: calc(100vw - 32px);
+    }
+
+    /* ── History button sizing ── */
+    .icon-action   { min-height: 36px; padding: 0 8px; font-size: 0.8rem; }
+    .danger-action { min-height: 36px; padding: 0 12px; }
+
+    /* ── Resize handles ── */
+    .meme-text-resize-handle {
+        width: 18px; height: 18px; min-width: 18px; min-height: 18px;
+    }
+
+    /* ── Dialogs ── */
+    .reset-confirmation-actions { grid-template-columns: 1fr; }
+
+    .upload-modal      { align-items: end; padding: 0; }
+    .upload-modal-card {
+        width: 100%;
+        padding: 34px 24px 24px;
+        border-radius: 24px 24px 0 0;
+    }
+
+    /* ── Vibe bottom bar ── */
+    .vibe-container {
+        position: fixed;
+        inset: auto 0 0;
+        z-index: 70;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+        border-top: 1px solid var(--color-white-12);
+        background: var(--surface-mobile-tabbar);
+        backdrop-filter: blur(18px) saturate(170%);
+        box-shadow: var(--shadow-bottom-bar);
+    }
+
+    .vibe-button {
+        min-width: 0;
+        min-height: 46px;
+        padding: 6px 12px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        font-weight: 800;
+        line-height: 1;
+        white-space: nowrap;
+    }
+
+    .vibe-button .vibe-label {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vibe-button .vibe-icon { font-size: 1.1rem; font-weight: 500; }
+
+    /* ── AI prompt panel: bottom sheet ── */
+    .ai-prompt-panel {
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 72;
+        width: 100%;
+        min-height: min(58dvh, 520px);
+        max-height: calc(100dvh - 80px);
+        border-radius: 22px 22px 0 0;
+        border-inline: none;
+        border-bottom: none;
+    }
+
+    .ai-prompt-history { min-height: 180px; }
+}
