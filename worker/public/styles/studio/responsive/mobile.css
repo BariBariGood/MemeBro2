@@ -284,7 +284,7 @@
     /* ── AI prompt panel: bottom sheet ── */
     .ai-prompt-panel {
         position: fixed;
-        left: 0; right: 0; bottom: 0;
+        left: 0; right: 0; bottom: var(--ai-prompt-keyboard-offset, 0px);
         z-index: 72;
         width: 100%;
         min-height: min(58dvh, 520px);
@@ -292,6 +292,7 @@
         border-radius: 22px 22px 0 0;
         border-inline: none;
         border-bottom: none;
+        transition: bottom 0.18s ease;
     }
 
     .ai-prompt-history { min-height: 180px; }

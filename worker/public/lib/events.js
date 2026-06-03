@@ -1,5 +1,4 @@
 // ─────────────────────────────────────────────
-// lib/events.js
 // All DOM event listener registrations.
 // ─────────────────────────────────────────────
 
@@ -36,6 +35,76 @@ export function registerEvents(ctx) {
         applyManualTransform,
     } = ctx;
 
+    const AI_PROMPT_CHARACTER_LIMIT = 500;
+    const loadErrorCodes = new Set(["FEATURE_DISABLED", "QUEUE_FULL", "RATE_LIMITED"]);
+
+    function getAiPromptCharacters(value) {
+        return [...value];
+    }
+
+    function enforceAiPromptCharacterLimit() {
+        if (!dom.aiPromptInput) return 0;
+        const characters = getAiPromptCharacters(dom.aiPromptInput.value);
+        if (characters.length > AI_PROMPT_CHARACTER_LIMIT) {
+        dom.aiPromptInput.value = characters.slice(0, AI_PROMPT_CHARACTER_LIMIT).join("");
+        return AI_PROMPT_CHARACTER_LIMIT;
+        }
+        return characters.length;
+    }
+
+    function updateAiPromptCharacterCount(characterCount) {
+        if (!dom.aiPromptWordCount) return;
+        dom.aiPromptWordCount.textContent = `${characterCount} / ${AI_PROMPT_CHARACTER_LIMIT} characters`;
+        dom.aiPromptWordCount.classList.toggle("is-at-limit", characterCount >= AI_PROMPT_CHARACTER_LIMIT);
+    }
+
+    function setAiPromptPanelOpen(isOpen) {
+        state.isAiPromptPanelOpen = isOpen;
+        if (state.aiPrompt) state.aiPrompt.panelState = isOpen ? "open" : "closed";
+        if (!isOpen) dom.uploadPage?.style.setProperty("--ai-prompt-keyboard-offset", "0px");
+    }
+
+    function syncAiPromptKeyboardOffset() {
+        if (!(state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen)) return;
+        const viewport = window.visualViewport;
+        const keyboardOffset = viewport
+            ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop)
+            : 0;
+        dom.uploadPage?.style.setProperty("--ai-prompt-keyboard-offset", `${Math.round(keyboardOffset)}px`);
+    }
+
+    function resizeAiPromptInput() {
+        if (!dom.aiPromptInput) return;
+        dom.aiPromptInput.style.height = "auto";
+        dom.aiPromptInput.style.height = `${dom.aiPromptInput.scrollHeight}px`;
+    }
+
+    function syncAiPromptInputState() {
+        const characterCount = enforceAiPromptCharacterLimit();
+        updateAiPromptCharacterCount(characterCount);
+        resizeAiPromptInput();
+    }
+
+    async function submitFaceSwapWithErrorHandling() {
+        try {
+        state.error = null;
+        state.lastRetryableAction = "face_swap";
+        if (state.status === STATES.ERROR) state.status = STATES.READY;
+        await submitSelectedFace();
+        state.lastRetryableAction = null;
+        } catch (error) {
+        if (error?.name === "AbortError") {
+        state.lastRetryableAction = null;
+        return;
+        }
+        if (!loadErrorCodes.has(error?.code)) state.lastRetryableAction = null;
+        setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
+        }
+    }
+
+    window.visualViewport?.addEventListener("resize", syncAiPromptKeyboardOffset);
+    window.visualViewport?.addEventListener("scroll", syncAiPromptKeyboardOffset);
+
     // ── Camera ────────────────────────────────────
     dom.cameraCta.addEventListener("click", () => startCameraCapture());
     dom.cameraSnapCta.addEventListener("click", () => snapCameraPhoto());
@@ -70,7 +139,7 @@ export function registerEvents(ctx) {
     // ── Upload modal ─────────────────────────────
     dom.openUploadModalCta.addEventListener("click", () => {
         state.uploadModalOpen = true;
-        state.isAiPromptPanelOpen = false;
+        setAiPromptPanelOpen(false);
         render();
     });
     dom.uploadModalBackdrop.addEventListener("click", () => { state.uploadModalOpen = false; render(); });
@@ -143,18 +212,46 @@ export function registerEvents(ctx) {
 
     // ── AI prompt panel ──────────────────────────
     dom.aiPromptCta?.addEventListener("click", () => {
-        state.isAiPromptPanelOpen = false; // disabled — keep for future
+        setAiPromptPanelOpen(true);
         render();
+        syncAiPromptKeyboardOffset();
+        syncAiPromptInputState();
+        dom.aiPromptInput?.focus();
     });
-    dom.aiPromptCloseCta?.addEventListener("click", () => { state.isAiPromptPanelOpen = false; render(); });
+    dom.aiPromptCloseCta?.addEventListener("click", () => { setAiPromptPanelOpen(false); render(); });
+    dom.aiPromptInput?.addEventListener("focus", syncAiPromptKeyboardOffset);
+    dom.aiPromptInput?.addEventListener("blur", syncAiPromptKeyboardOffset);
+    dom.aiPromptInput?.addEventListener("input", syncAiPromptInputState);
+    dom.aiPromptInput?.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.shiftKey) return;
+        event.preventDefault();
+        dom.aiPromptForm?.requestSubmit();
+    });
     dom.aiPromptForm?.addEventListener("submit", (event) => {
         event.preventDefault();
         const prompt = dom.aiPromptInput?.value.trim();
         if (!prompt) return;
+        if (state.aiPrompt) {
+        state.aiPrompt.requestState = "submitting";
+        state.aiPrompt.lastPrompt = prompt;
+        state.aiPrompt.error = null;
+        }
+        render();
         state.aiPromptHistory.push({ role: "user", text: prompt });
         state.aiPromptHistory.push({ role: "assistant", text: "Got it — AI variant generation will use this prompt once connected." });
+        if (state.aiPrompt) state.aiPrompt.requestState = "idle";
         dom.aiPromptInput.value = "";
+        syncAiPromptInputState();
         render();
+    });
+    dom.aiPromptRetryCta?.addEventListener("click", () => {
+        if (!state.aiPrompt?.lastPrompt) return;
+        state.aiPrompt.error = null;
+        state.aiPrompt.requestState = "idle";
+        dom.aiPromptInput.value = state.aiPrompt.lastPrompt;
+        syncAiPromptInputState();
+        render();
+        dom.aiPromptForm?.requestSubmit();
     });
 
     // ── Add text ─────────────────────────────────
@@ -427,13 +524,10 @@ export function registerEvents(ctx) {
     });
 
     // ── Continue ─────────────────────────────────
-    dom.continueBtn.addEventListener("click", async () => {
-        try {
-        await submitSelectedFace();
-        } catch (error) {
-        if (error?.name === "AbortError") return;
-        setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
-        }
+    dom.continueBtn.addEventListener("click", submitFaceSwapWithErrorHandling);
+    dom.errorRetryCta?.addEventListener("click", async () => {
+        if (state.lastRetryableAction !== "face_swap") return;
+        await submitFaceSwapWithErrorHandling();
     });
 
     // ── Studio template image fallback ───────────
