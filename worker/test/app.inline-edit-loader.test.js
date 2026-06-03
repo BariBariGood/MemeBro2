@@ -23,6 +23,7 @@ vi.mock("../public/.generated/mediapipe/vision_bundle.mjs", () => ({
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.resolve(testDir, "../public/index.html");
 const indexHtml = readFileSync(htmlPath, "utf8");
+const vibePanelCss = readFileSync(path.resolve(testDir, "../public/styles/studio/vibe-panel.css"), "utf8");
 
 function mountAppHtml() {
   const mainMarkup = indexHtml.match(/<main[\s\S]*<\/main>/)?.[0] || "";
@@ -516,5 +517,143 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.editor.overlayText).toBe("TAP TO EDIT TEXT");
     expect(state.editor.historyStack).toEqual([]);
     expect(localStorage.getItem("meme-editor-history")).toBeNull();
+  });
+
+  test("custom: AI prompt overlay opens with accessible textarea and rem-based copy", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+
+    expect(state.aiPrompt.panelState).toBe("open");
+    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptInput.tagName).toBe("TEXTAREA");
+    expect(dom.aiPromptInput.getAttribute("aria-label")).toBe("Prompt AI for meme changes");
+    expect(document.querySelector('label[for="ai-prompt-input"]')).not.toBeNull();
+    expect(vibePanelCss).toMatch(/\.ai-prompt-panel textarea[\s\S]*font-size:\s*1rem/);
+    expect(vibePanelCss).toMatch(/\.ai-prompt-form textarea[\s\S]*border-radius:\s*22px/);
+    expect(vibePanelCss).toMatch(/\.ai-prompt-form textarea[\s\S]*resize:\s*none/);
+    expect(vibePanelCss).toMatch(/\.ai-prompt-form textarea[\s\S]*overflow-y:\s*auto/);
+    expect(vibePanelCss).toMatch(/\.ai-prompt-form[\s\S]*align-items:\s*end/);
+    expect(dom.aiPromptWordCount.textContent).toBe("0 / 500 characters");
+  });
+
+  test("custom: AI prompt textarea expands as the user types", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    Object.defineProperty(dom.aiPromptInput, "scrollHeight", {
+      configurable: true,
+      value: 96,
+    });
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "line one\nline two\nline three";
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(dom.aiPromptInput.style.height).toBe("96px");
+  });
+
+  test("custom: AI prompt enforces a 500 character limit and updates counter", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    const characters = "a".repeat(505);
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = characters;
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(dom.aiPromptInput.value).toHaveLength(500);
+    expect(dom.aiPromptWordCount.textContent).toBe("500 / 500 characters");
+    expect(dom.aiPromptWordCount.classList.contains("is-at-limit")).toBe(true);
+  });
+
+  test("custom: AI prompt bottom sheet tracks mobile keyboard viewport offset", async () => {
+    const visualViewport = new EventTarget();
+    visualViewport.height = 500;
+    visualViewport.offsetTop = 0;
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      writable: true,
+      value: 800,
+    });
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: visualViewport,
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    visualViewport.dispatchEvent(new Event("resize"));
+
+    expect(dom.uploadPage.style.getPropertyValue("--ai-prompt-keyboard-offset")).toBe("300px");
+  });
+
+  test("custom: acute load errors show retry UI and retry face swap", async () => {
+    mockFaceCropCanvas("image/png");
+    let processCalls = 0;
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        processCalls += 1;
+        if (processCalls === 1) {
+          return {
+            ok: false,
+            status: 503,
+            json: async () => ({ code: "QUEUE_FULL", message: "queue saturated" }),
+          };
+        }
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/retry.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.status = "ready";
+    seedSelectedFaceCrop(state, {
+      face: { id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } },
+    });
+    render();
+
+    dom.continueBtn.click();
+
+    await vi.waitFor(() => {
+      expect(dom.errorState.classList.contains("hidden")).toBe(false);
+    });
+    expect(dom.errorMessage.textContent).toContain("heavy load");
+    expect(dom.errorRetryCta.classList.contains("hidden")).toBe(false);
+
+    dom.errorRetryCta.click();
+
+    await vi.waitFor(() => {
+      expect(processCalls).toBe(2);
+      expect(state.editor.generatedImage).toBe("/generated/retry.png");
+    });
+    expect(dom.errorRetryCta.classList.contains("hidden")).toBe(true);
   });
 });

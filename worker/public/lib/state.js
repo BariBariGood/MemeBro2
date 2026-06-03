@@ -60,7 +60,14 @@ export const state = {
     isTextLocked: false,
     showTextMore: false,
     isAiPromptPanelOpen: false,
+    aiPrompt: {
+        panelState: "closed",
+        requestState: "idle",
+        lastPrompt: "",
+        error: null,
+    },
     aiPromptHistory: [],
+    lastRetryableAction: null,
     clipboardText: "",
     textLink: "",
     editor: {

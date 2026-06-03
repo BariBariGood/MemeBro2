@@ -5,6 +5,14 @@
 
 import { STATES } from "./constants.js";
 
+const ACUTE_LOAD_ERROR_MESSAGES = {
+    FEATURE_DISABLED: "AI generation is temporarily unavailable. You can retry in a few minutes.",
+    QUEUE_FULL: "MemeBro is under heavy load. Retry shortly.",
+    RATE_LIMITED: "The AI service is rate-limiting requests. Retry in a moment.",
+};
+
+const RETRYABLE_LOAD_ERROR_CODES = new Set(Object.keys(ACUTE_LOAD_ERROR_MESSAGES));
+
 // ── AI Prompt history ─────────────────────────
 
 export function renderAiPromptHistory({ dom, state }) {
@@ -104,6 +112,10 @@ export function render(ctx) {
     const showingHome           = state.view === "home";
     const showingTemplates      = state.view === "templates";
     const showingStudio         = state.view === "studio";
+    const aiPromptPanelOpen     = state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen;
+    const aiPromptBusy          = state.aiPrompt?.requestState === "submitting";
+    const aiPromptErrorCode     = state.aiPrompt?.error?.code || "";
+    const aiPromptHasLoadState  = aiPromptBusy || Boolean(aiPromptErrorCode);
     const selectedTemplate      = getSelectedTemplate();
     const selectedFaceCount     = getSelectedFaces().length;
     const selectableFaceLimit   = getSelectableFaceLimit();
@@ -122,9 +134,9 @@ export function render(ctx) {
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);
     dom.studioScreen.classList.toggle("hidden", !showingStudio);
     dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
-    dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !state.isAiPromptPanelOpen);
-    dom.vibePanel?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
-    dom.vibeContainer?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
+    dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !aiPromptPanelOpen);
+    dom.vibePanel?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
+    dom.vibeContainer?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
     dom.backConfirmation.classList.toggle("hidden",  !showingStudio || !state.showBackConfirmation);
     dom.overlayShell.classList.toggle("hidden", !editingPhoto || showingTemplates || showingStudio);
@@ -198,6 +210,15 @@ export function render(ctx) {
     dom.faceSwapLoader.classList.toggle("hidden",      !state.isSubmittingFaceSwap);
     dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
 
+    // ── AI prompt load mode ──
+    dom.aiPromptLoadMode?.classList.toggle("hidden", !aiPromptHasLoadState);
+    dom.aiPromptRetryCta?.classList.toggle("hidden", aiPromptBusy || !aiPromptErrorCode);
+    if (dom.aiPromptLoadMessage) {
+        dom.aiPromptLoadMessage.textContent = aiPromptBusy
+        ? "Generating your meme variant…"
+        : state.aiPrompt?.error?.message || ACUTE_LOAD_ERROR_MESSAGES[aiPromptErrorCode] || "Something went sideways. Retry when you are ready.";
+    }
+
     // ── History buttons ──
     dom.undoCta.disabled  = state.editor.historyStack.length <= 1;
     dom.redoCta.disabled  = state.editor.futureStack.length === 0;
@@ -211,8 +232,11 @@ export function render(ctx) {
     if (state.status === STATES.DETECTING)     { dom.progressBar.value = 80;  dom.progressLabel.textContent = "Detecting faces..."; }
 
     // ── Error ──
+    const errorCode = state.error?.code || "";
+    const errorMessage = ACUTE_LOAD_ERROR_MESSAGES[errorCode] || state.error?.message || "";
     dom.errorState.classList.toggle("hidden", !state.error && state.status !== STATES.ERROR);
-    dom.errorMessage.textContent = state.error?.message || "";
+    dom.errorMessage.textContent = errorMessage;
+    dom.errorRetryCta?.classList.toggle("hidden", !RETRYABLE_LOAD_ERROR_CODES.has(errorCode));
 
     // ── Preview image ──
     if (state.previewUrl) dom.previewImage.src = state.previewUrl;
