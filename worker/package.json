@@ -16,9 +16,9 @@
     "test:ui": "vitest --config vitest.ui.config.js"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.12.4",
+    "@cloudflare/vitest-pool-workers": "^0.16.12",
     "jsdom": "^29.1.1",
-    "vitest": "~3.2.0",
+    "vitest": "^4.1.8",
     "wrangler": "^4.92.0"
   },
   "dependencies": {
