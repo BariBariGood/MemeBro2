@@ -5,6 +5,38 @@
 import { STATES } from "./constants.js";
 import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES } from "./loadErrors.js";
 
+function positionStudioSidebar({ dom, showingStudio }) {
+    const sidebar = dom.studioSidebar;
+    const art = dom.studioTemplateArt;
+    if (!sidebar || !art) return;
+
+    const isDesktop = window.innerWidth >= 900;
+    if (!showingStudio || !isDesktop) {
+        sidebar.style.left = "";
+        sidebar.style.right = "";
+        sidebar.style.width = "";
+        return;
+    }
+
+    const artRect = art.getBoundingClientRect();
+    if (!artRect.width) return;
+
+    const pagePadding = Math.max(18, Math.min(56, window.innerWidth * 0.035));
+    const gutterLeft = artRect.right;
+    const gutterRight = window.innerWidth - pagePadding;
+    const gutterWidth = Math.max(0, gutterRight - gutterLeft);
+    const sidebarWidth = Math.min(220, Math.max(116, gutterWidth - 24));
+    const centeredInGutter = gutterLeft + gutterWidth / 2;
+    const centerX = Math.min(
+        gutterRight - sidebarWidth / 2,
+        Math.max(gutterLeft + sidebarWidth / 2, centeredInGutter)
+    );
+
+    sidebar.style.left = `${Math.round(centerX)}px`;
+    sidebar.style.right = "auto";
+    sidebar.style.width = `${Math.round(sidebarWidth)}px`;
+}
+
 // ── Face overlay ──────────────────────────────
 
 export function renderOverlay({
@@ -103,6 +135,10 @@ export function render(ctx) {
     dom.topbar?.classList.toggle("hidden", showingHome);
     dom.backBtn?.classList.toggle("hidden", showingHome);
     dom.saveCta?.classList.toggle("hidden", !showingStudio);
+    dom.shareCta?.classList.toggle("hidden", !showingStudio);
+    dom.projectMenuCta?.classList.toggle("hidden", !showingStudio);
+    dom.projectMenu?.classList.toggle("hidden", !showingStudio || !state.projectMenuOpen);
+    dom.projectMenuCta?.setAttribute("aria-expanded", String(showingStudio && state.projectMenuOpen));
     dom.cameraShell.classList.toggle("hidden", !cameraActive);
     dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);
@@ -130,6 +166,7 @@ export function render(ctx) {
     // ── Studio ──
     dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
     if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
+    positionStudioSidebar({ dom, showingStudio });
 
     // ── Meme text ──
     if (!state.isEditingMemeText) dom.memeTextPreview.textContent = state.editor.overlayText;

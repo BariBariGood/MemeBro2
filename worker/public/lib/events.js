@@ -102,6 +102,19 @@ export function registerEvents(ctx) {
         render();
         dom.libraryInput.click();
     });
+    dom.projectMenuCta?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        state.projectMenuOpen = !state.projectMenuOpen;
+        render();
+    });
+    dom.exportProjectCta?.addEventListener("click", () => {
+        state.projectMenuOpen = false;
+        render();
+    });
+    dom.importProjectCta?.addEventListener("click", () => {
+        state.projectMenuOpen = false;
+        render();
+    });
 
     // ── Navigation ───────────────────────────────
     dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
@@ -492,12 +505,19 @@ export function registerEvents(ctx) {
         if (event.target.closest("#studio-template-art")) {
         state.isTextSelected = false;
         state.showTextMore   = false;
+        state.projectMenuOpen = false;
         render();
         return;
         }
         if (state.isTextSelected || state.showTextMore) {
         state.isTextSelected = false;
         state.showTextMore   = false;
+        state.projectMenuOpen = false;
+        render();
+        return;
+        }
+        if (state.projectMenuOpen && !event.target.closest(".project-menu")) {
+        state.projectMenuOpen = false;
         render();
         }
     });
