@@ -56,8 +56,8 @@ export function registerEvents(ctx) {
                     ? "Meme shared."
                     : "Meme downloaded.";
             }
-            render();
         } catch (error) {
+            if (error?.name === "AbortError") return;
             if (dom.statusText) {
                 dom.statusText.textContent = error.message || "Could not share meme.";
             }
