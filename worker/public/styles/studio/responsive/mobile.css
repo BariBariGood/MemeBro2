@@ -27,7 +27,12 @@
 
     .brand { font-size: 0.68rem; }
 
-    .save-action {
+    .topbar-actions {
+        gap: 6px;
+    }
+
+    .save-action,
+    .share-action {
         min-height: 34px;
         padding: 0 12px;
         font-size: 0.78rem;

@@ -3,6 +3,12 @@
 // All DOM event listener registrations.
 // ─────────────────────────────────────────────
 
+import {
+  buildMemeFilename,
+  exportStudioMemeBlob,
+  shareOrDownloadMeme,
+} from "./memeExport.js";
+
 export function registerEvents(ctx) {
     const {
         dom, state, STATES, clamp,
@@ -35,6 +41,31 @@ export function registerEvents(ctx) {
         hasUnsavedStudioEdits, normalizeBox, setStatus, setError,
         applyManualTransform,
     } = ctx;
+
+    // ── Share / download (Issue E) — Save stays for Issue C (Jorell) ──
+    dom.shareCta?.addEventListener("click", async () => {
+        if (state.view !== "studio") return;
+        const previousLabel = dom.shareCta.textContent;
+        dom.shareCta.disabled = true;
+        dom.shareCta.textContent = "Exporting…";
+        try {
+            const blob = await exportStudioMemeBlob({ dom, state });
+            const outcome = await shareOrDownloadMeme(blob, buildMemeFilename("png"));
+            if (dom.statusText) {
+                dom.statusText.textContent = outcome === "shared"
+                    ? "Meme shared."
+                    : "Meme downloaded.";
+            }
+            render();
+        } catch (error) {
+            if (dom.statusText) {
+                dom.statusText.textContent = error.message || "Could not share meme.";
+            }
+        } finally {
+            dom.shareCta.disabled = false;
+            dom.shareCta.textContent = previousLabel;
+        }
+    });
 
     // ── Camera ────────────────────────────────────
     dom.cameraCta.addEventListener("click", () => startCameraCapture());

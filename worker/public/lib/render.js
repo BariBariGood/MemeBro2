@@ -117,6 +117,7 @@ export function render(ctx) {
     dom.topbar?.classList.toggle("hidden", showingHome);
     dom.backBtn?.classList.toggle("hidden", showingHome);
     dom.saveCta?.classList.toggle("hidden", !showingStudio);
+    dom.shareCta?.classList.toggle("hidden", !showingStudio);
     dom.cameraShell.classList.toggle("hidden", !cameraActive);
     dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);

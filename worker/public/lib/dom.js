@@ -7,6 +7,7 @@ export const dom = {
   topbar: document.querySelector(".topbar"),
   backBtn: document.querySelector(".back-btn"),
   saveCta: document.getElementById("save-cta"),
+  shareCta: document.getElementById("share-cta"),
   ctaRow: document.querySelector(".cta-row"),
   selectedTemplateLabel: document.getElementById("selected-template-label"),
   studioScreen: document.getElementById("studio-screen"),

@@ -189,11 +189,23 @@ progress {
   outline-offset: 3px;
 }
 
-.save-action {
+.topbar-actions {
   justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.save-action,
+.share-action {
   min-height: 38px;
-  padding: 0 18px;
+  padding: 0 16px;
   border-radius: var(--radius-pill);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.save-action {
   background: linear-gradient(90deg, var(--color-lime) 0%, #8de335 100%);
   color: #0a0d17;
   box-shadow: 0 0 18px rgba(144, 230, 53, 0.24);
@@ -201,4 +213,15 @@ progress {
 
 .save-action:not(:disabled):hover {
   box-shadow: 0 0 26px var(--lime-42), 0 12px 28px var(--black-28);
+}
+
+.share-action {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(250, 251, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.share-action:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.34);
 }
