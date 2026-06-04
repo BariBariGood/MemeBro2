@@ -29,6 +29,7 @@ import * as Faces       from "./lib/faces.js";
 import * as FaceSwap    from "./lib/faceSwap.js";
 import * as Render      from "./lib/render.js";
 import * as AiPrompting from "./lib/ai-prompting.js";
+import * as ProjectActions from "./lib/projectActions.js";
 import { registerEvents } from "./lib/events.js";
 
 // ── Shared utilities ──────────────────────────
@@ -187,7 +188,7 @@ function renderAiPromptLoadMode() {
 }
 
 function render() {
-  return Render.render({
+  const result = Render.render({
     dom, state,
     getSelectedTemplate, getSelectedFaces, getSelectableFaceLimit,
     renderStudioTemplate, renderFrozenTextItems,
@@ -196,7 +197,15 @@ function render() {
     renderOverlay, renderAiPromptHistory, renderAiPromptLoadMode,
     getMemeTextColor,
   });
+  projectActions?.scheduleAutoSave();
+  return result;
 }
+
+const projectActions = ProjectActions.configureProjectActions({
+  dom, state, render,
+  getTemplateMainImage,
+  recordEditorSnapshot,
+});
 
 // ── Events ────────────────────────────────────
 
@@ -242,9 +251,14 @@ export const __testHooks = {
   getFaceCropBounds, extractFaceCrop,
   syncMemeTextAppearance, fitMemeTextToCanvas,
   updateEditorTextSetting,
+  projectActions,
 };
 
 // ── Init ──────────────────────────────────────
 
-async function init() { render(); }
+async function init() {
+  await Templates.loadTemplateCatalog({ loadTemplates });
+  projectActions.restoreAutoSave();
+  render();
+}
 init();

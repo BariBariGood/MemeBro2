@@ -65,8 +65,9 @@
     /* ── Sidebar: fixed right panel ── */
     .studio-sidebar {
         position: fixed;
-        top: 78px;
+        top: 50%;
         right: clamp(18px, 3.5vw, 56px);
+        transform: translateY(-50%);
         z-index: 32;
         width: min(340px, calc(100vw - 36px));
         gap: 16px;
@@ -91,7 +92,7 @@
         border-radius: 0;
         display: grid;
         justify-items: center;
-        align-content: start;
+        align-content: center;
         gap: 8px;
         background: transparent;
         box-shadow: none;
