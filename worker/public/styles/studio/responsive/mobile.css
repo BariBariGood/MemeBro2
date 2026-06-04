@@ -341,16 +341,37 @@
     /* ── AI prompt panel: bottom sheet ── */
     .ai-prompt-panel {
         position: fixed;
-        left: 0; right: 0; bottom: var(--ai-prompt-keyboard-offset, 0px);
+        left: 0; right: 0;
+        bottom: var(--ai-prompt-keyboard-offset, 0px);
         z-index: 72;
         width: 100%;
-        min-height: min(58dvh, 520px);
-        max-height: calc(100dvh - 80px);
+        height: min(62dvh, 540px);       /* fixed height so flex layout works */
+        min-height: unset;               /* remove min-height fighting fixed height */
+        max-height: calc(100dvh - 60px);
         border-radius: 22px 22px 0 0;
         border-inline: none;
         border-bottom: none;
+        padding-top: 20px;               /* room for drag handle */
         transition: bottom 0.18s ease;
     }
+    .ai-prompt-panel::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--white-22);
+    }
 
-    .ai-prompt-history { min-height: 180px; }
+    .ai-prompt-history {
+        min-height: 0;           /* override the 180px — lets flex shrink it */
+        flex: 1 1 0;
+    }
+    .ai-prompt-form {
+        /* stay above home indicator */
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
 }
