@@ -37,8 +37,6 @@
         width: 100%;
     }
 
-    .vibe-panel { display: none; }
-
     /* ── Text toolbar: floating pill ── */
     .text-toolbar {
         position: fixed;

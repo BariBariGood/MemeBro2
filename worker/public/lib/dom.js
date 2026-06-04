@@ -1,4 +1,4 @@
-const memeOutlineRemoveCompat = document.getElementById("meme-outline-remove-cta") || document.createElement("span");
+const memeOutlineRemoveCompat = document.getElementById("meme-outline-remove-cta");
 
 export const dom = {
   uploadPage: document.querySelector(".upload-page"),
@@ -33,6 +33,7 @@ export const dom = {
   textCopyCta: document.getElementById("text-copy-cta"),
   textPasteCta: document.getElementById("text-paste-cta"),
   textLinkCta: document.getElementById("text-link-cta"),
+  textMoreCta: document.getElementById("text-more-cta"),
   textMoreMenu: document.getElementById("text-more-menu"),
   memeFontSelect: document.getElementById("meme-font-select"),
   memeFontSizeInput: document.getElementById("meme-font-size-input"),
@@ -62,7 +63,6 @@ export const dom = {
   aiPromptLoadMode: document.getElementById("ai-prompt-load-mode"),
   aiPromptLoadMessage: document.getElementById("ai-prompt-load-message"),
   aiPromptRetryCta: document.getElementById("ai-prompt-retry-cta"),
-  vibePanel: document.querySelector(".vibe-panel"),
   vibeContainer: document.querySelector(".vibe-container"),
   uploadModal: document.getElementById("upload-modal"),
   uploadModalBackdrop: document.getElementById("upload-modal-backdrop"),

@@ -73,11 +73,6 @@
         pointer-events: none;
     }
 
-    .studio-sidebar .vibe-panel {
-        display: block;
-        pointer-events: auto;
-    }
-
     .studio-actions {
         width: 100%;
         min-width: 0;
