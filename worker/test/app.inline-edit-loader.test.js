@@ -24,6 +24,7 @@ const testDir = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.resolve(testDir, "../public/index.html");
 const indexHtml = readFileSync(htmlPath, "utf8");
 const vibePanelCss = readFileSync(path.resolve(testDir, "../public/styles/studio/vibe-panel.css"), "utf8");
+const aiPromptingCss = readFileSync(path.resolve(testDir, "../public/styles/studio/ai-prompting.css"), "utf8");
 
 function mountAppHtml() {
   const mainMarkup = indexHtml.match(/<main[\s\S]*<\/main>/)?.[0] || "";
@@ -150,6 +151,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    delete globalThis.__MEMEBRO_AI_PROMPT_REQUEST__;
   });
 
   test("custom: text is editable inline and preview updates live", async () => {
@@ -184,7 +186,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.memeFontSelect.value).toBe("impact");
     expect(dom.memeFontSizeInput.value).toBe("22");
     expect(dom.memeTextColorInput.value).toBe("#000000");
-    expect(dom.memeOutlineRemoveCta.classList.contains("hidden")).toBe(false);
+    expect(dom.memeOutlineRemoveCta).toBeNull();
 
     updateEditorTextSetting("overlayFontKey", "comic-sans");
     updateEditorTextSetting("overlayFontPx", 14);
@@ -534,12 +536,32 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.aiPromptInput.tagName).toBe("TEXTAREA");
     expect(dom.aiPromptInput.getAttribute("aria-label")).toBe("Prompt AI for meme changes");
     expect(document.querySelector('label[for="ai-prompt-input"]')).not.toBeNull();
-    expect(vibePanelCss).toMatch(/\.ai-prompt-panel textarea[\s\S]*font-size:\s*1rem/);
-    expect(vibePanelCss).toMatch(/\.ai-prompt-form textarea[\s\S]*border-radius:\s*22px/);
-    expect(vibePanelCss).toMatch(/\.ai-prompt-form textarea[\s\S]*resize:\s*none/);
-    expect(vibePanelCss).toMatch(/\.ai-prompt-form textarea[\s\S]*overflow-y:\s*auto/);
-    expect(vibePanelCss).toMatch(/\.ai-prompt-form[\s\S]*align-items:\s*end/);
-    expect(dom.aiPromptWordCount.textContent).toBe("0 / 500 characters");
+    expect(vibePanelCss).not.toMatch(/\.ai-prompt-panel/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-panel textarea[\s\S]*font-size:\s*1rem/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*border-radius:\s*22px/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*resize:\s*none/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*overflow-y:\s*auto/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form[\s\S]*align-items:\s*end/);
+    expect(dom.aiPromptWordCount.textContent).toBe("0 / 500");
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(true);
+  });
+
+  test("custom: text more button opens Copy/Paste/Link menu", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.isTextSelected = true;
+    render();
+
+    expect(dom.textMoreMenu.classList.contains("hidden")).toBe(true);
+
+    dom.textMoreCta.click();
+
+    expect(state.showTextMore).toBe(true);
+    expect(dom.textMoreMenu.classList.contains("hidden")).toBe(false);
+    expect(dom.textMoreCta.getAttribute("aria-expanded")).toBe("true");
   });
 
   test("custom: AI prompt textarea expands as the user types", async () => {
@@ -577,8 +599,29 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect(dom.aiPromptInput.value).toHaveLength(500);
-    expect(dom.aiPromptWordCount.textContent).toBe("500 / 500 characters");
+    expect(dom.aiPromptWordCount.textContent).toBe("500 / 500");
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(false);
     expect(dom.aiPromptWordCount.classList.contains("is-at-limit")).toBe(true);
+  });
+
+  test("custom: AI prompt counter appears only within 50 characters of the limit", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "a".repeat(449);
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(true);
+
+    dom.aiPromptInput.value = "a".repeat(450);
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dom.aiPromptWordCount.textContent).toBe("450 / 500");
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptWordCount.classList.contains("is-at-limit")).toBe(false);
   });
 
   test("custom: AI prompt bottom sheet tracks mobile keyboard viewport offset", async () => {
@@ -606,6 +649,77 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     visualViewport.dispatchEvent(new Event("resize"));
 
     expect(dom.uploadPage.style.getPropertyValue("--ai-prompt-keyboard-offset")).toBe("300px");
+  });
+
+  test("custom: AI prompt submit renders load mode until async placeholder resolves", async () => {
+    let resolvePrompt;
+    globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = vi.fn(() => new Promise((resolve) => {
+      resolvePrompt = resolve;
+    }));
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "make it more dramatic";
+    dom.aiPromptForm.requestSubmit();
+
+    expect(state.aiPrompt.requestState).toBe("submitting");
+    expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptLoadMessage.textContent).toBe("Generating your meme variant…");
+
+    resolvePrompt({ text: "Placeholder response" });
+    await vi.waitFor(() => {
+      expect(state.aiPrompt.requestState).toBe("idle");
+      expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(true);
+      expect(dom.aiPromptHistory.textContent).toContain("Placeholder response");
+    });
+  });
+
+  test.each([
+    ["FEATURE_DISABLED", "temporarily unavailable"],
+    ["QUEUE_FULL", "heavy load"],
+    ["RATE_LIMITED", "rate-limiting"],
+  ])("custom: AI prompt handles %s with friendly retry UI", async (code, copy) => {
+    let calls = 0;
+    globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) {
+        const error = new Error(`${code}: raw backend message`);
+        error.code = code;
+        throw error;
+      }
+      return { text: "Retry worked" };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "make a variant";
+    dom.aiPromptForm.requestSubmit();
+
+    await vi.waitFor(() => {
+      expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(false);
+      expect(dom.aiPromptRetryCta.classList.contains("hidden")).toBe(false);
+      expect(dom.aiPromptLoadMessage.textContent).toContain(copy);
+    });
+
+    dom.aiPromptRetryCta.click();
+
+    await vi.waitFor(() => {
+      expect(calls).toBe(2);
+      expect(dom.aiPromptHistory.textContent).toContain("Retry worked");
+      expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(true);
+    });
   });
 
   test("custom: acute load errors show retry UI and retry face swap", async () => {

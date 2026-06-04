@@ -1,34 +1,9 @@
 // ─────────────────────────────────────────────
-// Main render function, overlay renderer,
-// and AI prompt history renderer.
+// Main render function and overlay renderer.
 // ─────────────────────────────────────────────
 
 import { STATES } from "./constants.js";
-
-const ACUTE_LOAD_ERROR_MESSAGES = {
-    FEATURE_DISABLED: "AI generation is temporarily unavailable. You can retry in a few minutes.",
-    QUEUE_FULL: "MemeBro is under heavy load. Retry shortly.",
-    RATE_LIMITED: "The AI service is rate-limiting requests. Retry in a moment.",
-};
-
-const RETRYABLE_LOAD_ERROR_CODES = new Set(Object.keys(ACUTE_LOAD_ERROR_MESSAGES));
-
-// ── AI Prompt history ─────────────────────────
-
-export function renderAiPromptHistory({ dom, state }) {
-    if (!dom.aiPromptHistory) return;
-    const messages = state.aiPromptHistory.length
-        ? state.aiPromptHistory
-        : [{ role: "system", text: "Tell me what to change — caption, mood, style, or face-swap direction." }];
-    dom.aiPromptHistory.innerHTML = "";
-    messages.forEach((message) => {
-        const node = document.createElement("article");
-        node.className = `ai-prompt-message ai-prompt-message--${message.role}`;
-        node.textContent = message.text;
-        dom.aiPromptHistory.appendChild(node);
-    });
-    dom.aiPromptHistory.scrollTop = dom.aiPromptHistory.scrollHeight;
-}
+import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES } from "./loadErrors.js";
 
 // ── Face overlay ──────────────────────────────
 
@@ -102,7 +77,9 @@ export function render(ctx) {
         dom, state,
         getSelectedTemplate, getSelectedFaces, getSelectableFaceLimit,
         renderStudioTemplate, renderFrozenTextItems, syncMemeTextAppearance,
-        applyManualTransform, renderOverlay: _renderOverlay, renderAiPromptHistory: _renderAiPromptHistory,
+        applyManualTransform, renderOverlay: _renderOverlay,
+        renderAiPromptHistory: _renderAiPromptHistory,
+        renderAiPromptLoadMode: _renderAiPromptLoadMode,
         syncOutlineSwatchState, getMemeTextColor,
     } = ctx;
 
@@ -113,9 +90,6 @@ export function render(ctx) {
     const showingTemplates      = state.view === "templates";
     const showingStudio         = state.view === "studio";
     const aiPromptPanelOpen     = state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen;
-    const aiPromptBusy          = state.aiPrompt?.requestState === "submitting";
-    const aiPromptErrorCode     = state.aiPrompt?.error?.code || "";
-    const aiPromptHasLoadState  = aiPromptBusy || Boolean(aiPromptErrorCode);
     const selectedTemplate      = getSelectedTemplate();
     const selectedFaceCount     = getSelectedFaces().length;
     const selectableFaceLimit   = getSelectableFaceLimit();
@@ -135,7 +109,6 @@ export function render(ctx) {
     dom.studioScreen.classList.toggle("hidden", !showingStudio);
     dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
     dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !aiPromptPanelOpen);
-    dom.vibePanel?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.vibeContainer?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
     dom.backConfirmation.classList.toggle("hidden",  !showingStudio || !state.showBackConfirmation);
@@ -194,6 +167,11 @@ export function render(ctx) {
         dom.textBorderToggleCta.disabled = noTextSelection;
         dom.textBorderToggleCta.setAttribute("aria-pressed", String(outlineOn));
     }
+    if (dom.textMoreCta) {
+        dom.textMoreCta.disabled = noTextSelection;
+        dom.textMoreCta.classList.toggle("active", state.showTextMore);
+        dom.textMoreCta.setAttribute("aria-expanded", String(showTextPopups && state.showTextMore));
+    }
 
     // ── Toolbar values ──
     dom.textLockCta.textContent      = state.isTextLocked ? "🔒" : "🔓";
@@ -211,13 +189,8 @@ export function render(ctx) {
     dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
 
     // ── AI prompt load mode ──
-    dom.aiPromptLoadMode?.classList.toggle("hidden", !aiPromptHasLoadState);
-    dom.aiPromptRetryCta?.classList.toggle("hidden", aiPromptBusy || !aiPromptErrorCode);
-    if (dom.aiPromptLoadMessage) {
-        dom.aiPromptLoadMessage.textContent = aiPromptBusy
-        ? "Generating your meme variant…"
-        : state.aiPrompt?.error?.message || ACUTE_LOAD_ERROR_MESSAGES[aiPromptErrorCode] || "Something went sideways. Retry when you are ready.";
-    }
+    // Prompt-specific DOM details live in ai-prompting.js; render.js just composes sub-renders.
+    _renderAiPromptLoadMode();
 
     // ── History buttons ──
     dom.undoCta.disabled  = state.editor.historyStack.length <= 1;
@@ -233,7 +206,7 @@ export function render(ctx) {
 
     // ── Error ──
     const errorCode = state.error?.code || "";
-    const errorMessage = ACUTE_LOAD_ERROR_MESSAGES[errorCode] || state.error?.message || "";
+    const errorMessage = getLoadErrorMessage(state.error);
     dom.errorState.classList.toggle("hidden", !state.error && state.status !== STATES.ERROR);
     dom.errorMessage.textContent = errorMessage;
     dom.errorRetryCta?.classList.toggle("hidden", !RETRYABLE_LOAD_ERROR_CODES.has(errorCode));
