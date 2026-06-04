@@ -52,7 +52,7 @@ function drawTextLayer(ctx, layer, width, height) {
 
   const fontPx = Math.max(8, Number(layer.fontPx) || 22);
   const fontFamily = getMemeFontFamily(layer.fontKey);
-  const color = resolveColor(layer.color ?? layer.textColor);
+  const color = resolveColor(layer.color);
   const outlineColor = layer.outlineColor || "#ffffff";
   const boxW = (Math.min(90, Math.max(18, Number(layer.widthPct) || 48)) / 100) * width;
   const x = (Math.min(95, Math.max(5, Number(layer.x) || 50)) / 100) * width;
@@ -168,12 +168,11 @@ export async function exportStudioMemeBlob({ dom, state }) {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("Failed to encode meme PNG."))),
       "image/png",
-      0.92,
     );
   });
 }
 
-export function downloadMemeBlob(blob, filename = buildMemeFilename("png")) {
+function downloadMemeBlob(blob, filename = buildMemeFilename("png")) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -194,20 +193,8 @@ export async function shareOrDownloadMeme(blob, filename = buildMemeFilename("pn
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
     await navigator.share({
       files: [file],
-      title: "MemeBro",
-      text: "Made with MemeBro",
     });
     return "shared";
-  }
-
-  if (navigator.share) {
-    const url = URL.createObjectURL(blob);
-    try {
-      await navigator.share({ title: "MemeBro", text: "Made with MemeBro", url });
-      return "shared";
-    } finally {
-      URL.revokeObjectURL(url);
-    }
   }
 
   downloadMemeBlob(blob, filename);
