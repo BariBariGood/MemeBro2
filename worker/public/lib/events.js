@@ -143,17 +143,46 @@ export function registerEvents(ctx) {
 
     // ── AI prompt panel ──────────────────────────
     dom.aiPromptCta?.addEventListener("click", () => {
-        state.isAiPromptPanelOpen = false; // disabled — keep for future
+        state.isAiPromptPanelOpen = !state.isAiPromptPanelOpen;
         render();
     });
     dom.aiPromptCloseCta?.addEventListener("click", () => { state.isAiPromptPanelOpen = false; render(); });
-    dom.aiPromptForm?.addEventListener("submit", (event) => {
+    dom.aiPromptForm?.addEventListener("submit", async (event) => {
         event.preventDefault();
         const prompt = dom.aiPromptInput?.value.trim();
         if (!prompt) return;
+
         state.aiPromptHistory.push({ role: "user", text: prompt });
-        state.aiPromptHistory.push({ role: "assistant", text: "Got it — AI variant generation will use this prompt once connected." });
+        state.aiPromptHistory.push({ role: "assistant", text: "Generating captions..." });
         dom.aiPromptInput.value = "";
+        render();
+
+        try {
+            const { generateCaptions } = await import("./api.js");
+            const result = await generateCaptions({
+                subject: prompt,
+                vibe: "internet humor",
+                slotCount: 2,
+                templateId: state.editor?.templateId || "",
+            });
+
+            state.aiPromptHistory.pop();
+            if (result.captions?.length) {
+                const formatted = result.captions
+                    .map((set, i) => `${i + 1}. "${set.join('" / "')}"`)
+                    .join("\n");
+                state.aiPromptHistory.push({
+                    role: "assistant",
+                    text: `Here are some captions:\n${formatted}\n\nClick one to use it, or ask for more!`,
+                });
+                state.generatedCaptions = result.captions;
+            } else {
+                state.aiPromptHistory.push({ role: "assistant", text: "No captions generated. Try a different prompt." });
+            }
+        } catch (err) {
+            state.aiPromptHistory.pop();
+            state.aiPromptHistory.push({ role: "assistant", text: `Error: ${err.message}` });
+        }
         render();
     });
 

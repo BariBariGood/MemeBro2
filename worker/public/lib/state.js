@@ -61,6 +61,7 @@ export const state = {
     showTextMore: false,
     isAiPromptPanelOpen: false,
     aiPromptHistory: [],
+    generatedCaptions: [],
     clipboardText: "",
     textLink: "",
     editor: {
