@@ -66,10 +66,11 @@
     .studio-sidebar {
         position: fixed;
         top: 50%;
-        right: clamp(18px, 3.5vw, 56px);
-        transform: translateY(-50%);
+        left: calc(50vw + 320px);
+        right: auto;
+        transform: translate(-50%, -50%);
         z-index: 32;
-        width: min(340px, calc(100vw - 36px));
+        width: 180px;
         gap: 16px;
         pointer-events: none;
     }
