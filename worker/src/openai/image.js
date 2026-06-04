@@ -5,14 +5,8 @@
  * - 503 { error: "no_api_key" } when OPENAI_API_KEY is missing
  * - 413 { error: "reference_too_large" } for oversized refs
  * - 400 { error: "blocked", ... } for moderation rejects
- * - 400 { error: "prompt_too_long" } for ai_prompt prompts exceeding MAX_AI_PROMPT_LENGTH
  * - 200 { b64, model, quality, size, mode } on success
  */
-import {
-  AI_PROMPT_PREFIX,
-  MAX_AI_PROMPT_LENGTH,
-  buildAiPrompt,
-} from "./aiPromptMode.js";
 
 const EDIT_SUBJECT_HINT = "The attached photo is the subject of the scene below.";
 const EDIT_BYO_HINT =
@@ -59,18 +53,8 @@ export async function buildImageResponseFromBody(body, env) {
     return jsonError(503, "no_api_key");
   }
 
-  const rawPrompt = String(body?.prompt ?? "").trim();
-  if (!rawPrompt) return jsonError(400, "empty_prompt");
-
-  const isAiPromptMode = body?.mode === "ai_prompt";
-
-  if (isAiPromptMode && rawPrompt.length > MAX_AI_PROMPT_LENGTH) {
-    return jsonError(400, "prompt_too_long", `Prompt must be ${MAX_AI_PROMPT_LENGTH} characters or fewer`);
-  }
-
-  const prompt = isAiPromptMode
-    ? buildAiPrompt(rawPrompt)
-    : rawPrompt.slice(0, 800);
+  const prompt = String(body?.prompt ?? "").trim().slice(0, 800);
+  if (!prompt) return jsonError(400, "empty_prompt");
 
   const quality = ALLOWED_QUALITIES.includes(body?.quality)
     ? body.quality

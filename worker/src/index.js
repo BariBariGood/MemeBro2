@@ -222,22 +222,17 @@ async function prepareOutboundRequest(request) {
 }
 
 /**
- * Determines whether a gateway mode should run against the worker-local
- * /api/image implementation instead of an external URL.
- *
- * - `ai_prompt` always uses the local pipeline (Issue B, B.7): the request
- *   payload carries the user's free-form prompt and is processed directly by
- *   the OpenAI image handler with safety prefix injection.
- * - `extra_roast` falls back to local only when neither EXTRA_ROAST_API_URL
- *   nor IMAGE_GEN_API_URL is configured, so existing deployments keep their
- *   current upstream behavior without any changes.
+ * Determines whether the old `extra_roast` gateway mode should run against
+ * the worker-local /api/image implementation instead of an external URL.
+ * We only use the local path when neither EXTRA_ROAST_API_URL nor
+ * IMAGE_GEN_API_URL is configured, so existing deployments keep their
+ * current upstream behavior without any changes.
  *
  * @param {string|undefined} mode - Requested gateway mode
  * @param {Object} env - Cloudflare Workers env object
  * @returns {boolean}
  */
 function shouldUseLocalImageGeneration(mode, env) {
-  if (mode === "ai_prompt") return true;
   if (mode !== "extra_roast") return false;
   const hasExtraRoastUrl = Boolean(String(env?.EXTRA_ROAST_API_URL ?? "").trim());
   const hasImageGenUrl = Boolean(String(env?.IMAGE_GEN_API_URL ?? "").trim());
@@ -381,7 +376,7 @@ export async function handleGatewayRequest(request, env) {
     await assertFeatureEnabled(mode, env);
 
     if (isJson && shouldUseLocalImageGeneration(mode, env)) {
-      return await enqueueRequest(() => buildImageResponseFromBody(payload ?? {}, env));
+      return enqueueRequest(() => buildImageResponseFromBody(payload ?? {}, env));
     }
 
     if (shouldUseLocalFaceSwap(mode, isJson, prepared.requestHeaders)) {
