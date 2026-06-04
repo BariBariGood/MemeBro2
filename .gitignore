@@ -170,3 +170,8 @@ dist
 # Generated browser assets
 
 .DS_Store
+
+# Supabase local development
+supabase/.temp/
+supabase/functions/.env
+!supabase/functions/.env.example

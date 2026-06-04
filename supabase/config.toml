@@ -1,0 +1,17 @@
+# Supabase CLI config for MemeBro Edge Functions
+# https://supabase.com/docs/reference/cli/config
+
+[api]
+enabled = false
+
+[db]
+enabled = false
+
+[storage]
+enabled = false
+
+[auth]
+enabled = false
+
+[functions]
+# Functions are enabled by default when functions/ directory exists
