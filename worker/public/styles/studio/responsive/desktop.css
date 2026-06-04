@@ -47,11 +47,11 @@
         padding-bottom: 100px;
         align-content: center;
         place-items: center;
+        flex-direction: row;
         gap: 20px;
     }
 
     .studio-template-card {
-        grid-column: 1;
         justify-items: center;
         width: 100%;
     }
@@ -150,9 +150,8 @@
 
     /* ── AI prompt panel ── */
     .ai-prompt-panel {
-        position: fixed;
-        top: 78px;
-        right: clamp(18px, 3.5vw, 56px);
+        position: relative;
+        margin: 0;
         width: min(360px, calc(100vw - 36px));
         max-height: calc(100dvh - 112px);
         min-height: min(560px, calc(100dvh - 112px));
