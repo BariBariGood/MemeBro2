@@ -16,7 +16,6 @@ export const dom = {
   ctaRow: document.querySelector(".cta-row"),
   selectedTemplateLabel: document.getElementById("selected-template-label"),
   studioScreen: document.getElementById("studio-screen"),
-  studioSidebar: document.querySelector(".studio-sidebar"),
   studioTemplateArt: document.getElementById("studio-template-art"),
   studioTemplateImage: document.getElementById("studio-template-image"),
   studioTemplateInitials: document.getElementById("studio-template-initials"),
