@@ -103,6 +103,10 @@ export function render(ctx) {
     dom.topbar?.classList.toggle("hidden", showingHome);
     dom.backBtn?.classList.toggle("hidden", showingHome);
     dom.saveCta?.classList.toggle("hidden", !showingStudio);
+    dom.shareCta?.classList.toggle("hidden", !showingStudio);
+    dom.projectMenuCta?.classList.toggle("hidden", !showingStudio);
+    dom.projectMenu?.classList.toggle("hidden", !showingStudio || !state.projectMenuOpen);
+    dom.projectMenuCta?.setAttribute("aria-expanded", String(showingStudio && state.projectMenuOpen));
     dom.cameraShell.classList.toggle("hidden", !cameraActive);
     dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);

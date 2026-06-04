@@ -152,6 +152,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
   afterEach(() => {
     vi.useRealTimers();
     delete globalThis.__MEMEBRO_AI_PROMPT_REQUEST__;
+    delete globalThis.__MEMEBRO_EXPORT_BLOB__;
   });
 
   test("custom: text is editable inline and preview updates live", async () => {
@@ -769,5 +770,242 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
       expect(state.editor.generatedImage).toBe("/generated/retry.png");
     });
     expect(dom.errorRetryCta.classList.contains("hidden")).toBe(true);
+  });
+
+  test("custom: project actions download the edited meme with a timestamped PNG filename", async () => {
+    let clickedDownload = "";
+    globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-download");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click() {
+      clickedDownload = this.download;
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+    dom.saveCta.click();
+
+    await vi.waitFor(() => {
+      expect(globalThis.__MEMEBRO_EXPORT_BLOB__).toHaveBeenCalledWith(expect.objectContaining({ type: "image/png" }));
+      expect(clickedDownload).toMatch(/^memebro-\d{8}T\d{6}Z\.png$/);
+    });
+  });
+
+  test("custom: studio actions use Face Swap label and keep project utilities in a menu", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    expect(dom.openUploadModalCta.textContent).toContain("Face Swap");
+    expect(dom.projectMenu.classList.contains("hidden")).toBe(true);
+
+    dom.projectMenuCta.click();
+
+    expect(dom.projectMenu.classList.contains("hidden")).toBe(false);
+    expect(dom.projectMenuCta.getAttribute("aria-expanded")).toBe("true");
+    expect(dom.exportProjectCta.textContent).toContain("Export");
+    expect(dom.importProjectCta.textContent).toContain("Import");
+  });
+
+  test("custom: canvas exporter composites the base image and text layers to a PNG blob", async () => {
+    const drawImage = vi.fn();
+    const fillText = vi.fn();
+    const strokeText = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage,
+      fillText,
+      strokeText,
+      measureText: (text) => ({ width: String(text).length * 10 }),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      set font(value) { this._font = value; },
+      get font() { return this._font; },
+      set textAlign(value) { this._textAlign = value; },
+      set textBaseline(value) { this._textBaseline = value; },
+      set fillStyle(value) { this._fillStyle = value; },
+      set lineJoin(value) { this._lineJoin = value; },
+      set lineWidth(value) { this._lineWidth = value; },
+      get lineWidth() { return this._lineWidth || 0; },
+      set strokeStyle(value) { this._strokeStyle = value; },
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(callback, type) {
+      callback(new Blob(["exported"], { type }));
+    });
+    vi.stubGlobal("Image", class MockImage {
+      set src(value) {
+        this._src = value;
+        this.onload?.();
+      }
+      get src() {
+        return this._src;
+      }
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+    const { exportCanvasBlob } = await import("../public/lib/projectActions.js");
+
+    seedStudioEditorState(state);
+    state.editor.templateImage = "/assets/memes/placeholder.svg";
+    state.editor.overlayText = "EXPORT ME";
+    dom.studioTemplateArt.getBoundingClientRect = () => ({ width: 320, height: 240 });
+    render();
+
+    const blob = await exportCanvasBlob({ dom, state });
+
+    expect(blob.type).toBe("image/png");
+    expect(drawImage).toHaveBeenCalled();
+    expect(fillText).toHaveBeenCalledWith("EXPORT ME", 0, expect.any(Number), expect.any(Number));
+    expect(strokeText).toHaveBeenCalledWith("EXPORT ME", 0, expect.any(Number), expect.any(Number));
+  });
+
+  test("custom: project actions share with Web Share when available", async () => {
+    const share = vi.fn(async () => {});
+    globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: vi.fn(() => true) });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+    dom.shareCta.click();
+
+    await vi.waitFor(() => {
+      expect(share).toHaveBeenCalledWith(expect.objectContaining({
+        title: "MemeBro meme",
+        files: [expect.any(File)],
+      }));
+    });
+  });
+
+  test("custom: project actions fall back to copying a blob link when Web Share is unavailable", async () => {
+    const writeText = vi.fn(async () => {});
+    globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-share");
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+    dom.shareCta.click();
+
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("blob:memebro-share");
+      expect(state.saveStatusMessage).toBe("Link copied");
+    });
+  });
+
+  test("custom: project export and import round-trip MemeBro JSON", async () => {
+    let exportedBlob;
+    vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      exportedBlob = blob;
+      return "blob:memebro-project";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render, projectActions } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "ROUND TRIP";
+    state.editor.generatedImage = "/generated/project.png";
+    render();
+
+    dom.exportProjectCta.click();
+
+    const exported = JSON.parse(await exportedBlob.text());
+    expect(exported.version).toBe(1);
+    expect(exported.baseImage.generatedImage).toBe("/generated/project.png");
+    expect(exported.layers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "text", text: "ROUND TRIP" }),
+    ]));
+
+    state.editor.overlayText = "changed";
+    await projectActions.importProjectFile(new File([JSON.stringify(exported)], "meme.memebro.json", { type: "application/json" }));
+
+    expect(state.view).toBe("studio");
+    expect(state.editor.overlayText).toBe("ROUND TRIP");
+    expect(state.editor.generatedImage).toBe("/generated/project.png");
+  });
+
+  test("custom: project autosave is throttled, updates status, and restores after reload", async () => {
+    vi.useFakeTimers();
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "autosaved text";
+    render();
+
+    expect(state.saveStatusMessage).toBe("Saving...");
+    expect(localStorage.getItem("memebro-project-autosave")).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(499);
+    expect(localStorage.getItem("memebro-project-autosave")).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(1);
+    const raw = localStorage.getItem("memebro-project-autosave");
+    expect(raw).not.toBeNull();
+    expect(JSON.parse(raw).editor.overlayText).toBe("autosaved text");
+    expect(state.saveStatusMessage).toBe("Saved");
+
+    vi.resetModules();
+    mountAppHtml();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
+
+    const reloaded = await loadApp();
+    await settleApp();
+    expect(reloaded.__testHooks.state.view).toBe("studio");
+    expect(reloaded.__testHooks.state.editor.overlayText).toBe("autosaved text");
+  });
+
+  test("custom: project autosave reports failed when storage is unavailable", async () => {
+    vi.useFakeTimers();
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    localStorage.setItem.mockImplementation(() => {
+      throw new Error("storage full");
+    });
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "cannot save";
+    render();
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(state.saveStatusMessage).toBe("Failed");
+    expect(state.saveStatus).toBe("failed");
   });
 });
