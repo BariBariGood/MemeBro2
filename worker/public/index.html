@@ -11,7 +11,46 @@
       <header class="topbar">
         <button class="back-btn" type="button" aria-label="Back">← back</button>
         <p class="brand">MEMEBRO</p>
-        <button id="save-cta" class="save-action" type="button" aria-label="Save meme">Save</button>
+        <div class="topbar-actions">
+          <button id="save-cta" class="save-action" type="button" aria-label="Download meme">
+            <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
+            </svg>
+            <span>Download</span>
+          </button>
+          <button id="share-cta" class="secondary topbar-action" type="button" aria-label="Share meme">
+            <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="18" cy="5" r="3" />
+              <circle cx="6" cy="12" r="3" />
+              <circle cx="18" cy="19" r="3" />
+              <path d="M8.7 10.7 15.3 6.3M8.7 13.3l6.6 4.4" />
+            </svg>
+            <span>Share</span>
+          </button>
+          <div class="project-menu">
+            <button id="project-menu-cta" class="secondary topbar-action project-menu-cta" type="button" aria-label="Project utilities" aria-haspopup="menu" aria-expanded="false">
+              <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            </button>
+            <div id="project-menu" class="project-menu-popover hidden" role="menu" aria-label="Project utilities">
+              <button id="export-project-cta" class="project-menu-item" type="button" role="menuitem" aria-label="Export MemeBro project">
+                <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 3v5h5M12 17V9m0 8 3-3m-3 3-3-3" />
+                </svg>
+                <span>Export</span>
+              </button>
+              <button id="import-project-cta" class="project-menu-item" type="button" role="menuitem" aria-label="Import MemeBro project">
+                <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                  <path d="M14 3v5h5M12 9v8m0-8 3 3m-3-3-3 3" />
+                </svg>
+                <span>Import</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </header>
       <section id="title-screen" class="title-screen hidden" aria-label="MemeBro title screen">
         <div class="title-grid-glow title-grid-glow-left" aria-hidden="true"></div>
@@ -146,7 +185,7 @@
 
         <div class="studio-sidebar">
           <section class="studio-actions vibe-container" aria-label="Template actions">
-            <button id="open-upload-modal-cta" class="primary studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">↥</span><span class="vibe-label">Upload</span></button>
+            <button id="open-upload-modal-cta" class="primary studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">◎</span><span class="vibe-label">Face Swap</span></button>
             <button id="ai-prompt-cta" class="pink-action studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">✣</span><span class="vibe-label">AI Prompt</span></button>
           </section>
           <section id="ai-prompt-panel" class="ai-prompt-panel hidden" role="dialog" aria-modal="true" aria-labelledby="ai-prompt-title" aria-describedby="ai-prompt-description">
@@ -217,6 +256,7 @@
 
       <input id="camera-input" type="file" accept="image/*" capture="user" hidden />
       <input id="library-input" type="file" accept="image/*" hidden />
+      <input id="project-import-input" type="file" accept="application/json,.memebro.json" hidden />
 
       <section id="progress-wrap" class="progress-wrap hidden" aria-live="polite">
         <progress id="progress-bar" max="100" value="0"></progress>

@@ -48,6 +48,7 @@ export const state = {
     activeTemplateTab: "trending",
     templateSearchQuery: "",
     uploadModalOpen: false,
+    projectMenuOpen: false,
     view: "home",
     isEditingMemeText: false,
     isSubmittingFaceSwap: false,
@@ -68,6 +69,8 @@ export const state = {
     },
     aiPromptHistory: [],
     lastRetryableAction: null,
+    saveStatus: "saved",
+    saveStatusMessage: "Saved",
     clipboardText: "",
     textLink: "",
     editor: {

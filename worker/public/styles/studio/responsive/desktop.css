@@ -47,11 +47,11 @@
         padding-bottom: 100px;
         align-content: center;
         place-items: center;
+        flex-direction: row;
         gap: 20px;
     }
 
     .studio-template-card {
-        grid-column: 1;
         justify-items: center;
         width: 100%;
     }
@@ -65,10 +65,12 @@
     /* ── Sidebar: fixed right panel ── */
     .studio-sidebar {
         position: fixed;
-        top: 78px;
-        right: clamp(18px, 3.5vw, 56px);
+        top: 50%;
+        left: calc(50vw + 320px);
+        right: auto;
+        transform: translate(-50%, -50%);
         z-index: 32;
-        width: min(340px, calc(100vw - 36px));
+        width: 180px;
         gap: 16px;
         pointer-events: none;
     }
@@ -91,7 +93,7 @@
         border-radius: 0;
         display: grid;
         justify-items: center;
-        align-content: start;
+        align-content: center;
         gap: 8px;
         background: transparent;
         box-shadow: none;
@@ -148,9 +150,8 @@
 
     /* ── AI prompt panel ── */
     .ai-prompt-panel {
-        position: fixed;
-        top: 78px;
-        right: clamp(18px, 3.5vw, 56px);
+        position: relative;
+        margin: 0;
         width: min(360px, calc(100vw - 36px));
         max-height: calc(100dvh - 112px);
         min-height: min(560px, calc(100dvh - 112px));
