@@ -198,6 +198,12 @@ function assertNoEmptyValues(value, path) {
   }
 }
 
+/**
+ * Verifies the real app template grid behavior through app.js rendering paths.
+ *
+ * Covers responsive rendering, search, tab switching, recent template usage,
+ * trending order, image source selection, and catalog data completeness.
+ */
 describe("Grid UI", () => {
   beforeEach(() => {
     vi.resetModules();

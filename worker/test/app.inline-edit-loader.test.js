@@ -178,6 +178,52 @@ function mockFaceCropCanvas(blobType = "image/jpeg") {
   };
 }
 
+/**
+ * Mocks browser image loading and canvas export for recent thumbnail saves.
+ *
+ * @returns {{drawImage: import("vitest").Mock}} Canvas draw spy used by thumbnail generation.
+ */
+function mockRecentThumbnailExport() {
+  const drawImage = vi.fn();
+
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => ({ drawImage }));
+  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback, type) => {
+    callback(new Blob(["recent-thumbnail"], { type: type || "image/webp" }));
+  });
+
+  class MockImage {
+    constructor() {
+      this.naturalWidth = 512;
+      this.naturalHeight = 256;
+      this.width = 512;
+      this.height = 256;
+      this.onload = null;
+      this.onerror = null;
+      this.decoding = "";
+    }
+
+    set src(value) {
+      this.currentSrc = value;
+      setTimeout(() => this.onload?.(), 0);
+    }
+
+    get src() {
+      return this.currentSrc;
+    }
+  }
+
+  Object.defineProperty(globalThis, "Image", {
+    configurable: true,
+    value: MockImage,
+  });
+  Object.defineProperty(window, "Image", {
+    configurable: true,
+    value: MockImage,
+  });
+
+  return { drawImage };
+}
+
 function seedSelectedFaceCrop(state, options = {}) {
   const source = options.source || { width: 120, height: 90 };
   const face = options.face || {
@@ -397,6 +443,62 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.editor.overlayRotation).toBe(90);
     expect(state.editor.historyStack).toHaveLength(2);
     expect(state.editor.futureStack).toHaveLength(1);
+  });
+
+  test("custom: save button stores the current editor state as a recent meme", async () => {
+    mockRecentThumbnailExport();
+    const { __testHooks } = await loadApp();
+    const { getRecentMeme } = await import("../public/js/recents.js");
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.generatedImage = "/generated/saved-by-button.png";
+    state.editor.overlayText = "saved from button";
+    state.editor.overlayX = 24;
+    state.editor.overlayY = 36;
+    state.editor.overlayWidthPct = 58;
+    state.editor.overlayRotation = 90;
+    state.editor.frozenTextItems = [{ text: "lower text" }];
+    state.editor.historyStack = [
+      { overlayText: "seed" },
+      { overlayText: "saved from button" },
+    ];
+    state.editor.futureStack = [{ overlayText: "redo text" }];
+    render();
+
+    dom.saveCta.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const metadata = JSON.parse(localStorage.getItem("recent-memes"));
+    expect(metadata).toHaveLength(1);
+    expect(metadata[0].currentImage).toBe("/generated/saved-by-button.png");
+    expect(metadata[0].mode).toBe("face_swap");
+    expect(metadata[0].thumbnail).toEqual({
+      id: metadata[0].id,
+      width: 256,
+      height: 128,
+      type: "image/webp",
+    });
+
+    const recent = await getRecentMeme(metadata[0].id);
+    expect(recent.snapshot.currentImage).toBe("/generated/saved-by-button.png");
+    expect(recent.snapshot.editorSnapshot.overlayText).toBe("saved from button");
+    expect(recent.snapshot.editHistory.historyStack).toHaveLength(2);
+    expect(recent.snapshot.editHistory.futureStack).toHaveLength(1);
+    expect(recent.snapshot.textContent).toEqual({
+      activeText: "saved from button",
+      frozenTextItems: [{ text: "lower text" }],
+    });
+    expect(recent.snapshot.transformation).toEqual({
+      x: 24,
+      y: 36,
+      widthPct: 58,
+      rotation: 90,
+      visible: true,
+    });
+    expect(recent.thumbnail.blob.type).toBe("image/webp");
   });
 
   test("custom: template face regions stay inside the actual meme image bounds", () => {

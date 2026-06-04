@@ -45,6 +45,7 @@ import * as TextOverlay from "./lib/textOverlay.js";
 import * as Templates from "./lib/templates.js";
 import * as Faces from "./lib/faces.js";
 import { recentMemeStorage } from "./js/recents.js";
+import { saveCurrentMeme } from "./js/save.js";
 
 function setStatus(next) {
   state.status = next;
@@ -397,6 +398,19 @@ function hasUnsavedStudioEdits() {
   return Editor.hasUnsavedStudioEdits();
 }
 
+/**
+ * Saves the currently edited meme through the save module.
+ *
+ * @returns {Promise<{metadata: object, snapshot: object}>} Saved recent meme records.
+ */
+async function saveCurrentEditorMeme() {
+  return saveCurrentMeme({
+    state,
+    dom,
+    createEditorSnapshot: Editor.createEditorSnapshot,
+  });
+}
+
 function confirmBackAndResetStudio() {
   return Editor.confirmBackAndResetStudio({
     getTemplateMainImage,
@@ -709,6 +723,17 @@ dom.cameraCta.addEventListener("click", () => {
 });
 dom.titleStartCta?.addEventListener("click", async () => {
   await showTemplateSelection();
+});
+dom.saveCta?.addEventListener("click", async () => {
+  if (state.view !== "studio") return;
+  dom.saveCta.disabled = true;
+  try {
+    await saveCurrentEditorMeme();
+  } catch {
+    // Keep save non-blocking for the editor if browser storage fails.
+  } finally {
+    dom.saveCta.disabled = false;
+  }
 });
 dom.backBtn.addEventListener("click", goBackToUploadChoices);
 configureUpload({
@@ -1189,6 +1214,7 @@ export const __testHooks = {
   setStatus,
   selectSingleFace,
   submitSelectedFace,
+  saveCurrentEditorMeme,
   openStudioForRecentMeme,
   undoEditorSnapshot,
   redoEditorSnapshot,
