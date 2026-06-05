@@ -488,9 +488,56 @@ export function registerEvents(ctx) {
 
     // ── Global keyboard ──────────────────────────
     document.addEventListener("keydown", (event) => {
+        const inInput = event.target?.closest?.("input, textarea, select, [contenteditable='true']");
+
+        // Escape — dismiss open panels / modals / selections
+        if (event.key === "Escape") {
+            if (state.showResetConfirmation) {
+                state.showResetConfirmation = false; render(); return;
+            }
+            if (state.showBackConfirmation) {
+                state.showBackConfirmation = false; render(); return;
+            }
+            if (state.uploadModalOpen) {
+                state.uploadModalOpen = false; render(); return;
+            }
+            if (state.projectMenuOpen) {
+                state.projectMenuOpen = false; render(); return;
+            }
+            if (state.showTextMore) {
+                state.showTextMore = false; render(); return;
+            }
+            if (state.isEditingMemeText) {
+                finishInlineTextEdit(); return;
+            }
+            if (state.isTextSelected) {
+                state.isTextSelected = false; render(); return;
+            }
+            if (state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen) {
+                state.aiPrompt.panelState = "closed";
+                state.isAiPromptPanelOpen = false;
+                render(); return;
+            }
+        }
+
+        // Ctrl+Z / Ctrl+Y — undo / redo
+        if ((event.ctrlKey || event.metaKey) && !inInput) {
+            if (event.key === "z" && !event.shiftKey) {
+                event.preventDefault();
+                undoEditorSnapshot();
+                return;
+            }
+            if (event.key === "z" && event.shiftKey || event.key === "y") {
+                event.preventDefault();
+                redoEditorSnapshot();
+                return;
+            }
+        }
+
+        // Backspace — delete selected text
         if (event.key !== "Backspace") return;
         if (!state.editor.overlayVisible || !state.isTextSelected || state.isEditingMemeText) return;
-        if (event.target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+        if (inInput) return;
         event.preventDefault();
         deleteMemeText();
     });
