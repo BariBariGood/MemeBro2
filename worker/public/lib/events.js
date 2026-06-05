@@ -526,7 +526,7 @@ export function registerEvents(ctx) {
                 state.isTextSelected = false; render(); return;
             }
             if (state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen) {
-                state.aiPrompt.panelState = "closed";
+                if (state.aiPrompt) state.aiPrompt.panelState = "closed";
                 state.isAiPromptPanelOpen = false;
                 render(); return;
             }
