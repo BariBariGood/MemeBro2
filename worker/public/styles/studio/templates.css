@@ -83,7 +83,7 @@
   overflow: hidden;
   border-radius: 8px;
   border: 1px solid var(--white-12);
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 4 / 3 !important;
   background:
     linear-gradient(135deg, hsla(var(--template-hue), 95%, 72%, 0.88), var(--white-08)),
     linear-gradient(180deg, var(--white-14), var(--black-16));
