@@ -33,6 +33,7 @@ export const DETECTION_FAILURE_MESSAGES = {
 
 export const DEFAULT_MEME_TEXT = "TAP TO EDIT TEXT";
 export const EDITOR_HISTORY_STORAGE_KEY = "meme-editor-history";
+export const PROJECT_AUTOSAVE_STORAGE_KEY = "memebro-project-autosave";
 export const DEFAULT_MEME_FONT_KEY = "arial";
 export const DEFAULT_MEME_FONT_SIZE_MODE = "default";
 export const DEFAULT_MEME_TEXT_COLOR = "black";
