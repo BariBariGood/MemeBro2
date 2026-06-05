@@ -9,6 +9,26 @@ import {
   shareOrDownloadMeme,
 } from "./memeExport.js";
 
+// Lightweight transient toast for studio feedback (share/download).
+let toastTimer = null;
+function showStudioToast(message, variant = "info") {
+    if (!message || typeof document === "undefined") return;
+    let toast = document.getElementById("app-toast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "app-toast";
+        toast.className = "app-toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.toggle("app-toast--error", variant === "error");
+    toast.classList.add("is-visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
+}
+
 export function registerEvents(ctx) {
     const {
         dom, state, STATES, clamp,
@@ -51,16 +71,10 @@ export function registerEvents(ctx) {
         try {
             const blob = await exportStudioMemeBlob({ dom, state });
             const outcome = await shareOrDownloadMeme(blob, buildMemeFilename("png"));
-            if (dom.statusText) {
-                dom.statusText.textContent = outcome === "shared"
-                    ? "Meme shared."
-                    : "Meme downloaded.";
-            }
+            showStudioToast(outcome === "shared" ? "Meme shared." : "Meme downloaded.");
         } catch (error) {
             if (error?.name === "AbortError") return;
-            if (dom.statusText) {
-                dom.statusText.textContent = error.message || "Could not share meme.";
-            }
+            showStudioToast(error.message || "Could not share meme.", "error");
         } finally {
             dom.shareCta.disabled = false;
             dom.shareCta.textContent = previousLabel;
