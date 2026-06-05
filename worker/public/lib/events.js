@@ -53,8 +53,13 @@ export function registerEvents(ctx) {
                 state.lastRetryableAction = null;
                 return;
             }
-            if (!loadErrorCodes.has(error?.code)) state.lastRetryableAction = null;
-            setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
+            // Show error inline without destroying user's work — keep status as READY
+            // so the uploaded image, face selection, and template choice remain visible.
+            state.error = {
+                code: error.code || "UPLOAD_FAILED",
+                message: error.message || "Face swap failed. Please try again.",
+            };
+            render();
         }
     }
 
@@ -459,6 +464,12 @@ export function registerEvents(ctx) {
     dom.errorRetryCta?.addEventListener("click", async () => {
         if (state.lastRetryableAction !== "face_swap") return;
         await submitFaceSwapWithErrorHandling();
+    });
+    dom.errorNewPhotoCta?.addEventListener("click", () => {
+        state.error = null;
+        state.lastRetryableAction = null;
+        render();
+        dom.libraryInput.click();
     });
 
     // ── Studio template image fallback ───────────
