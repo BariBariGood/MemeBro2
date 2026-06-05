@@ -9,6 +9,58 @@
         overflow: hidden;
     }
 
+    /* ── Topbar: icon-only actions ── */
+    .save-action,
+    .topbar-action {
+        width: 34px;
+        min-width: 34px;
+        min-height: 34px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .save-action {
+        color: var(--color-lime);
+    }
+
+    .topbar-action,
+    .project-menu-cta {
+        color: rgba(246, 247, 251, 0.78);
+    }
+
+    .topbar-actions {
+        gap: 12px;
+    }
+
+    .save-action .topbar-action-icon,
+    .topbar-action .topbar-action-icon {
+        width: 20px;
+        height: 20px;
+        stroke-width: 2.25;
+    }
+
+    .save-action > span,
+    .topbar-action > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+
+    .save-action:not(:disabled):hover,
+    .topbar-action:not(:disabled):hover,
+    .secondary.topbar-action:not(:disabled):hover {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        transform: none;
+    }
+
     .studio-screen {
         min-height: 100dvh;
         height: 100dvh;
@@ -36,8 +88,6 @@
         position: static;
         width: 100%;
     }
-
-    .vibe-panel { display: none; }
 
     /* ── Text toolbar: floating pill ── */
     .text-toolbar {
@@ -100,4 +150,42 @@
     }
 
     .vibe-button .vibe-icon { font-size: 1.16rem; font-weight: 500; }
+
+    /* AI prompting */
+    .ai-prompt-panel {
+        position: fixed;
+        left: 50%;
+        bottom: var(--ai-prompt-keyboard-offset, 0px);
+        transform: translateX(-50%);
+        z-index: 72;
+        width: min(480px, calc(100vw - 32px));  /* centered card, not full-width */
+        height: min(60dvh, 560px);
+        min-height: unset;
+        max-height: calc(100dvh - 80px);
+        border-radius: 22px 22px 0 0;
+        border-bottom: none;
+        padding-top: 20px;
+        transition: bottom 0.18s ease;
+    }
+
+    .ai-prompt-panel::before {
+        content: '';
+        position: absolute;
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--white-22);
+    }
+
+    .ai-prompt-history {
+        min-height: 0;
+        flex: 1 1 0;
+    }
+
+    .ai-prompt-form {
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
 }
