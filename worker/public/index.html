@@ -55,6 +55,11 @@
       </header>
       <section id="title-screen" class="title-screen hidden" aria-label="MemeBro title screen">
         <div id="scroll-morph-hero-root"></div>
+        <!-- Fallback CTA for non-JS / test environments; hero replaces it visually -->
+        <button id="title-start-cta" class="title-start-cta" type="button" hidden>
+          <span>Get started</span>
+          <span aria-hidden="true">→</span>
+        </button>
       </section>
 
       <section id="overlay-shell" class="image-shell editor-shell hidden" aria-label="Face overlay">
