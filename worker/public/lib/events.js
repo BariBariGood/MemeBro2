@@ -1,7 +1,8 @@
 // ─────────────────────────────────────────────
-// lib/events.js
 // All DOM event listener registrations.
 // ─────────────────────────────────────────────
+
+import { configureAiPrompting } from "./ai-prompting.js";
 
 export function registerEvents(ctx) {
     const {
@@ -35,6 +36,27 @@ export function registerEvents(ctx) {
         hasUnsavedStudioEdits, normalizeBox, setStatus, setError,
         applyManualTransform,
     } = ctx;
+
+    const loadErrorCodes = new Set(["FEATURE_DISABLED", "QUEUE_FULL", "RATE_LIMITED"]);
+    // AI prompting owns its own listeners; events.js only coordinates cross-feature interactions.
+    const aiPrompting = configureAiPrompting({ dom, state, render });
+
+    async function submitFaceSwapWithErrorHandling() {
+        try {
+            state.error = null;
+            state.lastRetryableAction = "face_swap";
+            if (state.status === STATES.ERROR) state.status = STATES.READY;
+            await submitSelectedFace();
+            state.lastRetryableAction = null;
+        } catch (error) {
+            if (error?.name === "AbortError") {
+                state.lastRetryableAction = null;
+                return;
+            }
+            if (!loadErrorCodes.has(error?.code)) state.lastRetryableAction = null;
+            setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
+        }
+    }
 
     // ── Camera ────────────────────────────────────
     dom.cameraCta.addEventListener("click", () => startCameraCapture());
@@ -70,7 +92,7 @@ export function registerEvents(ctx) {
     // ── Upload modal ─────────────────────────────
     dom.openUploadModalCta.addEventListener("click", () => {
         state.uploadModalOpen = true;
-        state.isAiPromptPanelOpen = false;
+        aiPrompting.closePanelSilently();
         render();
     });
     dom.uploadModalBackdrop.addEventListener("click", () => { state.uploadModalOpen = false; render(); });
@@ -79,6 +101,19 @@ export function registerEvents(ctx) {
         state.uploadModalOpen = false;
         render();
         dom.libraryInput.click();
+    });
+    dom.projectMenuCta?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        state.projectMenuOpen = !state.projectMenuOpen;
+        render();
+    });
+    dom.exportProjectCta?.addEventListener("click", () => {
+        state.projectMenuOpen = false;
+        render();
+    });
+    dom.importProjectCta?.addEventListener("click", () => {
+        state.projectMenuOpen = false;
+        render();
     });
 
     // ── Navigation ───────────────────────────────
@@ -139,22 +174,6 @@ export function registerEvents(ctx) {
         button.setAttribute("aria-selected", String(active));
         });
         renderTemplates();
-    });
-
-    // ── AI prompt panel ──────────────────────────
-    dom.aiPromptCta?.addEventListener("click", () => {
-        state.isAiPromptPanelOpen = false; // disabled — keep for future
-        render();
-    });
-    dom.aiPromptCloseCta?.addEventListener("click", () => { state.isAiPromptPanelOpen = false; render(); });
-    dom.aiPromptForm?.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const prompt = dom.aiPromptInput?.value.trim();
-        if (!prompt) return;
-        state.aiPromptHistory.push({ role: "user", text: prompt });
-        state.aiPromptHistory.push({ role: "assistant", text: "Got it — AI variant generation will use this prompt once connected." });
-        dom.aiPromptInput.value = "";
-        render();
     });
 
     // ── Add text ─────────────────────────────────
@@ -282,6 +301,15 @@ export function registerEvents(ctx) {
     // ── Text lock ────────────────────────────────
     dom.textLockCta.addEventListener("click", () => {
         state.isTextLocked      = !state.isTextLocked;
+        state.isEditingMemeText = false;
+        render();
+    });
+
+    // ── Text more menu ───────────────────────────
+    dom.textMoreCta?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!state.editor.overlayVisible || !state.isTextSelected) return;
+        state.showTextMore = !state.showTextMore;
         state.isEditingMemeText = false;
         render();
     });
@@ -427,13 +455,10 @@ export function registerEvents(ctx) {
     });
 
     // ── Continue ─────────────────────────────────
-    dom.continueBtn.addEventListener("click", async () => {
-        try {
-        await submitSelectedFace();
-        } catch (error) {
-        if (error?.name === "AbortError") return;
-        setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
-        }
+    dom.continueBtn.addEventListener("click", submitFaceSwapWithErrorHandling);
+    dom.errorRetryCta?.addEventListener("click", async () => {
+        if (state.lastRetryableAction !== "face_swap") return;
+        await submitFaceSwapWithErrorHandling();
     });
 
     // ── Studio template image fallback ───────────
@@ -480,12 +505,19 @@ export function registerEvents(ctx) {
         if (event.target.closest("#studio-template-art")) {
         state.isTextSelected = false;
         state.showTextMore   = false;
+        state.projectMenuOpen = false;
         render();
         return;
         }
         if (state.isTextSelected || state.showTextMore) {
         state.isTextSelected = false;
         state.showTextMore   = false;
+        state.projectMenuOpen = false;
+        render();
+        return;
+        }
+        if (state.projectMenuOpen && !event.target.closest(".project-menu")) {
+        state.projectMenuOpen = false;
         render();
         }
     });
