@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
 	test: {
 		environment: "jsdom",
+		setupFiles: ["test/setup.ui.js"],
 		environmentOptions: {
 			jsdom: {
 				url: "http://localhost/",
@@ -12,7 +13,6 @@ export default defineConfig({
 			"test/tests.test.js",
 			"test/frontendAssets.test.js",
 			"test/app.inline-edit-loader.test.js",
-			"test/memeExport.test.js",
 		],
 	},
 });

@@ -1,25 +1,40 @@
 // ─────────────────────────────────────────────
-// Main render function, overlay renderer,
-// and AI prompt history renderer.
+// Main render function and overlay renderer.
 // ─────────────────────────────────────────────
 
 import { STATES } from "./constants.js";
+import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES } from "./loadErrors.js";
 
-// ── AI Prompt history ─────────────────────────
+function positionStudioSidebar({ dom, showingStudio }) {
+    const sidebar = dom.studioSidebar;
+    const art = dom.studioTemplateArt;
+    if (!sidebar || !art) return;
 
-export function renderAiPromptHistory({ dom, state }) {
-    if (!dom.aiPromptHistory) return;
-    const messages = state.aiPromptHistory.length
-        ? state.aiPromptHistory
-        : [{ role: "system", text: "Tell me what to change — caption, mood, style, or face-swap direction." }];
-    dom.aiPromptHistory.innerHTML = "";
-    messages.forEach((message) => {
-        const node = document.createElement("article");
-        node.className = `ai-prompt-message ai-prompt-message--${message.role}`;
-        node.textContent = message.text;
-        dom.aiPromptHistory.appendChild(node);
-    });
-    dom.aiPromptHistory.scrollTop = dom.aiPromptHistory.scrollHeight;
+    const isDesktop = window.innerWidth >= 900;
+    if (!showingStudio || !isDesktop) {
+        sidebar.style.left = "";
+        sidebar.style.right = "";
+        sidebar.style.width = "";
+        return;
+    }
+
+    const artRect = art.getBoundingClientRect();
+    if (!artRect.width) return;
+
+    const pagePadding = Math.max(18, Math.min(56, window.innerWidth * 0.035));
+    const gutterLeft = artRect.right;
+    const gutterRight = window.innerWidth - pagePadding;
+    const gutterWidth = Math.max(0, gutterRight - gutterLeft);
+    const sidebarWidth = Math.min(220, Math.max(116, gutterWidth - 24));
+    const centeredInGutter = gutterLeft + gutterWidth / 2;
+    const centerX = Math.min(
+        gutterRight - sidebarWidth / 2,
+        Math.max(gutterLeft + sidebarWidth / 2, centeredInGutter)
+    );
+
+    sidebar.style.left = `${Math.round(centerX)}px`;
+    sidebar.style.right = "auto";
+    sidebar.style.width = `${Math.round(sidebarWidth)}px`;
 }
 
 // ── Face overlay ──────────────────────────────
@@ -94,7 +109,9 @@ export function render(ctx) {
         dom, state,
         getSelectedTemplate, getSelectedFaces, getSelectableFaceLimit,
         renderStudioTemplate, renderFrozenTextItems, syncMemeTextAppearance,
-        applyManualTransform, renderOverlay: _renderOverlay, renderAiPromptHistory: _renderAiPromptHistory,
+        applyManualTransform, renderOverlay: _renderOverlay,
+        renderAiPromptHistory: _renderAiPromptHistory,
+        renderAiPromptLoadMode: _renderAiPromptLoadMode,
         syncOutlineSwatchState, getMemeTextColor,
     } = ctx;
 
@@ -104,6 +121,7 @@ export function render(ctx) {
     const showingHome           = state.view === "home";
     const showingTemplates      = state.view === "templates";
     const showingStudio         = state.view === "studio";
+    const aiPromptPanelOpen     = state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen;
     const selectedTemplate      = getSelectedTemplate();
     const selectedFaceCount     = getSelectedFaces().length;
     const selectableFaceLimit   = getSelectableFaceLimit();
@@ -118,14 +136,16 @@ export function render(ctx) {
     dom.backBtn?.classList.toggle("hidden", showingHome);
     dom.saveCta?.classList.toggle("hidden", !showingStudio);
     dom.shareCta?.classList.toggle("hidden", !showingStudio);
+    dom.projectMenuCta?.classList.toggle("hidden", !showingStudio);
+    dom.projectMenu?.classList.toggle("hidden", !showingStudio || !state.projectMenuOpen);
+    dom.projectMenuCta?.setAttribute("aria-expanded", String(showingStudio && state.projectMenuOpen));
     dom.cameraShell.classList.toggle("hidden", !cameraActive);
     dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);
     dom.studioScreen.classList.toggle("hidden", !showingStudio);
     dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
-    dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !state.isAiPromptPanelOpen);
-    dom.vibePanel?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
-    dom.vibeContainer?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
+    dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !aiPromptPanelOpen);
+    dom.vibeContainer?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
     dom.backConfirmation.classList.toggle("hidden",  !showingStudio || !state.showBackConfirmation);
     dom.overlayShell.classList.toggle("hidden", !editingPhoto || showingTemplates || showingStudio);
@@ -146,6 +166,7 @@ export function render(ctx) {
     // ── Studio ──
     dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
     if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
+    positionStudioSidebar({ dom, showingStudio });
 
     // ── Meme text ──
     if (!state.isEditingMemeText) dom.memeTextPreview.textContent = state.editor.overlayText;
@@ -183,6 +204,11 @@ export function render(ctx) {
         dom.textBorderToggleCta.disabled = noTextSelection;
         dom.textBorderToggleCta.setAttribute("aria-pressed", String(outlineOn));
     }
+    if (dom.textMoreCta) {
+        dom.textMoreCta.disabled = noTextSelection;
+        dom.textMoreCta.classList.toggle("active", state.showTextMore);
+        dom.textMoreCta.setAttribute("aria-expanded", String(showTextPopups && state.showTextMore));
+    }
 
     // ── Toolbar values ──
     dom.textLockCta.textContent      = state.isTextLocked ? "🔒" : "🔓";
@@ -199,6 +225,10 @@ export function render(ctx) {
     dom.faceSwapLoader.classList.toggle("hidden",      !state.isSubmittingFaceSwap);
     dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
 
+    // ── AI prompt load mode ──
+    // Prompt-specific DOM details live in ai-prompting.js; render.js just composes sub-renders.
+    _renderAiPromptLoadMode();
+
     // ── History buttons ──
     dom.undoCta.disabled  = state.editor.historyStack.length <= 1;
     dom.redoCta.disabled  = state.editor.futureStack.length === 0;
@@ -212,8 +242,11 @@ export function render(ctx) {
     if (state.status === STATES.DETECTING)     { dom.progressBar.value = 80;  dom.progressLabel.textContent = "Detecting faces..."; }
 
     // ── Error ──
+    const errorCode = state.error?.code || "";
+    const errorMessage = getLoadErrorMessage(state.error);
     dom.errorState.classList.toggle("hidden", !state.error && state.status !== STATES.ERROR);
-    dom.errorMessage.textContent = state.error?.message || "";
+    dom.errorMessage.textContent = errorMessage;
+    dom.errorRetryCta?.classList.toggle("hidden", !RETRYABLE_LOAD_ERROR_CODES.has(errorCode));
 
     // ── Preview image ──
     if (state.previewUrl) dom.previewImage.src = state.previewUrl;
