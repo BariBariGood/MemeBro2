@@ -20,10 +20,10 @@
   width: max-content;
   margin-inline: auto;
   max-width: calc(100vw - 32px);
-  overflow-x: visible;
+  overflow-x: auto;
   overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
 }
 
