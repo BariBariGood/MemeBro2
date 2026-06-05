@@ -369,6 +369,7 @@ export function goBackToUploadChoices() {
     state.selectedFaceId = null;
     state.selectedFaceIds = [];
     state.error = null;
+    state.lastRetryableAction = null;
     state.imageBitmap = null;
     state.previewUrl = "";
     state.file = null;

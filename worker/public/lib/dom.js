@@ -100,6 +100,7 @@ export const dom = {
   errorState: document.getElementById("error-state"),
   errorMessage: document.getElementById("error-message"),
   errorRetryCta: document.getElementById("error-retry-cta"),
+  errorNewPhotoCta: document.getElementById("error-new-photo-cta"),
   templateScreen: document.getElementById("template-screen"),
   templateSearch: document.getElementById("template-search"),
   templateTabs: document.getElementById("template-tabs"),
