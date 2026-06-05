@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────
 
 import { STATES } from "./constants.js";
-import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES } from "./loadErrors.js";
+import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES, NEW_PHOTO_ERROR_CODES } from "./loadErrors.js";
 
 function positionStudioSidebar({ dom, showingStudio }) {
     const sidebar = dom.studioSidebar;
@@ -246,7 +246,9 @@ export function render(ctx) {
     const errorMessage = getLoadErrorMessage(state.error);
     dom.errorState.classList.toggle("hidden", !state.error && state.status !== STATES.ERROR);
     dom.errorMessage.textContent = errorMessage;
-    dom.errorRetryCta?.classList.toggle("hidden", !RETRYABLE_LOAD_ERROR_CODES.has(errorCode));
+    const showRetry = Boolean(state.error) && (RETRYABLE_LOAD_ERROR_CODES.has(errorCode) || state.lastRetryableAction === "face_swap");
+    dom.errorRetryCta?.classList.toggle("hidden", !showRetry);
+    dom.errorNewPhotoCta?.classList.toggle("hidden", !NEW_PHOTO_ERROR_CODES.has(errorCode));
 
     // ── Preview image ──
     if (state.previewUrl) dom.previewImage.src = state.previewUrl;
