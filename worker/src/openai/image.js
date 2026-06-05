@@ -7,12 +7,19 @@
  * - 400 { error: "blocked", ... } for moderation rejects
  * - 400 { error: "prompt_too_long" } for ai_prompt prompts exceeding MAX_AI_PROMPT_LENGTH
  * - 200 { b64, model, quality, size, mode } on success
+ *
+ * Note: the "ai_prompt" gateway mode is text-to-image only. It is not a value
+ * in ALLOWED_MODES, so successful ai_prompt responses report mode "generate".
  */
-import {
-  AI_PROMPT_PREFIX,
-  MAX_AI_PROMPT_LENGTH,
-  buildAiPrompt,
-} from "./aiPromptMode.js";
+import { ErrorCodes } from "../errors.js";
+import { MAX_AI_PROMPT_LENGTH, buildAiPrompt } from "./aiPromptMode.js";
+
+/**
+ * Legacy hard cap applied to non-ai_prompt prompts via silent truncation.
+ * Kept separate from MAX_AI_PROMPT_LENGTH (which rejects rather than truncates)
+ * so the two limits can diverge without coupling their behavior by accident.
+ */
+const LEGACY_PROMPT_MAX = 800;
 
 const EDIT_SUBJECT_HINT = "The attached photo is the subject of the scene below.";
 const EDIT_BYO_HINT =
@@ -23,6 +30,7 @@ const ALLOWED_SIZES = ["1024x1024", "1024x1536", "1536x1024"];
 const ALLOWED_MODES = ["generate", "restyle", "cast"];
 
 const MAX_REF_BYTES = 4 * 1024 * 1024;
+const LEGACY_DETAIL_CODES = new Set(["prompt_too_long", "openai_error"]);
 
 /**
  * Handles an HTTP request for POST /api/image.
@@ -52,25 +60,45 @@ export async function handleImageRequest(request, env) {
  *
  * @param {Object} body
  * @param {Object} env
+ * @param {{ throwErrors?: boolean }} [options]
  * @returns {Promise<Response>}
  */
-export async function buildImageResponseFromBody(body, env) {
+export async function buildImageResponseFromBody(body, env, options = {}) {
+  const { throwErrors = false } = options;
+
   if (!env?.OPENAI_API_KEY) {
-    return jsonError(503, "no_api_key");
+    return imageError(throwErrors, {
+      status: 503,
+      gatewayCode: ErrorCodes.NO_API_KEY,
+      legacyCode: "no_api_key",
+      message: "OpenAI API key is not configured.",
+    });
   }
 
   const rawPrompt = String(body?.prompt ?? "").trim();
-  if (!rawPrompt) return jsonError(400, "empty_prompt");
+  if (!rawPrompt) {
+    return imageError(throwErrors, {
+      status: 400,
+      gatewayCode: ErrorCodes.EMPTY_PROMPT,
+      legacyCode: "empty_prompt",
+      message: "Prompt is required.",
+    });
+  }
 
   const isAiPromptMode = body?.mode === "ai_prompt";
 
   if (isAiPromptMode && rawPrompt.length > MAX_AI_PROMPT_LENGTH) {
-    return jsonError(400, "prompt_too_long", `Prompt must be ${MAX_AI_PROMPT_LENGTH} characters or fewer`);
+    return imageError(throwErrors, {
+      status: 400,
+      gatewayCode: ErrorCodes.PROMPT_TOO_LONG,
+      legacyCode: "prompt_too_long",
+      message: `Prompt must be ${MAX_AI_PROMPT_LENGTH} characters or fewer`,
+    });
   }
 
   const prompt = isAiPromptMode
     ? buildAiPrompt(rawPrompt)
-    : rawPrompt.slice(0, 800);
+    : rawPrompt.slice(0, LEGACY_PROMPT_MAX);
 
   const quality = ALLOWED_QUALITIES.includes(body?.quality)
     ? body.quality
@@ -82,19 +110,32 @@ export async function buildImageResponseFromBody(body, env) {
 
   const model = env.OPENAI_IMAGE_MODEL || "gpt-image-1";
 
-  const hasRef = Boolean(body?.referenceB64);
+  // ai_prompt is strictly text-to-image: ignore any reference/template images
+  // so behavior is deterministic and the safety prefix is never buried behind
+  // the image-edit hint in callEditsEndpoint.
+  const hasRef = !isAiPromptMode && Boolean(body?.referenceB64);
   const mode = ALLOWED_MODES.includes(body?.mode)
     ? body.mode
     : hasRef
       ? "cast"
       : "generate";
 
-  if (body?.referenceB64 && String(body.referenceB64).length > MAX_REF_BYTES) {
-    return jsonError(413, "reference_too_large");
+  if (!isAiPromptMode && body?.referenceB64 && String(body.referenceB64).length > MAX_REF_BYTES) {
+    return imageError(throwErrors, {
+      status: 413,
+      gatewayCode: ErrorCodes.PAYLOAD_TOO_LARGE,
+      legacyCode: "reference_too_large",
+      message: "Reference image is too large.",
+    });
   }
 
-  if (body?.templateRefB64 && String(body.templateRefB64).length > MAX_REF_BYTES) {
-    return jsonError(413, "reference_too_large");
+  if (!isAiPromptMode && body?.templateRefB64 && String(body.templateRefB64).length > MAX_REF_BYTES) {
+    return imageError(throwErrors, {
+      status: 413,
+      gatewayCode: ErrorCodes.PAYLOAD_TOO_LARGE,
+      legacyCode: "reference_too_large",
+      message: "Reference image is too large.",
+    });
   }
 
   const callOpenAI = () =>
@@ -119,14 +160,7 @@ export async function buildImageResponseFromBody(body, env) {
         upstream.code === "safety_violation" ||
         /safety system|content policy|moderation/i.test(upstream.message ?? ""))
     ) {
-      return new Response(
-        JSON.stringify({
-          error: "blocked",
-          category: "upstream",
-          message: upstream.message ?? "OpenAI rejected this request.",
-        }),
-        { status: 400, headers: { "content-type": "application/json" } }
-      );
+      return blockedError(throwErrors, upstream.message ?? "OpenAI rejected this request.");
     }
 
     let passthrough;
@@ -138,11 +172,13 @@ export async function buildImageResponseFromBody(body, env) {
       passthrough = 502;
     }
 
-    return jsonError(
-      passthrough,
-      "openai_error",
-      (upstream.message ?? text).slice(0, 800)
-    );
+    return imageError(throwErrors, {
+      status: passthrough,
+      gatewayCode: ErrorCodes.OPENAI_ERROR,
+      legacyCode: "openai_error",
+      message: (upstream.message ?? text).slice(0, 800),
+      retryable: passthrough >= 500,
+    });
   }
 
   const data = await oa
@@ -150,7 +186,15 @@ export async function buildImageResponseFromBody(body, env) {
     .catch(() => null);
 
   const b64 = data?.data?.[0]?.b64_json;
-  if (!b64) return jsonError(502, "no_image_returned");
+  if (!b64) {
+    return imageError(throwErrors, {
+      status: 502,
+      gatewayCode: ErrorCodes.OPENAI_ERROR,
+      legacyCode: "no_image_returned",
+      message: "OpenAI did not return an image.",
+      retryable: true,
+    });
+  }
 
   return new Response(
     JSON.stringify({ b64, model, quality, size, mode }),
@@ -242,6 +286,38 @@ function jsonError(status, code, detail) {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function imageError(throwErrors, { status, gatewayCode, legacyCode, message, retryable = false }) {
+  if (!throwErrors) {
+    const legacyDetail = LEGACY_DETAIL_CODES.has(legacyCode) ? message : undefined;
+    return jsonError(status, legacyCode, legacyDetail);
+  }
+
+  const err = new Error(message);
+  err.code = gatewayCode;
+  err.status = status;
+  err.retryable = retryable;
+  throw err;
+}
+
+function blockedError(throwErrors, message) {
+  if (!throwErrors) {
+    return new Response(
+      JSON.stringify({
+        error: "blocked",
+        category: "upstream",
+        message,
+      }),
+      { status: 400, headers: { "content-type": "application/json" } }
+    );
+  }
+
+  const err = new Error(message);
+  err.code = ErrorCodes.UPSTREAM_BLOCKED;
+  err.status = 400;
+  err.retryable = false;
+  throw err;
 }
 
 function parseUpstreamError(text) {
