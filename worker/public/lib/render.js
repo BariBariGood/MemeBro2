@@ -212,6 +212,8 @@ export function render(ctx) {
 
     // ── Toolbar values ──
     dom.textLockCta.textContent      = state.isTextLocked ? "🔒" : "🔓";
+    dom.textLockCta.setAttribute("aria-label", state.isTextLocked ? "Unlock text position" : "Lock text position");
+    dom.textLockCta.setAttribute("aria-pressed", String(state.isTextLocked));
     dom.memeFontSelect.value         = state.editor.overlayFontKey;
     dom.memeFontSizeInput.value      = String(Math.round(state.editor.overlayFontPx || 22));
     dom.memeTextColorInput.value     = getMemeTextColor(state.editor.overlayTextColor);
@@ -220,6 +222,9 @@ export function render(ctx) {
     dom.textStyleBoldCta.classList.toggle("active",      state.editor.overlayBold);
     dom.textStyleItalicCta.classList.toggle("active",    state.editor.overlayItalic);
     dom.textStyleUnderlineCta.classList.toggle("active", state.editor.overlayUnderline);
+    dom.textStyleBoldCta.setAttribute("aria-pressed",      String(state.editor.overlayBold));
+    dom.textStyleItalicCta.setAttribute("aria-pressed",    String(state.editor.overlayItalic));
+    dom.textStyleUnderlineCta.setAttribute("aria-pressed", String(state.editor.overlayUnderline));
 
     // ── Face swap loader ──
     dom.faceSwapLoader.classList.toggle("hidden",      !state.isSubmittingFaceSwap);

@@ -180,3 +180,25 @@ body {
   white-space: nowrap;
   border: 0;
 }
+
+.skip-link {
+  position: fixed;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 12px 24px;
+  background: var(--color-lime);
+  color: var(--color-ink);
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 16px var(--black-28);
+  transition: top 200ms ease;
+}
+
+.skip-link:focus {
+  top: 16px;
+  outline: var(--focus-ring);
+  outline-offset: 3px;
+}
