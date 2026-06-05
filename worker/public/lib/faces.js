@@ -181,7 +181,8 @@ export async function detectFaces(file, deps) {
     clearFaceFitState();
 
     if (!ALLOWED_TYPES.has(file.type) && !file.type.startsWith("image/")) {
-        setError("UNSUPPORTED_FORMAT", "Unsupported format. Please use a standard image format.");
+        state.error = { code: "UNSUPPORTED_FORMAT", message: "Unsupported format. Please choose a standard image (JPEG, PNG, or WebP)." };
+        setStatus(STATES.IDLE);
         return;
     }
 
@@ -193,7 +194,8 @@ export async function detectFaces(file, deps) {
         if (mySequence !== state.sequence) return;
     } catch (error) {
         if (mySequence !== state.sequence) return;
-        setError(error.code || "CORRUPT_IMAGE", "Could not read this image. Please choose another photo.");
+        state.error = { code: error.code || "CORRUPT_IMAGE", message: "Could not read this image. Please choose another photo." };
+        setStatus(STATES.IDLE);
         return;
     }
 
