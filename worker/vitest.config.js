@@ -12,6 +12,7 @@ export default defineConfig({
 			"test/fallback.test.js",
 			"test/textRenderer.test.js",
 			"test/imageExporter.test.js",
+			"test/aiPromptMode.spec.js",
 		],
 	},
 });
