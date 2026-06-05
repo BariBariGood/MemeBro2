@@ -138,7 +138,7 @@ describe("OpenAI-backed routes", () => {
     expect(response.status).toBe(200);
     expect(body).toMatchObject({
       b64: "AAAA",
-      model: "gpt-image-1",
+      model: "gpt-image-2",
       quality: "low",
       size: "1024x1024",
       mode: "generate",
