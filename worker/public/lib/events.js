@@ -55,6 +55,7 @@ export function registerEvents(ctx) {
             }
             // Show error inline without destroying user's work — keep status as READY
             // so the uploaded image, face selection, and template choice remain visible.
+            if (!loadErrorCodes.has(error?.code)) state.lastRetryableAction = null;
             state.error = {
                 code: error.code || "UPLOAD_FAILED",
                 message: error.message || "Face swap failed. Please try again.",
