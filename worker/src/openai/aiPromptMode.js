@@ -11,7 +11,15 @@
  * - Constraining output to a single meme image avoids layout confusion.
  */
 
-/** Maximum characters accepted in the raw user prompt for ai_prompt mode. */
+/**
+ * Maximum length accepted in the raw user prompt for ai_prompt mode.
+ *
+ * Measured in JavaScript string units (UTF-16 code units), so astral
+ * characters such as emoji count as 2. This caps only the user's text; the
+ * AI_PROMPT_PREFIX is added afterward and is not counted toward this limit, so
+ * the final prompt sent to OpenAI can exceed this value (well within the
+ * model's own prompt limit).
+ */
 export const MAX_AI_PROMPT_LENGTH = 800;
 
 /**
