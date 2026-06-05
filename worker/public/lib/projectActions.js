@@ -187,11 +187,42 @@ function parseProject(text) {
     if (!payload || payload.version !== PROJECT_VERSION || !payload.editor) {
         throw new Error("This MemeBro project file is not supported.");
     }
+    validateProjectImageSources(payload);
     return payload;
+}
+
+function isSafeProjectImageSource(value) {
+    if (!value) return true;
+    if (typeof value !== "string") return false;
+
+    if (value.startsWith("/")) return true;
+    if (value.startsWith("./") || value.startsWith("../")) return false;
+
+    try {
+        const url = new URL(value, window.location.origin);
+        if (url.origin === window.location.origin) return true;
+        return url.protocol === "data:" || url.protocol === "blob:";
+    } catch {
+        return false;
+    }
+}
+
+function validateProjectImageSources(project) {
+    const imageSources = [
+        project.baseImage?.templateImage,
+        project.baseImage?.generatedImage,
+        project.editor?.templateImage,
+        project.editor?.generatedImage,
+    ];
+
+    if (imageSources.some((src) => !isSafeProjectImageSource(src))) {
+        throw new Error("This MemeBro project file contains unsupported image sources.");
+    }
 }
 
 export function applyProjectPayload(payload, { state, getTemplateMainImage, render }) {
     const project = typeof payload === "string" ? parseProject(payload) : payload;
+    validateProjectImageSources(project);
     state.selectedTemplateId = project.selectedTemplateId || project.editor.selectedTemplateId || state.selectedTemplateId;
     state.view = "studio";
     state.isEditingMemeText = false;
@@ -213,6 +244,8 @@ export function configureProjectActions({
 }) {
     let autosaveTimer = null;
     let lastAutosaveSerialized = "";
+    let autosaveDirty = false;
+    const storage = globalThis.localStorage;
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
@@ -224,12 +257,18 @@ export function configureProjectActions({
     }
 
     function saveProjectNow() {
-        if (state.view !== "studio" || !state.selectedTemplateId) return;
+        if (state.view !== "studio" || !state.selectedTemplateId || !autosaveDirty) return;
         setSaveStatus("saving", "Saving...");
         try {
             const serialized = serializeProject();
-            localStorage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+            if (serialized === lastAutosaveSerialized) {
+                autosaveDirty = false;
+                setSaveStatus("saved", "Saved");
+                return;
+            }
+            storage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
             lastAutosaveSerialized = serialized;
+            autosaveDirty = false;
             setSaveStatus("saved", "Saved");
         } catch {
             setSaveStatus("failed", "Failed");
@@ -238,13 +277,7 @@ export function configureProjectActions({
 
     function scheduleAutoSave() {
         if (state.view !== "studio" || !state.selectedTemplateId) return;
-        let serialized = "";
-        try {
-            serialized = serializeProject();
-        } catch {
-            return;
-        }
-        if (serialized === lastAutosaveSerialized) return;
+        autosaveDirty = true;
         state.saveStatus = "saving";
         state.saveStatusMessage = "Saving...";
         clearTimeout(autosaveTimer);
@@ -253,7 +286,7 @@ export function configureProjectActions({
 
     function restoreAutoSave() {
         try {
-            const raw = localStorage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
+            const raw = storage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
             if (!raw) return false;
             const payload = parseProject(raw);
             if (!payload.selectedTemplateId) return false;
@@ -283,12 +316,10 @@ export function configureProjectActions({
             return;
         }
 
-        const url = URL.createObjectURL(blob);
         try {
-            await navigator.clipboard?.writeText(url);
-            setSaveStatus("saved", "Link copied");
-        } catch {
             downloadBlob(blob, file.name);
+            setSaveStatus("saved", "Downloaded");
+        } catch {
             setSaveStatus("saved", "Downloaded");
         }
     }

@@ -895,12 +895,12 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     });
   });
 
-  test("custom: project actions fall back to copying a blob link when Web Share is unavailable", async () => {
-    const writeText = vi.fn(async () => {});
+  test("custom: project actions fall back to download when Web Share is unavailable", async () => {
     globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-share");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 
     const { __testHooks } = await loadApp();
     await settleApp();
@@ -911,8 +911,8 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     dom.shareCta.click();
 
     await vi.waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith("blob:memebro-share");
-      expect(state.saveStatusMessage).toBe("Link copied");
+      expect(click).toHaveBeenCalled();
+      expect(state.saveStatusMessage).toBe("Downloaded");
     });
   });
 
@@ -949,6 +949,30 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.view).toBe("studio");
     expect(state.editor.overlayText).toBe("ROUND TRIP");
     expect(state.editor.generatedImage).toBe("/generated/project.png");
+  });
+
+  test("custom: project import rejects external image sources", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { projectActions } = __testHooks;
+    const unsafeProject = {
+      version: 1,
+      selectedTemplateId: "drake",
+      baseImage: {
+        templateImage: "https://tracker.example/image.png",
+        generatedImage: "",
+      },
+      layers: [],
+      editor: {
+        selectedTemplateId: "drake",
+        templateImage: "https://tracker.example/image.png",
+        generatedImage: "",
+      },
+    };
+
+    await expect(projectActions.importProjectFile(
+      new File([JSON.stringify(unsafeProject)], "unsafe.memebro.json", { type: "application/json" })
+    )).rejects.toThrow(/unsupported image sources/i);
   });
 
   test("custom: project autosave is throttled, updates status, and restores after reload", async () => {
