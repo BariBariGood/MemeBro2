@@ -46,11 +46,16 @@ function wrapTextLines(ctx, text, maxWidth) {
   return lines;
 }
 
-function drawTextLayer(ctx, layer, width, height) {
+function drawTextLayer(ctx, layer, width, height, fontScale = 1) {
   const text = String(layer.text || "").trim();
   if (!text) return;
 
-  const fontPx = Math.max(8, Number(layer.fontPx) || 22);
+  // On screen the meme renders inside a scaled-down art box. `fontScale`
+  // maps the displayed font size up to the natural image resolution so the
+  // export matches what the user sees. `autoScale` reflects the live-overlay
+  // auto-fit applied by fitMemeTextToCanvas (frozen items use 1).
+  const displayFontPx = Math.max(8, (Number(layer.fontPx) || 22) * (Number(layer.autoScale) || 1));
+  const fontPx = displayFontPx * fontScale;
   const fontFamily = getMemeFontFamily(layer.fontKey);
   const color = resolveColor(layer.color);
   const outlineColor = layer.outlineColor || "#ffffff";
@@ -108,6 +113,7 @@ function collectTextLayers(editor) {
     rotation: item.rotation,
     fontKey: item.fontKey,
     fontPx: item.fontPx,
+    autoScale: 1,
     color: item.color,
     bold: item.bold,
     italic: item.italic,
@@ -127,6 +133,7 @@ function collectTextLayers(editor) {
       rotation: editor.overlayRotation,
       fontKey: editor.overlayFontKey,
       fontPx: editor.overlayFontPx,
+      autoScale: Number(editor.overlayAutoScale) || 1,
       color: editor.overlayTextColor,
       bold: editor.overlayBold,
       italic: editor.overlayItalic,
@@ -160,8 +167,14 @@ export async function exportStudioMemeBlob({ dom, state }) {
   const base = await loadImageElement(imgEl.currentSrc || imgEl.src);
   ctx.drawImage(base, 0, 0, width, height);
 
+  // Ratio between the natural image and the on-screen rendered image so text
+  // drawn here matches the preview size. object-fit: contain in an
+  // aspect-matched box means clientWidth tracks the rendered image width.
+  const displayWidth = imgEl.clientWidth || imgEl.getBoundingClientRect().width || width;
+  const fontScale = displayWidth ? width / displayWidth : 1;
+
   for (const layer of collectTextLayers(state.editor)) {
-    drawTextLayer(ctx, layer, width, height);
+    drawTextLayer(ctx, layer, width, height, fontScale);
   }
 
   return new Promise((resolve, reject) => {
@@ -191,10 +204,14 @@ export async function shareOrDownloadMeme(blob, filename = buildMemeFilename("pn
   const file = new File([blob], filename, { type: blob.type || "image/png" });
 
   if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({
-      files: [file],
-    });
-    return "shared";
+    try {
+      await navigator.share({ files: [file] });
+      return "shared";
+    } catch (error) {
+      // User dismissed the share sheet — surface that to the caller.
+      if (error?.name === "AbortError") throw error;
+      // Any other share failure falls back to a direct download.
+    }
   }
 
   downloadMemeBlob(blob, filename);
