@@ -260,5 +260,8 @@ async function init() {
   await Templates.loadTemplateCatalog({ loadTemplates });
   projectActions.restoreAutoSave();
   render();
+  // Bridge from the React scroll-morph hero island to the existing template flow.
+  // Both hero CTAs ("drop a meme" / "browse templates") dispatch this event.
+  window.addEventListener('memebro:start', () => showTemplateSelection());
 }
 init();

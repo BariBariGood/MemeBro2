@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MemeBro Upload Flow</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./hero/hero.css" />
   </head>
   <body>
     <main class="upload-page">
@@ -53,34 +54,7 @@
         </div>
       </header>
       <section id="title-screen" class="title-screen hidden" aria-label="MemeBro title screen">
-        <div class="title-grid-glow title-grid-glow-left" aria-hidden="true"></div>
-        <div class="title-grid-glow title-grid-glow-right" aria-hidden="true"></div>
-        <div class="title-wheel" aria-hidden="true">
-          <span class="title-wheel-card"><img src="./assets/preview-images/drake-hotline-bling.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/always-has-been.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/ancient-aliens.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/surprised-pikachu.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/woman-yelling-at-cat.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/left-exit-12-off-ramp.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/disaster-girl.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/futurama-fry.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/roll-safe-think-about-it.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/gru-plan.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/mocking-spongebob.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/success-kid.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/hide-the-pain-harold.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/this-is-fine.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/two-buttons.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/is-this-a-pigeon.jpg" alt="" /></span>
-        </div>
-        <div class="title-center-copy">
-          <p class="title-kicker">MemeBro</p>
-          <h1>MEME IT BEFORE THE MOMENT <br class="mobile-title-break" />DIES.</h1>
-          <button id="title-start-cta" class="title-start-cta" type="button">
-            <span>Get started</span>
-            <span aria-hidden="true">→</span>
-          </button>
-        </div>
+        <div id="scroll-morph-hero-root"></div>
       </section>
 
       <section id="overlay-shell" class="image-shell editor-shell hidden" aria-label="Face overlay">
@@ -307,6 +281,7 @@
       </section>
     </main>
 
+    <script type="module" src="./hero/hero.js"></script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>
