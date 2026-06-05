@@ -25,6 +25,8 @@ const GATEWAY_PATH = "/api/process";
 const CAPTION_PATH = "/api/caption";
 const IMAGE_PATH = "/api/image";
 const HEALTH_PATH = "/api/health";
+const RECENTS_PATH = "/api/recents";
+const RECENTS_KV_KEY = "memebro:recents";
 
 /**
  * Builds a JSON Response with the gateway's common content type.
@@ -504,6 +506,59 @@ export async function handleHealthRequest(request, env) {
   }
 }
 
+export async function handleRecentsRequest(request, env) {
+  if (env?.RECENTS_CLOUD_SYNC !== "1") {
+    return jsonResponse(
+      {
+        code: ErrorCodes.FEATURE_DISABLED,
+        message: "Cloud recents sync is disabled.",
+        retryable: false,
+      },
+      503
+    );
+  }
+
+  const store = env?.RECENTS_KV || env?.RECENTS;
+
+  if (!store || typeof store.get !== "function" || typeof store.put !== "function") {
+    return jsonResponse(
+      {
+        code: ErrorCodes.FEATURE_DISABLED,
+        message: "Cloud recents storage is not configured.",
+        retryable: false,
+      },
+      503
+    );
+  }
+
+  if (request.method === "GET") {
+    const raw = await store.get(RECENTS_KV_KEY);
+    return jsonResponse({
+      recents: raw ? JSON.parse(raw) : [],
+    });
+  }
+
+  if (request.method === "PUT") {
+    const payload = await request.json().catch(() => null);
+    const recents = Array.isArray(payload?.recents) ? payload.recents : [];
+
+    await store.put(RECENTS_KV_KEY, JSON.stringify(recents));
+
+    return jsonResponse({
+      recents,
+      saved: true,
+    });
+  }
+
+  return jsonResponse(
+    {
+      code: "METHOD_NOT_ALLOWED",
+      message: "Use GET or PUT for /api/recents",
+    },
+    405
+  );
+}
+
 export default {
   /**
    * Cloudflare Worker fetch handler.
@@ -526,6 +581,9 @@ export default {
     if (url.pathname === IMAGE_PATH) {
       return handleImageRequest(request, env);
     }
+    if (url.pathname === RECENTS_PATH) {
+  return handleRecentsRequest(request, env);
+}
 
     if (url.pathname === GATEWAY_PATH) {
       return handleGatewayRequest(request, env);
