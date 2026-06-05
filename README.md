@@ -64,10 +64,10 @@ Then open `http://localhost:8787/` (default Wrangler port). The upload app shoul
 - The final Add Face submit calls `/api/process`, so local submit testing needs `OPENAI_API_KEY`, `FACE_SWAP_API_URL`, and any related upstream config in `.dev.vars`.
 - The Worker now also exposes built-in OpenAI routes:
   - `POST /api/caption` (chat-completions caption generation)
-  - `POST /api/image` (gpt-image-1 generation/edits)
+  - `POST /api/image` (gpt-image-2 generation/edits)
 - Optional model vars:
   - `OPENAI_MODEL` (default `gpt-4o-mini`)
-  - `OPENAI_IMAGE_MODEL` (default `gpt-image-1`)
+  - `OPENAI_IMAGE_MODEL` (default `gpt-image-2`)
 - If `IMAGE_GEN_API_URL` / `EXTRA_ROAST_API_URL` is not set, `/api/process` with `mode=extra_roast` automatically falls back to the built-in `/api/image` logic.
 
 ## Tests
