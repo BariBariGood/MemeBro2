@@ -49,7 +49,11 @@ function jsonResponse(body, status = 200) {
  * @returns {number} HTTP status code
  */
 function statusForError(err) {
+  if (Number.isInteger(err.status)) return err.status;
   if (err.code === ErrorCodes.PAYLOAD_TOO_LARGE) return 413;
+  if (err.code === ErrorCodes.EMPTY_PROMPT) return 400;
+  if (err.code === ErrorCodes.PROMPT_TOO_LONG) return 400;
+  if (err.code === ErrorCodes.UPSTREAM_BLOCKED) return 400;
   if (err.code === ErrorCodes.INVALID_MODE) return 400;
   if (err.code === ErrorCodes.CLIENT_ERROR) return 400;
   if (err.code === ErrorCodes.INVALID_DIMENSIONS) return 400;
@@ -57,7 +61,9 @@ function statusForError(err) {
   if (err.code === ErrorCodes.QUEUE_FULL) return 503;
   if (err.code === ErrorCodes.FEATURE_DISABLED) return 503;
   if (err.code === ErrorCodes.SERVICE_UNAVAILABLE) return 503;
+  if (err.code === ErrorCodes.NO_API_KEY) return 503;
   if (err.code === ErrorCodes.MISSING_API_KEY) return 500;
+  if (err.code === ErrorCodes.OPENAI_ERROR) return 502;
   return 502;
 }
 
@@ -248,6 +254,46 @@ function shouldUseLocalFaceSwap(mode, isJson, requestHeaders) {
   return mode === "face_swap" && !isJson && Boolean(requestHeaders?.get("X-MemeBro-Face-Crop"));
 }
 
+/**
+ * Derives a stable per-client key for rate limiting. Prefers Cloudflare's
+ * trusted client IP header and falls back so a missing header can never throw.
+ *
+ * @param {Request} request - Incoming Worker request
+ * @returns {string} Rate-limit bucket key
+ */
+function clientRateLimitKey(request) {
+  return (
+    request.headers.get("CF-Connecting-IP") ||
+    request.headers.get("X-Forwarded-For") ||
+    "anonymous"
+  );
+}
+
+/**
+ * Throttles the paid ai_prompt image-generation mode per client (bug #2).
+ * Backed by the AI_PROMPT_RATE_LIMITER binding declared in wrangler.jsonc.
+ * When the binding is absent (local dev / tests) this is a no-op, so the
+ * longer-window dashboard rule remains the primary production control.
+ *
+ * @param {Request} request - Incoming Worker request
+ * @param {Object} env - Cloudflare Workers env object
+ * @throws {Error} RATE_LIMITED when the per-minute burst limit is exceeded
+ */
+async function enforceAiPromptRateLimit(request, env) {
+  const limiter = env?.AI_PROMPT_RATE_LIMITER;
+  if (typeof limiter?.limit !== "function") return;
+
+  const { success } = await limiter.limit({ key: clientRateLimitKey(request) });
+  if (!success) {
+    const err = new Error(
+      "Too many AI image requests; please wait a minute and try again."
+    );
+    err.code = ErrorCodes.RATE_LIMITED;
+    err.retryable = true;
+    throw err;
+  }
+}
+
 async function handleLocalFaceSwap({ buffer, mimeType, requestHeaders }, env) {
   const selectedTemplateId = requestHeaders.get("X-MemeBro-Template") || "";
   const faceCropBounds = parseJsonHeader(requestHeaders, "X-MemeBro-Face-Crop") || {};
@@ -380,8 +426,16 @@ export async function handleGatewayRequest(request, env) {
     // instead of looking like the whole app crashed.
     await assertFeatureEnabled(mode, env);
 
+    // Cost + abuse control (bug #2): throttle the paid ai_prompt mode before it
+    // can reach OpenAI. No-op when the rate-limit binding is not configured.
+    if (mode === "ai_prompt") {
+      await enforceAiPromptRateLimit(request, env);
+    }
+
     if (isJson && shouldUseLocalImageGeneration(mode, env)) {
-      return await enqueueRequest(() => buildImageResponseFromBody(payload ?? {}, env));
+      return await enqueueRequest(() =>
+        buildImageResponseFromBody(payload ?? {}, env, { throwErrors: true })
+      );
     }
 
     if (shouldUseLocalFaceSwap(mode, isJson, prepared.requestHeaders)) {

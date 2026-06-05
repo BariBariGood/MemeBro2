@@ -25,6 +25,7 @@ vi.mock("../src/requestQueue.js", async (importOriginal) => {
 });
 
 import worker from "../src";
+import { ErrorCodes } from "../src/errors.js";
 import { enqueueRequest, resetQueue } from "../src/requestQueue.js";
 import {
   AI_PROMPT_PREFIX,
@@ -116,7 +117,11 @@ describe("ai_prompt mode — /api/process gateway", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("empty_prompt");
+    expect(body).toMatchObject({
+      code: ErrorCodes.EMPTY_PROMPT,
+      message: "Prompt is required.",
+      retryable: false,
+    });
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -134,7 +139,11 @@ describe("ai_prompt mode — /api/process gateway", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("empty_prompt");
+    expect(body).toMatchObject({
+      code: ErrorCodes.EMPTY_PROMPT,
+      message: "Prompt is required.",
+      retryable: false,
+    });
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -153,7 +162,7 @@ describe("ai_prompt mode — /api/process gateway", () => {
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.error).toBe("prompt_too_long");
+    expect(body.code).toBe(ErrorCodes.PROMPT_TOO_LONG);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
@@ -177,6 +186,203 @@ describe("ai_prompt mode — /api/process gateway", () => {
 
     expect(response.status).toBe(200);
     expect(mockFetch).toHaveBeenCalled();
+  });
+
+  it("includes a helpful detail message on prompt_too_long", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    const longPrompt = "x".repeat(MAX_AI_PROMPT_LENGTH + 1);
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "ai_prompt", prompt: longPrompt }),
+    });
+
+    const response = await worker.fetch(request, testEnv);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe(ErrorCodes.PROMPT_TOO_LONG);
+    expect(body.message).toBe(
+      `Prompt must be ${MAX_AI_PROMPT_LENGTH} characters or fewer`
+    );
+    expect(body.retryable).toBe(false);
+  });
+
+  it("accepts a whitespace-padded prompt that trims to within the limit", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ b64_json: "HHHH" }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    // Raw length exceeds the cap, but trims down to exactly the limit.
+    const padded = `   ${"y".repeat(MAX_AI_PROMPT_LENGTH)}   `;
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "ai_prompt", prompt: padded }),
+    });
+
+    const response = await worker.fetch(request, testEnv);
+
+    expect(response.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalled();
+  });
+
+  it("returns 503 no_api_key when OPENAI_API_KEY is missing", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "ai_prompt",
+        prompt: "a frog on a skateboard",
+      }),
+    });
+
+    // env without OPENAI_API_KEY
+    const response = await worker.fetch(request, {});
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      code: ErrorCodes.NO_API_KEY,
+      message: "OpenAI API key is not configured.",
+      retryable: false,
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("normalizes OpenAI moderation rejects to the gateway error contract", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: {
+              code: "moderation_blocked",
+              message: "Image denied by policy",
+            },
+          }),
+          { status: 400, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "ai_prompt",
+        prompt: "a meme that should get blocked",
+      }),
+    });
+
+    const response = await worker.fetch(request, testEnv);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: ErrorCodes.UPSTREAM_BLOCKED,
+      message: "Image denied by policy",
+      retryable: false,
+    });
+  });
+
+  it("normalizes OpenAI failures to the gateway error contract", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ error: { message: "OpenAI unavailable" } }),
+          { status: 503, headers: { "content-type": "application/json" } }
+        )
+      )
+    );
+
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "ai_prompt",
+        prompt: "a meme during an outage",
+      }),
+    });
+
+    const response = await worker.fetch(request, testEnv);
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({
+      code: ErrorCodes.OPENAI_ERROR,
+      message: "OpenAI unavailable",
+      retryable: true,
+    });
+  });
+
+  it("ignores a reference image and stays text-to-image (images/generations)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ b64_json: "FFFF" }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "ai_prompt",
+        prompt: "a cat as a wizard",
+        referenceB64: "ABCD",
+      }),
+    });
+
+    const response = await worker.fetch(request, testEnv);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ b64: "FFFF", mode: "generate" });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/images/generations",
+      expect.any(Object)
+    );
+  });
+
+  it("does not 413 on an oversized reference image in ai_prompt mode (ref ignored)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ b64_json: "GGGG" }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const hugeRef = "a".repeat(5 * 1024 * 1024); // > MAX_REF_BYTES (4 MB)
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "ai_prompt",
+        prompt: "a dog coding at 3am",
+        referenceB64: hugeRef,
+      }),
+    });
+
+    const response = await worker.fetch(request, testEnv);
+
+    expect(response.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.openai.com/v1/images/generations",
+      expect.any(Object)
+    );
   });
 
   it("returns 503 QUEUE_FULL when the request queue is saturated", async () => {
@@ -207,6 +413,72 @@ describe("ai_prompt mode — /api/process gateway", () => {
       retryable: true,
     });
     expect(body.message).toMatch(/busy|queue/i);
+  });
+
+  it("rejects with 429 RATE_LIMITED when the ai_prompt rate limiter is exceeded", async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    const limitEnv = {
+      ...testEnv,
+      AI_PROMPT_RATE_LIMITER: {
+        limit: vi.fn().mockResolvedValue({ success: false }),
+      },
+    };
+
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "CF-Connecting-IP": "203.0.113.7",
+      },
+      body: JSON.stringify({ mode: "ai_prompt", prompt: "spam me" }),
+    });
+
+    const response = await worker.fetch(request, limitEnv);
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toMatchObject({
+      code: ErrorCodes.RATE_LIMITED,
+      retryable: true,
+    });
+    // Throttled before any paid OpenAI call happens.
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(limitEnv.AI_PROMPT_RATE_LIMITER.limit).toHaveBeenCalledWith({
+      key: "203.0.113.7",
+    });
+  });
+
+  it("proceeds to OpenAI when the ai_prompt rate limiter allows the request", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ b64_json: "IIII" }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const limitEnv = {
+      ...testEnv,
+      AI_PROMPT_RATE_LIMITER: {
+        limit: vi.fn().mockResolvedValue({ success: true }),
+      },
+    };
+
+    const request = new Request("http://example.com/api/process", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "ai_prompt", prompt: "a polite request" }),
+    });
+
+    const response = await worker.fetch(request, limitEnv);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ b64: "IIII", mode: "generate" });
+    expect(limitEnv.AI_PROMPT_RATE_LIMITER.limit).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalled();
   });
 
   it("does NOT apply prompt_too_long to extra_roast mode (backward compat)", async () => {
