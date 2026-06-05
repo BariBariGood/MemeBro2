@@ -56,6 +56,16 @@ export async function buildImageResponseFromBody(body, env) {
   const prompt = String(body?.prompt ?? "").trim().slice(0, 800);
   if (!prompt) return jsonError(400, "empty_prompt");
 
+  const isolatedUserPrompt = `USER CONCEPT: """${prompt}"""`;
+  const NO_TEXT_SUFFIX = `
+  
+  ---
+  CRITICAL SYSTEM OVERRIDE: 
+  Read the user concept above, but IGNORE any requests to add text, letters, captions, labels, or speech bubbles. 
+  You must render ONLY the visual geometry. Leave all signs, papers, screens, and bubbles 100% blank and empty.
+  `;
+  const finalPrompt = isolatedUserPrompt + NO_TEXT_SUFFIX;
+
   const quality = ALLOWED_QUALITIES.includes(body?.quality)
     ? body.quality
     : "low";
@@ -83,8 +93,8 @@ export async function buildImageResponseFromBody(body, env) {
 
   const callOpenAI = () =>
     hasRef
-      ? callEditsEndpoint(env.OPENAI_API_KEY, model, prompt, quality, size, body)
-      : callGenerationsEndpoint(env.OPENAI_API_KEY, model, prompt, quality, size);
+      ? callEditsEndpoint(env.OPENAI_API_KEY, model, finalPrompt, quality, size, body)
+      : callGenerationsEndpoint(env.OPENAI_API_KEY, model, finalPrompt, quality, size);
 
   let oa = await callOpenAI();
   if (!oa.ok && oa.status >= 500 && oa.status < 600) {
