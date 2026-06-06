@@ -498,8 +498,52 @@ export function registerEvents(ctx) {
         }
     });
 
+    // ── Debounced text-input snapshot ────────────
+    let _textInputDebounceTimer = null;
+    dom.memeTextPreview.addEventListener("input", () => {
+        clearTimeout(_textInputDebounceTimer);
+        _textInputDebounceTimer = setTimeout(() => {
+            recordEditorSnapshot();
+        }, 500);
+    });
+    dom.memeTextPreview.addEventListener("blur", () => {
+        // Flush any pending debounced snapshot immediately on blur
+        if (_textInputDebounceTimer) {
+            clearTimeout(_textInputDebounceTimer);
+            _textInputDebounceTimer = null;
+        }
+    });
+
     // ── Global keyboard ──────────────────────────
     document.addEventListener("keydown", (event) => {
+        // Undo: Ctrl+Z (not Shift)
+        if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+            if (event.target?.closest?.("input, textarea, select")) return;
+            if (state.view !== "studio") return;
+            // Flush debounced text snapshot before undoing
+            if (_textInputDebounceTimer) {
+                clearTimeout(_textInputDebounceTimer);
+                _textInputDebounceTimer = null;
+                recordEditorSnapshot();
+            }
+            if (state.isEditingMemeText) finishInlineTextEdit();
+            event.preventDefault();
+            undoEditorSnapshot();
+            return;
+        }
+        // Redo: Ctrl+Y or Ctrl+Shift+Z
+        if (
+            ((event.ctrlKey || event.metaKey) && event.key === "y") ||
+            ((event.ctrlKey || event.metaKey) && event.key === "z" && event.shiftKey) ||
+            ((event.ctrlKey || event.metaKey) && event.key === "Z")
+        ) {
+            if (event.target?.closest?.("input, textarea, select")) return;
+            if (state.view !== "studio") return;
+            event.preventDefault();
+            redoEditorSnapshot();
+            return;
+        }
+        // Delete selected text with Backspace
         if (event.key !== "Backspace") return;
         if (!state.editor.overlayVisible || !state.isTextSelected || state.isEditingMemeText) return;
         if (event.target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
