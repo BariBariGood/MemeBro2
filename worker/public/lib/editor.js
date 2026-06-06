@@ -18,6 +18,8 @@ import { state } from "./state.js";
 
 // ── Helpers ──────────────────────────────────
 
+let _applyGeneration = 0;
+
 function cloneSnapshot(snapshot) {
     return JSON.parse(JSON.stringify(snapshot));
 }
@@ -72,7 +74,9 @@ export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
         // Synchronously set the data URL so callers have something immediately,
         // then asynchronously upgrade to a blob URL for better rendering.
         state.editor.generatedImage = restoredGenerated;
+        const gen = ++_applyGeneration;
         fetch(restoredGenerated).then((r) => r.blob()).then((blob) => {
+            if (gen !== _applyGeneration) return;
             const cur = state.editor.generatedImage;
             if (cur && cur.startsWith("blob:")) URL.revokeObjectURL(cur);
             state.editor.generatedImage = URL.createObjectURL(blob);

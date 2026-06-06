@@ -175,15 +175,7 @@ export function render(ctx) {
         // "Drop a meme" flow — no template selected, render the dropped image directly.
         const src = state.editor.generatedImage || state.editor.templateImage;
         if (dom.studioTemplateImage.src !== src) {
-            const tempImg = new Image();
-            tempImg.src = src;
-            tempImg.decode().then(() => {
-                if (dom.studioTemplateImage.src !== src) {
-                    dom.studioTemplateImage.src = src;
-                }
-            }).catch(() => {
-                dom.studioTemplateImage.src = src;
-            });
+            dom.studioTemplateImage.src = src;
             dom.studioTemplateImage.alt = "Dropped meme";
         }
         dom.studioTemplateArt.style.width  = "";
