@@ -122,7 +122,7 @@ const endTextDrag             = (e) => TextOverlay.endTextDrag(e, { recordEditor
 const startTextResize         = (e) => TextOverlay.startTextResize(e);
 const moveTextResize          = (e) => TextOverlay.moveTextResize(e, { dom, clamp, render });
 const endTextResize           = (e) => TextOverlay.endTextResize(e, { recordEditorSnapshot });
-const selectTextObject        = (e) => TextOverlay.selectTextObject(e, { render });
+const selectTextObject        = (e) => TextOverlay.selectTextObject(e, { render, beginInlineTextEdit });
 const updateEditorTextSetting = (k, v) => TextOverlay.updateEditorTextSetting(k, v, { recordEditorSnapshot, render });
 
 function beginInlineTextEdit(event) {
