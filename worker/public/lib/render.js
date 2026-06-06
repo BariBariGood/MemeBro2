@@ -300,7 +300,9 @@ export function render(ctx) {
     dom.errorNewPhotoCta?.classList.toggle("hidden", !NEW_PHOTO_ERROR_CODES.has(errorCode));
 
     // ── Preview image ──
-    if (state.previewUrl) dom.previewImage.src = state.previewUrl;
+    if (state.previewUrl && dom.previewImage.src !== state.previewUrl) {
+        dom.previewImage.src = state.previewUrl;
+    }
 
     // ── Status text ──
     if (state.status === STATES.FACES_FOUND) {
