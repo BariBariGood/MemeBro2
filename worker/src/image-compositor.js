@@ -48,8 +48,8 @@ export async function compositeImage({
       referenceMime: faceCrop.mimeType,
       templateRefB64: templateImage.b64,
       templateRefMime: templateImage.mimeType,
-      quality: "high",
-      size: "1024x1536",
+      quality: "low",
+      size: "1024x1024",
     },
     env
   );
