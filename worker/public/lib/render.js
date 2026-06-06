@@ -144,7 +144,7 @@ export function render(ctx) {
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);
     dom.studioScreen.classList.toggle("hidden", !showingStudio);
     dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
-    dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !aiPromptPanelOpen);
+    dom.aiPromptPanel?.classList.toggle("hidden", !showingTemplates || !aiPromptPanelOpen);
     dom.vibeContainer?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
     dom.backConfirmation.classList.toggle("hidden",  !showingStudio || !state.showBackConfirmation);

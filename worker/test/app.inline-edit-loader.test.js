@@ -527,8 +527,11 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
+
+    expect(dom.aiPromptCta.closest("#studio-screen")).toBeNull();
+    expect(dom.aiPromptCta.closest("#template-screen")).not.toBeNull();
 
     dom.aiPromptCta.click();
 
@@ -570,7 +573,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
 
     Object.defineProperty(dom.aiPromptInput, "scrollHeight", {
@@ -590,7 +593,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
 
     const characters = "a".repeat(505);
@@ -610,7 +613,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
 
     dom.aiPromptCta.click();
@@ -643,7 +646,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
 
     dom.aiPromptCta.click();
@@ -662,7 +665,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
 
     dom.aiPromptCta.click();
@@ -701,7 +704,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state);
+    state.view = "templates";
     render();
 
     dom.aiPromptCta.click();
