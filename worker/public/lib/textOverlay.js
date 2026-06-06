@@ -312,6 +312,7 @@ export function selectTextObject(event, { render, beginInlineTextEdit }) {
     if (state.textDidDrag) return;
     if (beginInlineTextEdit &&
         (state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
+        state.showTextMore = false;
         beginInlineTextEdit(event);
         return;
     }
