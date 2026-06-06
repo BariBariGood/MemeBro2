@@ -145,7 +145,6 @@ const createOrSelectTextAtPointer = (event) =>
     recordEditorSnapshot,
     beginInlineTextEdit,
   });
-}
 // ── Editor wrappers ───────────────────────────
 
 const initializeEditorState  = ()  => Editor.initializeEditorState({ getTemplateMainImage, getSelectedTemplate });
