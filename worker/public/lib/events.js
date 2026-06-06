@@ -498,6 +498,22 @@ export function registerEvents(ctx) {
         }
     });
 
+    // ── Debounced text-input snapshot ────────────
+    let _textInputDebounceTimer = null;
+    dom.memeTextPreview.addEventListener("input", () => {
+        clearTimeout(_textInputDebounceTimer);
+        _textInputDebounceTimer = setTimeout(() => {
+            recordEditorSnapshot();
+        }, 500);
+    });
+    dom.memeTextPreview.addEventListener("blur", () => {
+        // Flush any pending debounced snapshot immediately on blur
+        if (_textInputDebounceTimer) {
+            clearTimeout(_textInputDebounceTimer);
+            _textInputDebounceTimer = null;
+        }
+    });
+
     // ── Global keyboard ──────────────────────────
     document.addEventListener("keydown", (event) => {
         const inInput = event.target?.closest?.("input, textarea, select, [contenteditable='true']");
@@ -532,14 +548,21 @@ export function registerEvents(ctx) {
             }
         }
 
-        // Ctrl+Z / Ctrl+Y — undo / redo
+        // Ctrl+Z / Ctrl+Y — undo / redo (case-insensitive for CapsLock)
         if ((event.ctrlKey || event.metaKey) && !inInput) {
-            if (event.key === "z" && !event.shiftKey) {
+            if (event.key.toLowerCase() === "z" && !event.shiftKey) {
+                // Flush debounced text snapshot before undoing
+                if (_textInputDebounceTimer) {
+                    clearTimeout(_textInputDebounceTimer);
+                    _textInputDebounceTimer = null;
+                    recordEditorSnapshot();
+                }
+                if (state.isEditingMemeText) finishInlineTextEdit();
                 event.preventDefault();
                 undoEditorSnapshot();
                 return;
             }
-            if (event.key === "z" && event.shiftKey || event.key === "y") {
+            if (event.key.toLowerCase() === "z" && event.shiftKey || event.key.toLowerCase() === "y") {
                 event.preventDefault();
                 redoEditorSnapshot();
                 return;
