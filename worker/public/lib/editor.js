@@ -82,6 +82,8 @@ export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
             state.editor.generatedImage = URL.createObjectURL(blob);
         }).catch(() => { /* keep the data URL fallback */ });
     } else {
+        const prevUrl = state.editor.generatedImage;
+        if (prevUrl && prevUrl.startsWith("blob:")) URL.revokeObjectURL(prevUrl);
         state.editor.generatedImage = restoredGenerated;
         state.editor._generatedImageDataUrl = null;
     }
