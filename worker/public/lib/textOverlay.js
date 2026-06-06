@@ -174,7 +174,7 @@ export function syncMemeTextAppearance({ dom, clamp }) {
 export function freezeCurrentTextItem() {
     if (!state.editor.overlayVisible) return;
     const text = (state.editor.overlayText || "").trim();
-    if (!text) return;
+    if (!text || text.toUpperCase() === DEFAULT_MEME_TEXT) return;
     state.editor.frozenTextItems.push({
         text,
         fontKey:      state.editor.overlayFontKey,
