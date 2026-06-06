@@ -115,6 +115,25 @@ button:focus-visible {
   max-width: var(--content-max);
 }
 
+.progress-spinner-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--color-lime, #90e635);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 progress {
   width: 100%;
 }
