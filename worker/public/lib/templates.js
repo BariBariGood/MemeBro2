@@ -248,11 +248,12 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
     updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
 
     if (shouldReset && _state.editor.generatedImage) {
-        dom.studioTemplateImage.decode?.().catch(() => {})
+        dom.studioTemplateImage.decode?.()
             .then(() => {
                 dom.studioTemplateArt.classList.add("image-ready");
                 dom.studioTemplateImage.classList.add("is-loaded");
-            });
+            })
+            .catch(() => {});
     }
 
     (template.faceRegions || []).slice(0, 4).forEach((region) => {
