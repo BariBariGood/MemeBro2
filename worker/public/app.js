@@ -20,7 +20,8 @@ import adapter from "./lib/faceDetect.js";
 
 import {
   STATES, ALLOWED_TYPES, DETECTION_FAILURE_MESSAGES,
-  DEFAULT_MEME_FONT_KEY, DEFAULT_MEME_TEXT_COLOR,
+  DEFAULT_MEME_TEXT, DEFAULT_MEME_FONT_KEY, DEFAULT_MEME_FONT_SIZE_MODE,
+  DEFAULT_MEME_TEXT_COLOR, DEFAULT_MEME_OUTLINE_ENABLED, DEFAULT_MEME_OUTLINE_COLOR,
   FACE_BOX_TAP_TARGET,
 } from "./lib/constants.js";
 import { state } from "./lib/state.js";
@@ -278,11 +279,37 @@ async function init() {
     state.isEditingMemeText     = false;
     state.showResetConfirmation = false;
     state.showBackConfirmation  = false;
+    state.isTextSelected        = false;
+    state.isTextLocked          = false;
+    state.showTextMore          = false;
     state.editor.templateImage  = dataUrl;
     state.editor.generatedImage = '';
-    state.editor.initialSnapshot = Editor.createEditorSnapshot({ templateImage: dataUrl, generatedImage: '' });
+    state.editor.initialSnapshot = Editor.createEditorSnapshot({
+      selectedTemplateId:    null,
+      templateImage:         dataUrl,
+      generatedImage:        '',
+      overlayText:           DEFAULT_MEME_TEXT,
+      overlayFontKey:        DEFAULT_MEME_FONT_KEY,
+      overlaySizeMode:       DEFAULT_MEME_FONT_SIZE_MODE,
+      overlayFontPx:         22,
+      overlayTextColor:      DEFAULT_MEME_TEXT_COLOR,
+      overlayOutlineEnabled: DEFAULT_MEME_OUTLINE_ENABLED,
+      overlayOutlineColor:   DEFAULT_MEME_OUTLINE_COLOR,
+      overlayBold:           false,
+      overlayItalic:         false,
+      overlayUnderline:      false,
+      overlayX:              50,
+      overlayY:              80,
+      overlayWidthPct:       48,
+      overlayRotation:       0,
+      overlayVisible:        false,
+      frozenTextItems:       [],
+    });
     state.editor.historyStack   = [];
     state.editor.futureStack    = [];
+    Editor.applyEditorSnapshot(state.editor.initialSnapshot, {
+      getTemplateMainImage: () => dataUrl,
+    });
     Editor.persistEditorHistory();
     render();
   });
