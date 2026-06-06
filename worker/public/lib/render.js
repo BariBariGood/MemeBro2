@@ -165,7 +165,20 @@ export function render(ctx) {
 
     // ── Studio ──
     dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
-    if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
+    if (showingStudio && selectedTemplate) {
+        renderStudioTemplate(selectedTemplate);
+    } else if (showingStudio && !selectedTemplate && state.editor.templateImage) {
+        // "Drop a meme" flow — no template selected, render the dropped image directly.
+        const src = state.editor.generatedImage || state.editor.templateImage;
+        if (dom.studioTemplateImage.src !== src) {
+            dom.studioTemplateImage.src = src;
+            dom.studioTemplateImage.alt = "Dropped meme";
+        }
+        dom.studioTemplateArt.style.width  = "";
+        dom.studioTemplateArt.style.height = "";
+        dom.studioTemplateInitials.textContent = "";
+        dom.studioTemplateRegions.innerHTML = "";
+    }
     positionStudioSidebar({ dom, showingStudio });
 
     // ── Meme text ──
