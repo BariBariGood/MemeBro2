@@ -7,7 +7,6 @@
 
 import {
   validateFaceCrop,
-  validateMemeText,
   validateTemplateImage,
 } from "./validator.js";
 import { buildImageResponseFromBody } from "./openai/image.js";
@@ -38,8 +37,7 @@ export async function compositeImage({
   validateTemplateImage(templateImage);
   validateFaceCrop(faceCrop);
 
-  const safeText = validateMemeText(text);
-  const prompt = buildCompositePrompt({ safeText, faceRegion, textOptions });
+  const prompt = buildCompositePrompt({ faceRegion });
   const imageResponse = await buildImageResponseFromBody(
     {
       mode: "cast",
@@ -79,7 +77,7 @@ export async function compositeImage({
   };
 }
 
-function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
+function buildCompositePrompt({ faceRegion }) {
   return "Replace the face in the meme template with the face from the reference photo. Keep everything else exactly the same. Make it look natural and seamless.";
 }
 
