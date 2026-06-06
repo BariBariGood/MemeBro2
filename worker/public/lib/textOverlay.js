@@ -299,6 +299,7 @@ export function beginInlineTextEdit(event, { dom, render }) {
     state.isTextSelected    = true;
     if ((state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
         state.editor.overlayText = "";
+        dom.memeTextPreview.textContent = "";
     }
     dom.memeTextPreview.classList.remove("is-placeholder");
     dom.memeTextPreview.contentEditable = "true";
