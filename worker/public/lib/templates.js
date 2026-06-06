@@ -45,11 +45,43 @@ export function updateImageWithFallback(image, sources) {
     if (
         image.dataset.fallbackSources === serializedSources
         && image.dataset.fallbackIndex === "0"
-        && image.getAttribute("src") === nextSource
+        && (image.dataset.logicalSrc || image.getAttribute("src")) === nextSource
     ) return;
     image.dataset.fallbackSources = serializedSources;
     image.dataset.fallbackIndex   = "0";
-    image.src = nextSource;
+    setImageSrc(image, nextSource);
+}
+
+/**
+ * Sets img.src, converting large data URLs to blob URLs at the DOM layer
+ * for reliable browser rendering. The blob URL is tracked on the element
+ * and revoked when replaced. State stores portable data URLs; only the
+ * DOM gets blob URLs.
+ */
+export function setImageSrc(image, src) {
+    const prev = image.dataset.activeBlobUrl;
+    if (prev) {
+        URL.revokeObjectURL(prev);
+        delete image.dataset.activeBlobUrl;
+    }
+    image.dataset.logicalSrc = src;
+    if (src && src.startsWith("data:") && src.length > 128_000) {
+        try {
+            const [header, b64] = src.split(",", 2);
+            const mime = header.match(/data:([^;]+)/)?.[1] || "image/png";
+            const bin = atob(b64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            const blob = new Blob([bytes], { type: mime });
+            const blobUrl = URL.createObjectURL(blob);
+            image.dataset.activeBlobUrl = blobUrl;
+            image.src = blobUrl;
+        } catch {
+            image.src = src;
+        }
+    } else {
+        image.src = src;
+    }
 }
 
 // ── Template sizing ──────────────────────────

@@ -63,13 +63,8 @@ export function createEditorSnapshot(overrides = {}) {
  */
 export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
     if (!snapshot) return;
-    const prevGenerated = state.editor.generatedImage;
-    const nextGenerated = snapshot.generatedImage || "";
-    if (prevGenerated && prevGenerated !== nextGenerated && prevGenerated.startsWith("blob:")) {
-        URL.revokeObjectURL(prevGenerated);
-    }
     state.editor.templateImage      = snapshot.templateImage || getTemplateMainImage();
-    state.editor.generatedImage     = nextGenerated;
+    state.editor.generatedImage     = snapshot.generatedImage || "";
     state.editor.overlayText        = snapshot.overlayText ?? DEFAULT_MEME_TEXT;
     state.editor.overlayFontKey     = snapshot.overlayFontKey || DEFAULT_MEME_FONT_KEY;
     state.editor.overlaySizeMode    = snapshot.overlaySizeMode || DEFAULT_MEME_FONT_SIZE_MODE;

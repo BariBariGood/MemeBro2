@@ -8,6 +8,7 @@
 
 import { STATES, MEME_TEXT_CHAR_WARN } from "./constants.js";
 import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES, NEW_PHOTO_ERROR_CODES } from "./loadErrors.js";
+import { setImageSrc } from "./templates.js";
 
 function positionStudioSidebar({ dom, showingStudio }) {
     const sidebar = dom.studioSidebar;
@@ -174,8 +175,8 @@ export function render(ctx) {
     } else if (showingStudio && !selectedTemplate && state.editor.templateImage) {
         // "Drop a meme" flow — no template selected, render the dropped image directly.
         const src = state.editor.generatedImage || state.editor.templateImage;
-        if (dom.studioTemplateImage.src !== src) {
-            dom.studioTemplateImage.src = src;
+        if ((dom.studioTemplateImage.dataset.logicalSrc || dom.studioTemplateImage.src) !== src) {
+            setImageSrc(dom.studioTemplateImage, src);
             dom.studioTemplateImage.alt = "Dropped meme";
             dom.studioTemplateImage.decode?.().catch(() => {});
         }
