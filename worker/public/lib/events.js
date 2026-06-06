@@ -520,19 +520,22 @@ export function registerEvents(ctx) {
         }
     });
 
-    // ── Debounced text-input snapshot ────────────
+    // ── Debounced text-input snapshot + autosave ─
     let _textInputDebounceTimer = null;
     dom.memeTextPreview.addEventListener("input", () => {
         clearTimeout(_textInputDebounceTimer);
         _textInputDebounceTimer = setTimeout(() => {
+            _textInputDebounceTimer = null;
             recordEditorSnapshot();
-        }, 500);
+            render();
+        }, 1500);
     });
     dom.memeTextPreview.addEventListener("blur", () => {
         // Flush any pending debounced snapshot immediately on blur
         if (_textInputDebounceTimer) {
             clearTimeout(_textInputDebounceTimer);
             _textInputDebounceTimer = null;
+            recordEditorSnapshot();
         }
     });
 

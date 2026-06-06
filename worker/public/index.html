@@ -14,13 +14,13 @@
         <button class="back-btn" type="button" aria-label="Back">← back</button>
         <p class="brand">MEMEBRO</p>
         <div class="topbar-actions">
-          <button id="save-cta" class="save-action" type="button" aria-label="Download meme">
+          <button id="save-cta" class="save-action" type="button" aria-label="Download meme" tabindex="14">
             <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
             </svg>
             <span>Download</span>
           </button>
-          <button id="share-cta" class="secondary topbar-action" type="button" aria-label="Share meme">
+          <button id="share-cta" class="secondary topbar-action" type="button" aria-label="Share meme" tabindex="15">
             <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="18" cy="5" r="3" />
               <circle cx="6" cy="12" r="3" />
@@ -119,10 +119,10 @@
             </div>
           </div>
           <div id="text-toolbar" class="text-toolbar" aria-label="Text controls">
-            <button id="add-text-cta" type="button" class="toolbar-btn toolbar-btn--add-text" title="Add text"><span aria-hidden="true">T</span><small>Add</small></button>
+            <button id="add-text-cta" type="button" class="toolbar-btn toolbar-btn--add-text" title="Add text" tabindex="1"><span aria-hidden="true">T</span><small>Add</small></button>
             <span class="toolbar-separator" aria-hidden="true"></span>
               <label class="sr-only" for="meme-font-select">Font family</label>
-              <select id="meme-font-select" class="toolbar-select" aria-label="Font family">
+              <select id="meme-font-select" class="toolbar-select" aria-label="Font family" tabindex="2">
                 <option value="arial">Arial</option>
                 <option value="impact">Impact</option>
                 <option value="arial-black">Arial Black</option>
@@ -139,29 +139,30 @@
               <option value="optima">Optima</option>
             </select>
             <span class="toolbar-separator" aria-hidden="true"></span>
-            <button id="text-size-dec-cta" type="button" class="toolbar-btn" aria-label="Decrease font size" title="Decrease font size">−</button>
+            <button id="text-size-dec-cta" type="button" class="toolbar-btn" aria-label="Decrease font size" title="Decrease font size" tabindex="3">−</button>
             <label class="sr-only" for="meme-font-size-input">Font size</label>
-            <input id="meme-font-size-input" class="toolbar-size-input" type="number" min="8" max="120" step="1" value="22" aria-label="Font size" />
-            <button id="text-size-inc-cta" type="button" class="toolbar-btn" aria-label="Increase font size" title="Increase font size">+</button>
+            <input id="meme-font-size-input" class="toolbar-size-input" type="number" min="8" max="120" step="1" value="22" aria-label="Font size" tabindex="4" />
+            <button id="text-size-inc-cta" type="button" class="toolbar-btn" aria-label="Increase font size" title="Increase font size" tabindex="5">+</button>
             <span class="toolbar-separator" aria-hidden="true"></span>
-            <button id="text-style-bold-cta" type="button" class="toolbar-btn style-btn" aria-label="Bold" aria-pressed="false" title="Bold">B</button>
-            <button id="text-style-italic-cta" type="button" class="toolbar-btn style-btn" aria-label="Italic" aria-pressed="false" title="Italic">I</button>
-            <button id="text-style-underline-cta" type="button" class="toolbar-btn style-btn" aria-label="Underline" aria-pressed="false" title="Underline">U</button>
+            <button id="text-style-bold-cta" type="button" class="toolbar-btn style-btn" aria-label="Bold" aria-pressed="false" title="Bold" tabindex="6">B</button>
+            <button id="text-style-italic-cta" type="button" class="toolbar-btn style-btn" aria-label="Italic" aria-pressed="false" title="Italic" tabindex="7">I</button>
+            <button id="text-style-underline-cta" type="button" class="toolbar-btn style-btn" aria-label="Underline" aria-pressed="false" title="Underline" tabindex="8">U</button>
             <label class="toolbar-color-group" for="meme-text-color-input">
               <span>Text</span>
-              <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" />
+              <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" tabindex="9" />
             </label>
             <label class="toolbar-color-group toolbar-color-group--outline is-off" for="meme-outline-color-input">
               <span>Border</span>
-              <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" />
+              <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" tabindex="10" />
             </label>
           </div>
           <section class="template-bottom-actions" aria-label="Edit history actions">
             <div class="history-left">
-              <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo">↶ Undo</button>
-              <button id="redo-cta" class="icon-action" type="button" disabled aria-label="Redo">↷ Redo</button>
+              <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo" tabindex="11">↶ Undo</button>
+              <button id="redo-cta" class="icon-action" type="button" disabled aria-label="Redo" tabindex="12">↷ Redo</button>
+              <span id="save-status" class="save-status-indicator" role="status" aria-live="polite"></span>
             </div>
-            <button id="reset-cta" class="danger-action" type="button">⟲ Reset</button>
+            <button id="reset-cta" class="danger-action" type="button" tabindex="13">⟲ Reset</button>
           </section>
         </article>
 
@@ -201,7 +202,7 @@
           <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
             <div id="reset-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
             <div class="reset-confirmation-card">
-              <p>Warning: Reset cannot be undone. Are you sure?</p>
+              <p>Reset will clear all your edits. Are you sure?</p>
               <div class="reset-confirmation-actions">
                 <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
                 <button id="reset-confirm-cta" class="danger-action" type="button">Reset</button>

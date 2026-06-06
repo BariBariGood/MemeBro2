@@ -277,11 +277,23 @@ export function configureProjectActions({
     let autosaveTimer = null;
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
+    let saveStatusFadeTimer = null;
     const storage = globalThis.localStorage;
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
         state.saveStatusMessage = message;
+        clearTimeout(saveStatusFadeTimer);
+        if (status === "saved") {
+            saveStatusFadeTimer = setTimeout(() => {
+                state.saveStatus = "idle";
+                state.saveStatusMessage = "";
+                if (dom.saveStatusEl) {
+                    dom.saveStatusEl.textContent = "";
+                    dom.saveStatusEl.className = "save-status-indicator idle";
+                }
+            }, 2000);
+        }
     }
 
     function serializeProject() {
@@ -310,6 +322,7 @@ export function configureProjectActions({
     function scheduleAutoSave() {
         if (state.view !== "studio" || !state.selectedTemplateId) return;
         autosaveDirty = true;
+        clearTimeout(saveStatusFadeTimer);
         state.saveStatus = "saving";
         state.saveStatusMessage = "Saving...";
         clearTimeout(autosaveTimer);
