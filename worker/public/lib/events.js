@@ -221,8 +221,11 @@ export function registerEvents(ctx) {
         const angle = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI);
         const scaleFactor = dist / state.gesture.startDist;
         state.manualScale = clamp(state.gesture.startScale * scaleFactor, 0.5, 3.0);
+        let angleDiff = angle - state.gesture.startAngle;
+        if (angleDiff > 180) angleDiff -= 360;
+        if (angleDiff < -180) angleDiff += 360;
         state.manualRotation = clamp(
-            state.gesture.startRotation + (angle - state.gesture.startAngle),
+            state.gesture.startRotation + angleDiff,
             -180, 180
         );
         dom.manualZoom.value = String(state.manualScale);
