@@ -517,7 +517,7 @@ export function registerEvents(ctx) {
     // ── Global keyboard ──────────────────────────
     document.addEventListener("keydown", (event) => {
         // Undo: Ctrl+Z (not Shift)
-        if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.shiftKey) {
             if (event.target?.closest?.("input, textarea, select")) return;
             if (state.view !== "studio") return;
             // Flush debounced text snapshot before undoing
@@ -533,9 +533,8 @@ export function registerEvents(ctx) {
         }
         // Redo: Ctrl+Y or Ctrl+Shift+Z
         if (
-            ((event.ctrlKey || event.metaKey) && event.key === "y") ||
-            ((event.ctrlKey || event.metaKey) && event.key === "z" && event.shiftKey) ||
-            ((event.ctrlKey || event.metaKey) && event.key === "Z")
+            ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "y") ||
+            ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && event.shiftKey)
         ) {
             if (event.target?.closest?.("input, textarea, select")) return;
             if (state.view !== "studio") return;
