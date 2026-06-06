@@ -83,16 +83,23 @@ function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
   const region = faceRegion
     ? `Template face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
     : "Use the most obvious face region in the template.";
-  const outline = textOptions?.outlineEnabled === false
-    ? "without an outline"
-    : `with a ${textOptions?.outlineColor || "white"} outline`;
-  return [
+  const parts = [
     "Create a meme image by casting the subject face crop into the provided meme template.",
     region,
     "Preserve the original template composition and avoid distorting the subject face.",
-    `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
-    `Use ${textOptions?.textColor || "black"} text color when possible.`,
-  ].join(" ");
+  ];
+  if (safeText) {
+    const outline = textOptions?.outlineEnabled === false
+      ? "without an outline"
+      : `with a ${textOptions?.outlineColor || "white"} outline`;
+    parts.push(
+      `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
+      `Use ${textOptions?.textColor || "black"} text color when possible.`
+    );
+  } else {
+    parts.push("Do not add any text to the image.");
+  }
+  return parts.join(" ");
 }
 
 async function applyTextAndOptimize(generatedB64, text, textOptions = {}) {
