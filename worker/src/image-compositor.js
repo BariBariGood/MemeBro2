@@ -78,15 +78,7 @@ export async function compositeImage({
 }
 
 function buildCompositePrompt({ faceRegion }) {
-  const region = faceRegion
-    ? `Template face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
-    : "Use the most obvious face region in the template.";
-  return [
-    "Create a meme image by casting the subject face crop into the provided meme template.",
-    region,
-    "Preserve the original template composition and avoid distorting the subject face.",
-    "Do NOT add any text or captions to the image.",
-  ].join(" ");
+  return "Replace the face in the meme template with the face from the reference photo. Keep everything else exactly the same. Make it look natural and seamless.";
 }
 
 async function applyTextAndOptimize(generatedB64, text, textOptions = {}) {
