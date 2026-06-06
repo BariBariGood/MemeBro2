@@ -1,7 +1,9 @@
-// ─────────────────────────────────────────────
-// Meme text rendering, dragging, resizing,
-// rotating, and inline editing.
-// ─────────────────────────────────────────────
+/**
+ * @module textOverlay
+ * Meme text rendering, dragging, resizing, rotating, and inline editing.
+ * Manages the draggable text overlay on the meme canvas including font
+ * selection, color pickers, text duplication, and copy/paste.
+ */
 
 import {
     DEFAULT_MEME_TEXT,

@@ -1,3 +1,10 @@
+/**
+ * @module image-compositor
+ * Server-side image compositing pipeline.
+ * Validates inputs, composites a face crop and optional text overlay
+ * onto the template image, and returns the final PNG.
+ */
+
 import {
   validateFaceCrop,
   validateMemeText,
@@ -8,6 +15,18 @@ import { renderTextOverlay } from "./textRenderer.js";
 import { decodePNG } from "./pngUtil.js";
 import { exportImage } from "./imageExporter.js";
 
+/**
+ * Composites a face crop and optional text onto a template image.
+ *
+ * @param {object} params
+ * @param {string} params.templateImage - Base-64 PNG of the meme template
+ * @param {string} params.faceCrop - Base-64 PNG of the cropped face
+ * @param {string} [params.text] - Optional meme caption text
+ * @param {object} [params.faceRegion] - Placement rectangle for the face
+ * @param {object} [params.textOptions] - Font, color, and position options
+ * @param {object} params.env - Cloudflare Workers env object
+ * @returns {Promise<Response>} PNG response
+ */
 export async function compositeImage({
   templateImage,
   faceCrop,

@@ -1,7 +1,10 @@
-// ─────────────────────────────────────────────
-// app.js — entry point
-// Imports all modules and wires everything up.
-// ─────────────────────────────────────────────
+/**
+ * @module app
+ * Application entry point.
+ * Imports all frontend modules, configures dependency injection for
+ * the upload and face-detection subsystems, fetches the template
+ * catalog, and starts the render loop.
+ */
 
 import { dom }                      from "./lib/dom.js";
 import { loadTemplates, requestFaceSwap } from "./lib/api.js";

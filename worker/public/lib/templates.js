@@ -1,6 +1,9 @@
-// ─────────────────────────────────────────────
-// Template catalog, rendering, and navigation.
-// ─────────────────────────────────────────────
+/**
+ * @module templates
+ * Template catalog, rendering, and navigation.
+ * Handles fetching the meme template list, rendering template cards into
+ * the sidebar, tracking recently-used templates, and tab/search filtering.
+ */
 
 import { RECENTS_STORAGE_KEY } from "./constants.js";
 import { state } from "./state.js";

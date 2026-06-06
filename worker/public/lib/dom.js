@@ -1,5 +1,12 @@
+/**
+ * @module dom
+ * Cached references to every DOM element the MemeBro app interacts with.
+ * Populated once at module load so selectors run only on boot.
+ */
+
 const memeOutlineRemoveCompat = document.getElementById("meme-outline-remove-cta");
 
+/** @type {object} Map of named DOM element references. */
 export const dom = {
   uploadPage: document.querySelector(".upload-page"),
   titleScreen: document.getElementById("title-screen"),
