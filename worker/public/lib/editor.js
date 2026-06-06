@@ -220,7 +220,7 @@ export function recordEditorSnapshot(deps) {
     persistEditorHistory();
 }
 
-export function restoreEditorSession({ getTemplateMainImage }) {
+export function restoreEditorSession({ getTemplateMainImage, render }) {
     try {
         const raw = localStorage.getItem(EDITOR_HISTORY_STORAGE_KEY);
         if (!raw) return false;
@@ -238,7 +238,7 @@ export function restoreEditorSession({ getTemplateMainImage }) {
         || state.editor.initialSnapshot;
         if (!snapshot) return false;
 
-        applyEditorSnapshot(snapshot, { getTemplateMainImage });
+        applyEditorSnapshot(snapshot, { getTemplateMainImage, render });
         return true;
     } catch {
         return false;

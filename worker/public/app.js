@@ -96,7 +96,7 @@ function openStudioForTemplate(templateId) {
 
 const initializeEditorState  = ()  => Editor.initializeEditorState({ getTemplateMainImage, getSelectedTemplate });
 const recordEditorSnapshot   = ()  => Editor.recordEditorSnapshot({ getTemplateMainImage, getSelectedTemplate });
-const restoreEditorSession   = ()  => Editor.restoreEditorSession({ getTemplateMainImage });
+const restoreEditorSession   = ()  => Editor.restoreEditorSession({ getTemplateMainImage, render });
 const hasUnsavedStudioEdits  = ()  => Editor.hasUnsavedStudioEdits();
 const undoEditorSnapshot     = ()  => Editor.undoEditorSnapshot({ getTemplateMainImage, render });
 const redoEditorSnapshot     = ()  => Editor.redoEditorSnapshot({ getTemplateMainImage, render });
