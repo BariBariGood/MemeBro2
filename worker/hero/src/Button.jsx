@@ -1,3 +1,9 @@
+/**
+ * @module Button
+ * Shared button primitive for the scroll-morph hero section.
+ */
+
+/** Tailwind utility strings keyed by size token. */
 const SIZE_CLASSES = {
   sm:  'px-3 py-1.5 text-sm gap-1.5',
   md:  'px-4 py-2 text-sm gap-2',
@@ -5,6 +11,17 @@ const SIZE_CLASSES = {
   xl:  'px-6 py-3 text-base gap-2.5',
 }
 
+/**
+ * Rounded pill button with primary (gradient) and secondary (glass) variants.
+ *
+ * @param {object} props
+ * @param {React.ReactNode} props.children - Button label / icon content
+ * @param {'sm'|'md'|'lg'|'xl'} [props.size='md'] - Size token
+ * @param {'primary'|'secondary'} [props.variant='primary'] - Visual style
+ * @param {() => void} [props.onClick] - Click handler
+ * @param {string} [props.className=''] - Extra CSS classes
+ * @returns {JSX.Element}
+ */
 export function Button({ children, size = 'md', variant = 'primary', onClick, className = '' }) {
   const sizeClass = SIZE_CLASSES[size] ?? SIZE_CLASSES.md
 

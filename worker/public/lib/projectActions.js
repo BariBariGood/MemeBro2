@@ -1,7 +1,14 @@
+/**
+ * @module projectActions
+ * Project-level actions: autosave, export (PNG/clipboard), import,
+ * share-link generation, and save-status indicator management.
+ */
+
 import { PROJECT_AUTOSAVE_STORAGE_KEY } from "./constants.js";
 import { createEditorSnapshot, applyEditorSnapshot } from "./editor.js";
 import { getMemeFontFamily, getMemeTextColor } from "./textOverlay.js";
 
+/** JSON schema version stamped into exported project files. */
 const PROJECT_VERSION = 1;
 const AUTOSAVE_DELAY_MS = 500;
 const DEFAULT_EXPORT_MIME = "image/png";

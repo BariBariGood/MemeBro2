@@ -1,3 +1,10 @@
+/**
+ * @module upload
+ * Upload, camera capture, and manual-fit flow.
+ * Handles file selection, drag-and-drop, live camera preview,
+ * camera snap/review, and the manual face-positioning mode.
+ */
+
 const uploadDeps = {
   dom: null,
   state: null,
