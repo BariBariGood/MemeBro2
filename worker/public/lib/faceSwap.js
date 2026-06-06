@@ -7,6 +7,7 @@
 
 import { state } from "./state.js";
 import { compressForUpload } from "./compressImage.js";
+import { DEFAULT_MEME_TEXT } from "./constants.js";
 
 export function startFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap   = true;
@@ -100,7 +101,7 @@ export async function submitSelectedFace({
         faceCrop:   compressedFaceCrop,
         templateId: _state.selectedTemplateId,
         selectedFaces,
-        memeText:   _state.editor.overlayText || "",
+        memeText:   (_state.editor.overlayText || "").toUpperCase() === DEFAULT_MEME_TEXT ? "" : (_state.editor.overlayText || ""),
         textStyle: {
             fontKey:        _state.editor.overlayFontKey,
             fontPx:         _state.editor.overlayFontPx,
