@@ -102,17 +102,18 @@
 
 .title-kicker {
   margin: 0 auto 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  border-radius: var(--radius-pill);
-  background: rgba(18, 20, 34, 0.75);
-  border: 1px solid var(--white-14);
-  color: rgba(237, 241, 255, 0.85);
-  letter-spacing: 0.08em;
-  font-size: 0.78rem;
-  text-transform: none;
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  border: none;
+  color: rgba(237, 241, 255, 0.65);
+  letter-spacing: 0.18em;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: default;
+  user-select: none;
 }
 
 .title-center-copy h1 {

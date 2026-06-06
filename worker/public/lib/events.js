@@ -149,7 +149,10 @@ export function registerEvents(ctx) {
     });
 
     // ── Navigation ───────────────────────────────
-    dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
+    dom.titleStartCta?.addEventListener("click", async () => {
+        try { localStorage.setItem("memebro-onboarding-complete", "1"); } catch (_) { /* quota / private */ }
+        await showTemplateSelection();
+    });
     dom.backBtn.addEventListener("click", goBackToUploadChoices);
 
     // ── Upload configuration ─────────────────────

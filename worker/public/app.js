@@ -281,7 +281,13 @@ function showToast(message, duration = 3000) {
 async function init() {
   await Templates.loadTemplateCatalog({ loadTemplates });
   const restored = await projectActions.restoreAutoSave();
-  render();
+
+  const onboarded = (() => { try { return localStorage.getItem("memebro-onboarding-complete"); } catch (_) { return null; } })();
+  if (onboarded) {
+    await showTemplateSelection();
+  } else {
+    render();
+  }
   if (restored) showToast("Welcome back! Restored your previous work.");
 
   // Save current state before the page unloads
