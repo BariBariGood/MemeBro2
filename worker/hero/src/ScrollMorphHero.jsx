@@ -413,7 +413,7 @@ export function ScrollMorphHero({ onLaunchWithMeme, onBrowseTemplates }) {
                 : { opacity: 0, y: 12 }
             }
             transition={{ duration: reducedMotion ? 0 : 0.8 }}
-            className="inline-flex items-center gap-2 rounded-full bg-white/5 ring-1 ring-white/10 px-3 py-1 backdrop-blur mb-6"
+            className="inline-flex items-center gap-2 mb-6"
           >
             <span className="relative flex h-1.5 w-1.5">
               {!reducedMotion && (
@@ -458,7 +458,7 @@ export function ScrollMorphHero({ onLaunchWithMeme, onBrowseTemplates }) {
           style={{ opacity: contentOpacity, y: contentY }}
           className="pointer-events-none absolute top-[10%] sm:top-[12%] z-20 flex flex-col items-center justify-center text-center px-4 max-w-2xl"
         >
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] ring-1 ring-white/10 px-3 py-1 backdrop-blur mb-8">
+          <div className="inline-flex items-center gap-2 mb-8">
             <span className="relative flex h-1.5 w-1.5">
               {!reducedMotion && (
                 <span className="absolute inline-flex h-full w-full rounded-full bg-acid opacity-60 animate-ping" />
