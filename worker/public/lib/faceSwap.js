@@ -85,6 +85,7 @@ export async function submitSelectedFace({
 
     _state.editor.generatedImage = generatedImage;
     _state.showResetConfirmation  = false;
+    _state.view                   = "studio";
     recordEditorSnapshot();
     render();
     return payload;
