@@ -48,6 +48,7 @@ export async function submitSelectedFace({
     if (!selectedFace) return;
 
     _state.faceSwapAbortController = new AbortController();
+    const faceSwapSignal = _state.faceSwapAbortController.signal;
     startFaceSwapLoading();
     let payload;
     let optimizingTimer = null;
@@ -91,7 +92,7 @@ export async function submitSelectedFace({
             outlineEnabled: _state.editor.overlayOutlineEnabled,
             outlineColor:   _state.editor.overlayOutlineColor,
         },
-        signal: _state.faceSwapAbortController.signal,
+        signal: faceSwapSignal,
         });
     } finally {
         clearTimeout(optimizingTimer);
