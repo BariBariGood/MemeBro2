@@ -191,7 +191,8 @@ export function registerEvents(ctx) {
     dom.overlayShell.addEventListener("wheel", (e) => {
         if (!state.manualMode) return;
         e.preventDefault();
-        const delta = e.deltaY * -0.005;
+        const rawDelta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+        const delta = clamp(rawDelta * -0.001, -0.1, 0.1);
         state.manualScale = clamp(state.manualScale + delta, 0.5, 3.0);
         dom.manualZoom.value = String(state.manualScale);
         applyManualTransform();

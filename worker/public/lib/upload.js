@@ -442,7 +442,7 @@ export function goBackToUploadChoices() {
 export function startManualDrag(event) {
   const state = getDep("state");
   const dom = getDep("dom");
-  if (!state.manualMode) return;
+  if (!state.manualMode || state.gesture) return;
   event.preventDefault();
   state.dragPointerId = event.pointerId;
   state.dragStartX = event.clientX;
@@ -456,7 +456,7 @@ export function startManualDrag(event) {
 export function moveManualDrag(event) {
   const state = getDep("state");
   const renderOverlay = getDep("renderOverlay");
-  if (!state.manualMode || state.dragPointerId !== event.pointerId) return;
+  if (!state.manualMode || state.dragPointerId !== event.pointerId || state.gesture) return;
   event.preventDefault();
   state.manualOffsetX = state.dragOriginOffsetX + (event.clientX - state.dragStartX);
   state.manualOffsetY = state.dragOriginOffsetY + (event.clientY - state.dragStartY);
