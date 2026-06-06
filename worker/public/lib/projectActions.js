@@ -277,11 +277,20 @@ export function configureProjectActions({
     let autosaveTimer = null;
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
+    let saveStatusFadeTimer = null;
     const storage = globalThis.localStorage;
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
         state.saveStatusMessage = message;
+        clearTimeout(saveStatusFadeTimer);
+        if (status === "saved") {
+            saveStatusFadeTimer = setTimeout(() => {
+                state.saveStatus = "idle";
+                state.saveStatusMessage = "";
+                render();
+            }, 2000);
+        }
     }
 
     function serializeProject() {
