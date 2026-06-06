@@ -74,7 +74,13 @@ export function registerEvents(ctx) {
     // ── Review ───────────────────────────────────
     dom.reviewCloseCta.addEventListener("click", () => { clearCameraReview(); render(); });
     dom.retakeCta.addEventListener("click", () => { clearCameraReview(); startCameraCapture(); });
-    dom.usePhotoCta.addEventListener("click", () => useReviewedPhoto());
+    dom.usePhotoCta.addEventListener("click", async () => {
+        await useReviewedPhoto();
+        if (state.faces.length === 1 && state.selectedFaceIds.length === 1
+            && state.status === STATES.READY && !state.manualMode) {
+            await submitFaceSwapWithErrorHandling();
+        }
+    });
 
     // ── File inputs ──────────────────────────────
     dom.cameraInput.addEventListener("change", async (event) => {
@@ -84,6 +90,10 @@ export function registerEvents(ctx) {
         state.previewUrl = URL.createObjectURL(file);
         render();
         await detectFaces(file);
+        if (state.faces.length === 1 && state.selectedFaceIds.length === 1
+            && state.status === STATES.READY && !state.manualMode) {
+            await submitFaceSwapWithErrorHandling();
+        }
     });
 
     dom.libraryInput.addEventListener("change", async (event) => {
@@ -93,6 +103,10 @@ export function registerEvents(ctx) {
         state.previewUrl = URL.createObjectURL(file);
         render();
         await detectFaces(file);
+        if (state.faces.length === 1 && state.selectedFaceIds.length === 1
+            && state.status === STATES.READY && !state.manualMode) {
+            await submitFaceSwapWithErrorHandling();
+        }
     });
 
     // ── Upload modal ─────────────────────────────
