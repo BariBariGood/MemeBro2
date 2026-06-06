@@ -62,8 +62,9 @@ export function createEditorSnapshot(overrides = {}) {
  * @param {object} snapshot - Snapshot created by {@link createEditorSnapshot}
  * @param {object} deps
  * @param {() => string} deps.getTemplateMainImage - Fallback image resolver
+ * @param {(() => void)} [deps.render] - Optional render callback for async blob upgrade
  */
-export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
+export function applyEditorSnapshot(snapshot, { getTemplateMainImage, render: rerender }) {
     if (!snapshot) return;
     state.editor.templateImage      = snapshot.templateImage || getTemplateMainImage();
     const restoredGenerated = snapshot.generatedImage || "";
@@ -80,6 +81,7 @@ export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
             const cur = state.editor.generatedImage;
             if (cur && cur.startsWith("blob:")) URL.revokeObjectURL(cur);
             state.editor.generatedImage = URL.createObjectURL(blob);
+            if (rerender) rerender();
         }).catch(() => { /* keep the data URL fallback */ });
     } else {
         const prevUrl = state.editor.generatedImage;
@@ -250,7 +252,7 @@ export function undoEditorSnapshot({ getTemplateMainImage, render }) {
     if (current) state.editor.futureStack.push(current);
     applyEditorSnapshot(
         state.editor.historyStack[state.editor.historyStack.length - 1],
-        { getTemplateMainImage }
+        { getTemplateMainImage, render }
     );
     state.showResetConfirmation = false;
     state.isEditingMemeText     = false;
@@ -263,7 +265,7 @@ export function redoEditorSnapshot({ getTemplateMainImage, render }) {
     const next = state.editor.futureStack.pop();
     if (!next) return;
     state.editor.historyStack.push(cloneSnapshot(next));
-    applyEditorSnapshot(next, { getTemplateMainImage });
+    applyEditorSnapshot(next, { getTemplateMainImage, render });
     state.showResetConfirmation = false;
     state.isEditingMemeText     = false;
     persistEditorHistory();

@@ -263,7 +263,7 @@ export function applyProjectPayload(payload, { state, getTemplateMainImage, rend
     state.showResetConfirmation = false;
     state.showBackConfirmation = false;
     state.editor.initialSnapshot = project.editor;
-    applyEditorSnapshot(project.editor, { getTemplateMainImage });
+    applyEditorSnapshot(project.editor, { getTemplateMainImage, render });
     render();
 }
 
