@@ -30,6 +30,7 @@ export const state = {
     dragStartY: 0,
     dragOriginOffsetX: 0,
     dragOriginOffsetY: 0,
+    gesture: null,
     textDragPointerId: null,
     textResizePointerId: null,
     textPointerStartX: 0,

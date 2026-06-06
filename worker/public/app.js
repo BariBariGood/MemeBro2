@@ -46,8 +46,10 @@ function normalizeBox(boxNatural, natural, rendered) {
 }
 
 function getRenderedSize() {
-  const rect = dom.previewImage.getBoundingClientRect();
-  return { width: rect.width || 320, height: rect.height || 320 };
+  return {
+    width: dom.previewImage.offsetWidth || 320,
+    height: dom.previewImage.offsetHeight || 320,
+  };
 }
 
 // ── Status / error helpers ────────────────────

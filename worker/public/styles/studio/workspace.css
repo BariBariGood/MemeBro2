@@ -259,10 +259,38 @@
   accent-color: var(--color-lime);
 }
 
+.gesture-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.zoom-badge {
+  min-width: 3.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-lime);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
 .manual-hint {
-  margin: 8px 0 0;
   color: rgba(221, 226, 244, 0.75);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+}
+
+.slider-fallback {
+  margin-top: 8px;
+}
+
+.slider-fallback summary {
+  cursor: pointer;
+  color: rgba(221, 226, 244, 0.55);
+  font-size: 0.8rem;
 }
 
 /* ── Studio side action rail ── */
