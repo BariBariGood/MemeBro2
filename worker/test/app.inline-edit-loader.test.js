@@ -820,6 +820,8 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     const strokeText = vi.fn();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
       drawImage,
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
       fillText,
       strokeText,
       measureText: (text) => ({ width: String(text).length * 10 }),
@@ -836,6 +838,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
       set textAlign(value) { this._textAlign = value; },
       set textBaseline(value) { this._textBaseline = value; },
       set fillStyle(value) { this._fillStyle = value; },
+      get fillStyle() { return this._fillStyle; },
       set lineJoin(value) { this._lineJoin = value; },
       set lineWidth(value) { this._lineWidth = value; },
       get lineWidth() { return this._lineWidth || 0; },
@@ -1031,5 +1034,207 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
     expect(state.saveStatusMessage).toBe("Failed");
     expect(state.saveStatus).toBe("failed");
+  });
+
+  test("custom: export uses natural image dimensions instead of display size", async () => {
+    const drawImage = vi.fn();
+    const clearRect = vi.fn();
+    const fillRect = vi.fn();
+    const fillText = vi.fn();
+    const strokeText = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage,
+      clearRect,
+      fillRect,
+      fillText,
+      strokeText,
+      measureText: (text) => ({ width: String(text).length * 10 }),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      set font(value) { this._font = value; },
+      get font() { return this._font; },
+      set textAlign(value) { this._textAlign = value; },
+      set textBaseline(value) { this._textBaseline = value; },
+      set fillStyle(value) { this._fillStyle = value; },
+      get fillStyle() { return this._fillStyle; },
+      set lineJoin(value) { this._lineJoin = value; },
+      set lineWidth(value) { this._lineWidth = value; },
+      get lineWidth() { return this._lineWidth || 0; },
+      set strokeStyle(value) { this._strokeStyle = value; },
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(callback, type) {
+      callback(new Blob(["exported"], { type }));
+    });
+    vi.stubGlobal("Image", class MockImage {
+      set src(value) {
+        this._src = value;
+        this.onload?.();
+      }
+      get src() { return this._src; }
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+    const { exportCanvasBlob } = await import("../public/lib/projectActions.js");
+
+    seedStudioEditorState(state);
+    state.editor.templateImage = "/assets/memes/placeholder.svg";
+
+    Object.defineProperty(dom.studioTemplateImage, "naturalWidth", { value: 1920, configurable: true });
+    Object.defineProperty(dom.studioTemplateImage, "naturalHeight", { value: 1080, configurable: true });
+    dom.studioTemplateArt.getBoundingClientRect = () => ({ width: 320, height: 180 });
+    render();
+
+    const blob = await exportCanvasBlob({ dom, state });
+
+    expect(blob.type).toBe("image/png");
+    const widthSpy = vi.spyOn(HTMLCanvasElement.prototype, "width", "set");
+    const heightSpy = vi.spyOn(HTMLCanvasElement.prototype, "height", "set");
+    await exportCanvasBlob({ dom, state });
+    const setWidthCalls = widthSpy.mock.calls;
+    const setHeightCalls = heightSpy.mock.calls;
+    expect(setWidthCalls[setWidthCalls.length - 1][0]).toBe(1920);
+    expect(setHeightCalls[setHeightCalls.length - 1][0]).toBe(1080);
+  });
+
+  test("custom: export calls clearRect before drawing to preserve transparency", async () => {
+    const clearRect = vi.fn();
+    const drawImage = vi.fn();
+    const fillRect = vi.fn();
+    const callOrder = [];
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      clearRect: (...args) => { callOrder.push("clearRect"); clearRect(...args); },
+      drawImage: (...args) => { callOrder.push("drawImage"); drawImage(...args); },
+      fillRect: (...args) => { callOrder.push("fillRect"); fillRect(...args); },
+      fillText: vi.fn(),
+      strokeText: vi.fn(),
+      measureText: (text) => ({ width: String(text).length * 10 }),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      set font(value) { this._font = value; },
+      get font() { return this._font; },
+      set textAlign(value) { this._textAlign = value; },
+      set textBaseline(value) { this._textBaseline = value; },
+      set fillStyle(value) { this._fillStyle = value; },
+      get fillStyle() { return this._fillStyle; },
+      set lineJoin(value) { this._lineJoin = value; },
+      set lineWidth(value) { this._lineWidth = value; },
+      get lineWidth() { return this._lineWidth || 0; },
+      set strokeStyle(value) { this._strokeStyle = value; },
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(callback, type) {
+      callback(new Blob(["exported"], { type }));
+    });
+    vi.stubGlobal("Image", class MockImage {
+      set src(value) { this._src = value; this.onload?.(); }
+      get src() { return this._src; }
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+    const { exportCanvasBlob } = await import("../public/lib/projectActions.js");
+
+    seedStudioEditorState(state);
+    state.editor.templateImage = "/assets/memes/placeholder.svg";
+    dom.studioTemplateArt.getBoundingClientRect = () => ({ width: 320, height: 240 });
+    render();
+
+    await exportCanvasBlob({ dom, state, type: "image/png" });
+
+    expect(clearRect).toHaveBeenCalled();
+    expect(drawImage).toHaveBeenCalled();
+    expect(callOrder.indexOf("clearRect")).toBeLessThan(callOrder.indexOf("drawImage"));
+    expect(fillRect).not.toHaveBeenCalled();
+  });
+
+  test("custom: JPEG export fills white background before drawing image", async () => {
+    const fillRect = vi.fn();
+    const clearRect = vi.fn();
+    const drawImage = vi.fn();
+    const fillStyles = [];
+    const callOrder = [];
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      clearRect: (...args) => { callOrder.push("clearRect"); clearRect(...args); },
+      drawImage: (...args) => { callOrder.push("drawImage"); drawImage(...args); },
+      fillRect: (...args) => { callOrder.push("fillRect"); fillRect(...args); },
+      fillText: vi.fn(),
+      strokeText: vi.fn(),
+      measureText: (text) => ({ width: String(text).length * 10 }),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      set font(value) { this._font = value; },
+      get font() { return this._font; },
+      set textAlign(value) { this._textAlign = value; },
+      set textBaseline(value) { this._textBaseline = value; },
+      set fillStyle(value) { this._fillStyle = value; fillStyles.push(value); },
+      get fillStyle() { return this._fillStyle; },
+      set lineJoin(value) { this._lineJoin = value; },
+      set lineWidth(value) { this._lineWidth = value; },
+      get lineWidth() { return this._lineWidth || 0; },
+      set strokeStyle(value) { this._strokeStyle = value; },
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(callback, type) {
+      callback(new Blob(["exported"], { type }));
+    });
+    vi.stubGlobal("Image", class MockImage {
+      set src(value) { this._src = value; this.onload?.(); }
+      get src() { return this._src; }
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+    const { exportCanvasBlob } = await import("../public/lib/projectActions.js");
+
+    seedStudioEditorState(state);
+    state.editor.templateImage = "/assets/memes/placeholder.svg";
+    dom.studioTemplateArt.getBoundingClientRect = () => ({ width: 320, height: 240 });
+    render();
+
+    await exportCanvasBlob({ dom, state, type: "image/jpeg" });
+
+    expect(clearRect).toHaveBeenCalled();
+    expect(fillRect).toHaveBeenCalled();
+    expect(fillStyles).toContain("#ffffff");
+    expect(callOrder.indexOf("fillRect")).toBeLessThan(callOrder.indexOf("drawImage"));
+  });
+
+  test("custom: file input rejects non-image files and shows error", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    const pdfFile = new File(["fake pdf"], "document.pdf", { type: "application/pdf" });
+    Object.defineProperty(dom.libraryInput, "files", {
+      configurable: true,
+      get() { return [pdfFile]; },
+    });
+    dom.libraryInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await vi.waitFor(() => {
+      expect(state.error).not.toBeNull();
+      expect(state.error.code).toBe("INVALID_FILE_TYPE");
+      expect(state.error.message).toContain("image file");
+    });
   });
 });
