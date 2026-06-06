@@ -6,6 +6,7 @@
  */
 
 import { RECENTS_STORAGE_KEY } from "./constants.js";
+import { getMemeHistory } from "./projectActions.js";
 import { state } from "./state.js";
 
 // ── Image source helpers ─────────────────────
@@ -149,7 +150,11 @@ export async function loadTemplateCatalog({ loadTemplates }) {
 
 // ── DOM rendering ────────────────────────────
 
-export function renderTemplates({ dom, clamp, openStudioForTemplate }) {
+export async function renderTemplates({ dom, clamp, openStudioForTemplate }) {
+    if (state.activeTemplateTab === "recents") {
+        await renderMemeHistory({ dom });
+        return;
+    }
     const templates = getVisibleTemplates();
     dom.templateGrid.innerHTML = "";
     dom.templateEmpty.classList.toggle("hidden", templates.length > 0);
@@ -218,6 +223,55 @@ export function renderTemplates({ dom, clamp, openStudioForTemplate }) {
         if (state.selectedTemplateId === template.id) card.classList.add("selected");
         dom.templateGrid.appendChild(card);
     });
+}
+
+async function renderMemeHistory({ dom }) {
+    const history = await getMemeHistory();
+    dom.templateGrid.innerHTML = "";
+
+    if (history.length === 0) {
+        dom.templateEmpty.classList.remove("hidden");
+        dom.templateEmpty.textContent = "No memes yet. Create and download one to see it here!";
+        return;
+    }
+    dom.templateEmpty.classList.add("hidden");
+
+    history.forEach((entry) => {
+        const card = document.createElement("div");
+        card.className = "template-card history-card";
+
+        const art = document.createElement("span");
+        art.className = "template-art";
+        art.style.aspectRatio = "1 / 1";
+
+        const img = document.createElement("img");
+        img.className = "template-art-image is-loaded";
+        img.alt = "Meme created " + new Date(entry.ts).toLocaleDateString();
+        img.src = entry.thumb;
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.addEventListener("load", () => art.classList.add("image-ready"));
+
+        const label = document.createElement("span");
+        label.className = "template-name";
+        label.textContent = formatTimeAgo(entry.ts);
+
+        art.appendChild(img);
+        card.append(art, label);
+        dom.templateGrid.appendChild(card);
+    });
+}
+
+function formatTimeAgo(ts) {
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString();
 }
 
 export function renderStudioTemplate(template, { dom, state: _state }) {

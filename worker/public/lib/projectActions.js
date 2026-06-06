@@ -4,7 +4,7 @@
  * share-link generation, and save-status indicator management.
  */
 
-import { PROJECT_AUTOSAVE_STORAGE_KEY } from "./constants.js";
+import { PROJECT_AUTOSAVE_STORAGE_KEY, MEME_HISTORY_KEY, MAX_MEME_HISTORY } from "./constants.js";
 import { createEditorSnapshot, applyEditorSnapshot } from "./editor.js";
 import { getMemeFontFamily, getMemeTextColor } from "./textOverlay.js";
 import { idbSet, idbGet } from "./storage.js";
@@ -183,6 +183,42 @@ export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME,
     return canvasToBlob(canvas, type, quality);
 }
 
+// ── Meme history ─────────────────────────────
+
+async function createThumbnail(blob, maxDim = 200) {
+    const url = URL.createObjectURL(blob);
+    try {
+        const img = await loadImage(url);
+        const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        return c.toDataURL("image/jpeg", 0.7);
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+export async function saveMemeToHistory(blob, templateId) {
+    try {
+        const thumb = await createThumbnail(blob);
+        const entry = { id: crypto.randomUUID(), thumb, templateId: templateId || null, ts: Date.now() };
+        const history = await getMemeHistory();
+        history.unshift(entry);
+        if (history.length > MAX_MEME_HISTORY) history.length = MAX_MEME_HISTORY;
+        await idbSet(MEME_HISTORY_KEY, JSON.stringify(history));
+    } catch { /* ignore — history is best-effort */ }
+}
+
+export async function getMemeHistory() {
+    try {
+        const raw = await idbGet(MEME_HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
 function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -350,11 +386,13 @@ export function configureProjectActions({
     async function downloadMeme() {
         const blob = await exportCanvasBlob({ dom, state });
         downloadBlob(blob, getMemeFilename("png"));
+        saveMemeToHistory(blob, state.selectedTemplateId).catch(() => {});
     }
 
     async function shareMeme() {
         const blob = await exportCanvasBlob({ dom, state });
         const file = new File([blob], getMemeFilename("png"), { type: blob.type || DEFAULT_EXPORT_MIME });
+        saveMemeToHistory(blob, state.selectedTemplateId).catch(() => {});
 
         if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
             await navigator.share({ title: "MemeBro meme", text: "Made with MemeBro", files: [file] });
