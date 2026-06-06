@@ -263,7 +263,10 @@ export function configureProjectActions({
             saveStatusFadeTimer = setTimeout(() => {
                 state.saveStatus = "idle";
                 state.saveStatusMessage = "";
-                render();
+                if (dom.saveStatusEl) {
+                    dom.saveStatusEl.textContent = "";
+                    dom.saveStatusEl.className = "save-status-indicator idle";
+                }
             }, 2000);
         }
     }
@@ -294,6 +297,7 @@ export function configureProjectActions({
     function scheduleAutoSave() {
         if (state.view !== "studio" || !state.selectedTemplateId) return;
         autosaveDirty = true;
+        clearTimeout(saveStatusFadeTimer);
         state.saveStatus = "saving";
         state.saveStatusMessage = "Saving...";
         clearTimeout(autosaveTimer);
