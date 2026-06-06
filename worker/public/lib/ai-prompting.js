@@ -183,8 +183,8 @@ export function configureAiPrompting({ dom, state, render }) {
         }
 
         startRequest(prompt);
-        render();
         appendAiPromptMessage("user", prompt);
+        render();
 
         try {
             const result = await requestAiPromptVariant(prompt);
