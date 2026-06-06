@@ -34,7 +34,7 @@ export function createEditorSnapshot(overrides = {}) {
     return {
         selectedTemplateId: overrides.selectedTemplateId ?? state.selectedTemplateId ?? null,
         templateImage:      overrides.templateImage      ?? state.editor.templateImage,
-        generatedImage:     overrides.generatedImage     ?? state.editor.generatedImage,
+        generatedImage:     overrides.generatedImage     ?? (state.editor._generatedImageDataUrl || state.editor.generatedImage),
         overlayText:        overrides.overlayText        ?? state.editor.overlayText,
         overlayFontKey:     overrides.overlayFontKey     ?? state.editor.overlayFontKey,
         overlaySizeMode:    overrides.overlaySizeMode    ?? state.editor.overlaySizeMode,
@@ -64,7 +64,19 @@ export function createEditorSnapshot(overrides = {}) {
 export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
     if (!snapshot) return;
     state.editor.templateImage      = snapshot.templateImage || getTemplateMainImage();
-    state.editor.generatedImage     = snapshot.generatedImage || "";
+    const restoredGenerated = snapshot.generatedImage || "";
+    if (restoredGenerated && restoredGenerated.startsWith("data:")) {
+        state.editor._generatedImageDataUrl = restoredGenerated;
+        // Synchronously set the data URL so callers have something immediately,
+        // then asynchronously upgrade to a blob URL for better rendering.
+        state.editor.generatedImage = restoredGenerated;
+        fetch(restoredGenerated).then((r) => r.blob()).then((blob) => {
+            state.editor.generatedImage = URL.createObjectURL(blob);
+        }).catch(() => { /* keep the data URL fallback */ });
+    } else {
+        state.editor.generatedImage = restoredGenerated;
+        state.editor._generatedImageDataUrl = null;
+    }
     state.editor.overlayText        = snapshot.overlayText ?? DEFAULT_MEME_TEXT;
     state.editor.overlayFontKey     = snapshot.overlayFontKey || DEFAULT_MEME_FONT_KEY;
     state.editor.overlaySizeMode    = snapshot.overlaySizeMode || DEFAULT_MEME_FONT_SIZE_MODE;

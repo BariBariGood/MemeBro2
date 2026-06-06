@@ -84,6 +84,7 @@ export const state = {
     editor: {
         templateImage: "",
         generatedImage: "",
+        _generatedImageDataUrl: null,
         overlayText: DEFAULT_MEME_TEXT,
         overlayFontKey: DEFAULT_MEME_FONT_KEY,
         overlaySizeMode: DEFAULT_MEME_FONT_SIZE_MODE,

@@ -401,6 +401,11 @@ export function goBackToUploadChoices() {
 
   if (state.cameraReviewUrl || state.previewUrl || state.status !== getDep("STATES").IDLE) {
     if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
+    if (state.editor.generatedImage && state.editor.generatedImage.startsWith("blob:")) {
+      URL.revokeObjectURL(state.editor.generatedImage);
+    }
+    state.editor.generatedImage = null;
+    state.editor._generatedImageDataUrl = null;
     clearCameraStream();
     clearCameraReview();
     state.status = getDep("STATES").IDLE;

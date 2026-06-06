@@ -207,7 +207,7 @@ export function createProjectPayload({ state }) {
         selectedTemplateId: state.selectedTemplateId,
         baseImage: {
             templateImage: state.editor.templateImage,
-            generatedImage: state.editor.generatedImage,
+            generatedImage: state.editor._generatedImageDataUrl || state.editor.generatedImage,
         },
         layers: getProjectLayers(state),
         editor: createEditorSnapshot(),

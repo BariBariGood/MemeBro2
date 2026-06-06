@@ -76,15 +76,42 @@ export async function submitSelectedFace({
         stopFaceSwapLoading();
     }
 
-    const generatedImage = extractGeneratedImageUrl(payload);
-    if (!generatedImage) {
+    const generatedImageDataUrl = extractGeneratedImageUrl(payload);
+    if (!generatedImageDataUrl) {
         const error = new Error("Face swap completed, but no composited image URL was returned.");
         error.code = "MISSING_GENERATED_IMAGE";
         throw error;
     }
 
-    _state.editor.generatedImage = generatedImage;
+    // Large base64 data URLs (1–5 MB) can cause garbled rendering when set
+    // directly as an <img> src.  Convert to a Blob URL for reliable display.
+    let displayUrl = generatedImageDataUrl;
+    if (generatedImageDataUrl.startsWith("data:")) {
+        try {
+            const blob = await fetch(generatedImageDataUrl).then((r) => r.blob());
+            displayUrl = URL.createObjectURL(blob);
+        } catch { /* keep the data URL as fallback */ }
+    }
+
+    // Pre-decode so the image is ready before we hand it to the renderer.
+    try {
+        const img = new Image();
+        img.src = displayUrl;
+        await img.decode();
+    } catch { /* non-critical — the browser will decode on paint */ }
+
+    _state.editor.generatedImage = displayUrl;
+    _state.editor._generatedImageDataUrl = generatedImageDataUrl;
     _state.showResetConfirmation  = false;
+
+    // Transition to the studio view so the composited meme is displayed
+    // instead of staying stuck on the face-overlay screen.
+    if (_state.previewUrl) URL.revokeObjectURL(_state.previewUrl);
+    _state.previewUrl  = "";
+    _state.status      = STATES.IDLE;
+    _state.imageBitmap = null;
+    _state.view        = "studio";
+
     recordEditorSnapshot();
     render();
     return payload;
