@@ -262,7 +262,7 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
 
 // ── Navigation ───────────────────────────────
 
-export function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
+export async function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
     const hadEdits = state.selectedTemplateId
         && state.selectedTemplateId !== templateId
         && state.editor.historyStack.length > 1;
@@ -279,7 +279,7 @@ export function openStudioForTemplate(templateId, { recordTemplateUsage: recordU
     state.showResetConfirmation = false;
     state.showBackConfirmation  = false;
     initializeEditorState();
-    if (!restoreEditorSession()) persistEditorHistory();
+    if (!(await restoreEditorSession())) persistEditorHistory();
     render();
 }
 

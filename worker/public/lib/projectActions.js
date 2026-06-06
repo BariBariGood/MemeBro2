@@ -7,6 +7,7 @@
 import { PROJECT_AUTOSAVE_STORAGE_KEY } from "./constants.js";
 import { createEditorSnapshot, applyEditorSnapshot } from "./editor.js";
 import { getMemeFontFamily, getMemeTextColor } from "./textOverlay.js";
+import { idbSet, idbGet } from "./storage.js";
 
 /** JSON schema version stamped into exported project files. */
 const PROJECT_VERSION = 1;
@@ -278,7 +279,6 @@ export function configureProjectActions({
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
     let saveStatusFadeTimer = null;
-    const storage = globalThis.localStorage;
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
@@ -300,7 +300,7 @@ export function configureProjectActions({
         return JSON.stringify(createProjectPayload({ state }));
     }
 
-    function saveProjectNow() {
+    async function saveProjectNow() {
         if (state.view !== "studio" || !state.selectedTemplateId || !autosaveDirty) return;
         setSaveStatus("saving", "Saving...");
         try {
@@ -310,7 +310,7 @@ export function configureProjectActions({
                 setSaveStatus("saved", "Saved");
                 return;
             }
-            storage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+            await idbSet(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
             lastAutosaveSerialized = serialized;
             autosaveDirty = false;
             setSaveStatus("saved", "Saved");
@@ -329,9 +329,9 @@ export function configureProjectActions({
         autosaveTimer = setTimeout(saveProjectNow, AUTOSAVE_DELAY_MS);
     }
 
-    function restoreAutoSave() {
+    async function restoreAutoSave() {
         try {
-            const raw = storage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
+            const raw = await idbGet(PROJECT_AUTOSAVE_STORAGE_KEY);
             if (!raw) return false;
             const payload = parseProject(raw);
             if (!payload.selectedTemplateId) return false;

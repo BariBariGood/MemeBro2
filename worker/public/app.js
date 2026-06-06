@@ -280,7 +280,7 @@ function showToast(message, duration = 3000) {
 
 async function init() {
   await Templates.loadTemplateCatalog({ loadTemplates });
-  const restored = projectActions.restoreAutoSave();
+  const restored = await projectActions.restoreAutoSave();
   render();
   if (restored) showToast("Welcome back! Restored your previous work.");
 
