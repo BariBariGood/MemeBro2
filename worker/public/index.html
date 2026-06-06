@@ -286,15 +286,21 @@
       <p id="status-text" class="status-text" role="status" aria-live="polite"></p>
       <button id="manual-fit-cta" class="secondary manual-fit-cta hidden" type="button">Manual Fit</button>
       <section id="manual-controls" class="manual-controls hidden" aria-label="Manual fit controls">
-        <div class="fit-control">
-          <label for="manual-zoom">Zoom</label>
-          <input id="manual-zoom" type="range" min="0.5" max="2.2" value="1" step="0.01" />
+        <div class="gesture-hint-row">
+          <span id="zoom-badge" class="zoom-badge">100%</span>
+          <p class="manual-hint">Scroll to zoom · drag to move · pinch &amp; rotate on touch</p>
         </div>
-        <div class="fit-control">
-          <label for="manual-rotation">Rotation</label>
-          <input id="manual-rotation" type="range" min="-30" max="30" value="0" step="1" />
-        </div>
-        <p class="manual-hint">Drag the photo until the face fits inside the oval, then continue.</p>
+        <details class="slider-fallback">
+          <summary>Fine-tune sliders</summary>
+          <div class="fit-control">
+            <label for="manual-zoom">Zoom</label>
+            <input id="manual-zoom" type="range" min="0.5" max="3.0" value="1" step="0.01" />
+          </div>
+          <div class="fit-control">
+            <label for="manual-rotation">Rotation</label>
+            <input id="manual-rotation" type="range" min="-180" max="180" value="0" step="1" />
+          </div>
+        </details>
       </section>
 
       <section id="error-state" class="error hidden" aria-live="assertive">

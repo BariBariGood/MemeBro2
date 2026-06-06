@@ -7,7 +7,6 @@
 
 import {
   validateFaceCrop,
-  validateMemeText,
   validateTemplateImage,
 } from "./validator.js";
 import { buildImageResponseFromBody } from "./openai/image.js";
@@ -38,8 +37,7 @@ export async function compositeImage({
   validateTemplateImage(templateImage);
   validateFaceCrop(faceCrop);
 
-  const safeText = validateMemeText(text);
-  const prompt = buildCompositePrompt({ safeText, faceRegion, textOptions });
+  const prompt = buildCompositePrompt({ faceRegion });
   const imageResponse = await buildImageResponseFromBody(
     {
       mode: "cast",
@@ -79,7 +77,7 @@ export async function compositeImage({
   };
 }
 
-function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
+function buildCompositePrompt({ faceRegion }) {
   return [
     "You are creating a meme by seamlessly replacing a face in the provided meme template with the face from the reference photo.",
     "CRITICAL INSTRUCTIONS:",
@@ -91,6 +89,7 @@ function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
     faceRegion
       ? `6. Target face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
       : "6. Replace the most prominent face in the template.",
+    "7. Do NOT add any text or captions to the image.",
     "Output a single high-quality meme image.",
   ].join(" ");
 }

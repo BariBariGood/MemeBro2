@@ -33,6 +33,7 @@ export const state = {
     manualRotation: 0,
     manualOffsetX: 0,
     manualOffsetY: 0,
+    gesture: null,
     dragPointerId: null,
     dragStartX: 0,
     dragStartY: 0,
