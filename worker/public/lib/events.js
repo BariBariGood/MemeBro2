@@ -233,7 +233,16 @@ export function registerEvents(ctx) {
     }, { passive: false });
 
     dom.overlayShell.addEventListener("touchend", (e) => {
-        if (e.touches.length < 2) state.gesture = null;
+        if (e.touches.length < 2) {
+            state.gesture = null;
+            if (state.dragPointerId != null && e.touches.length === 1) {
+                const t = e.touches[0];
+                state.dragStartX = t.clientX;
+                state.dragStartY = t.clientY;
+                state.dragOriginOffsetX = state.manualOffsetX;
+                state.dragOriginOffsetY = state.manualOffsetY;
+            }
+        }
     });
 
     function syncGestureHud() {

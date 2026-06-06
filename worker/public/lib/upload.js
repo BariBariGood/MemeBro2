@@ -130,14 +130,34 @@ export function buildManualFaceBoxNatural() {
   const finalScale = base * state.manualScale;
   const displayedW = nw * finalScale;
   const displayedH = nh * finalScale;
-  const imageLeft = (rendered.width - displayedW) / 2 + state.manualOffsetX;
-  const imageTop = (rendered.height - displayedH) / 2 + state.manualOffsetY;
   const circle = getManualCircleBox();
+
+  // Image center in screen space (after translate)
+  const imgCenterX = rendered.width / 2 + state.manualOffsetX;
+  const imgCenterY = rendered.height / 2 + state.manualOffsetY;
+
+  // Circle center relative to image center
+  const circleCX = circle.x + circle.width / 2 - imgCenterX;
+  const circleCY = circle.y + circle.height / 2 - imgCenterY;
+
+  // Inverse-rotate to undo CSS rotation around image center
+  const rad = -state.manualRotation * (Math.PI / 180);
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const rotCX = circleCX * cos - circleCY * sin;
+  const rotCY = circleCX * sin + circleCY * cos;
+
+  // Map back to natural image coordinates
+  const natCX = (rotCX + displayedW / 2) / finalScale;
+  const natCY = (rotCY + displayedH / 2) / finalScale;
+  const natW = circle.width / finalScale;
+  const natH = circle.height / finalScale;
+
   return {
-    x: clamp((circle.x - imageLeft) / finalScale, 0, nw),
-    y: clamp((circle.y - imageTop) / finalScale, 0, nh),
-    width: clamp(circle.width / finalScale, 10, nw),
-    height: clamp(circle.height / finalScale, 10, nh),
+    x: clamp(natCX - natW / 2, 0, nw),
+    y: clamp(natCY - natH / 2, 0, nh),
+    width: clamp(natW, 10, nw),
+    height: clamp(natH, 10, nh),
   };
 }
 
