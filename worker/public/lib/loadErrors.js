@@ -1,4 +1,11 @@
-// Codes the gateway can return while upstream AI work is temporarily unavailable.
+/**
+ * @module loadErrors
+ * User-facing error messages for transient gateway failures.
+ * Classifies error codes into retryable, new-photo-recoverable, and
+ * generic buckets so the UI can offer the right recovery action.
+ */
+
+/** Codes the gateway can return while upstream AI work is temporarily unavailable. */
 const ACUTE_LOAD_ERROR_MESSAGES = {
     FEATURE_DISABLED: "AI generation is temporarily unavailable. You can retry in a few minutes.",
     QUEUE_FULL: "MemeBro is under heavy load. Retry shortly.",

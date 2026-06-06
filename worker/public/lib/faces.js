@@ -1,6 +1,9 @@
-// ─────────────────────────────────────────────
-// Face detection, crop extraction, and selection.
-// ─────────────────────────────────────────────
+/**
+ * @module faces
+ * Face detection, crop extraction, and selection.
+ * Wraps the MediaPipe face-detection adapter with timeout handling,
+ * bounding-box normalization, and face-crop bitmap generation.
+ */
 
 import {
     ALLOWED_TYPES,

@@ -1,3 +1,10 @@
+/**
+ * @module state
+ * Singleton mutable state object for the MemeBro frontend.
+ * Every UI module reads and writes fields on this object; the render
+ * loop re-reads it each frame to keep the DOM in sync.
+ */
+
 import {
     STATES,
     DEFAULT_MEME_TEXT,
@@ -8,6 +15,7 @@ import {
     DEFAULT_MEME_OUTLINE_COLOR,
 } from "./constants.js";
 
+/** @type {object} Global mutable application state. */
 export const state = {
     status: STATES.IDLE,
     faces: [],

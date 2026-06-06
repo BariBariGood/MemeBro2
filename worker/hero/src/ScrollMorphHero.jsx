@@ -1,3 +1,16 @@
+/**
+ * @module ScrollMorphHero
+ * Animated landing hero for MemeBro.
+ *
+ * Three intro phases play on mount: scatter → line → circle.
+ * After the circle phase, the user scrolls (wheel / touch) to morph the
+ * circle into a rotating arc that reveals a CTA block. Desktop adds
+ * pointer-parallax; mobile uses fewer cards and a shorter scroll range.
+ *
+ * Respects `prefers-reduced-motion` — when set, the intro skips straight
+ * to the circle phase and springs resolve near-instantly.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import { lerp } from './lerp.js'
@@ -39,15 +52,22 @@ function IconUpload() {
 
 // ── Constants ─────────────────────────────────
 
+/** Card thumbnail width in px. */
 const IMG_WIDTH  = 80
+/** Card thumbnail height in px. */
 const IMG_HEIGHT = 80
 
+/** Number of meme cards rendered on desktop viewports. */
 const TOTAL_IMAGES_DESKTOP = 20
+/** Number of meme cards rendered on mobile viewports. */
 const TOTAL_IMAGES_MOBILE  = 12
 
+/** Virtual scroll distance (px) for the full morph on desktop. */
 const MAX_SCROLL_DESKTOP = 3000
+/** Virtual scroll distance (px) for the full morph on mobile. */
 const MAX_SCROLL_MOBILE  = 1500
 
+/** Media query breakpoint for mobile layout. */
 const MOBILE_MQ = '(max-width: 767px)'
 
 /** Returns true when prefers-reduced-motion is set. */
@@ -68,6 +88,22 @@ const SCATTER_POSITIONS = Array.from({ length: TOTAL_IMAGES_DESKTOP }, () => ({
 
 // ── computeTarget ─────────────────────────────
 
+/**
+ * Derives the transform target for a single card given the current
+ * animation state. During the intro the card is either scattered
+ * randomly or arranged in a horizontal line; once the circle phase
+ * begins, scroll progress morphs the circle into a rotating arc.
+ *
+ * @param {object} params
+ * @param {number} params.index - Card index within the visible set
+ * @param {'scatter'|'line'|'circle'} params.introPhase - Current intro stage
+ * @param {{ width: number, height: number }} params.containerSize - Hero container dimensions
+ * @param {number} params.morphValue - 0 → 1 circle-to-arc interpolation
+ * @param {number} params.rotateValue - 0 → 360 arc rotation from scroll
+ * @param {number} params.parallaxValue - Horizontal pointer-parallax offset (desktop)
+ * @param {number} params.totalImages - Number of visible cards
+ * @returns {{ x: number, y: number, rotation: number, scale: number, opacity: number }}
+ */
 function computeTarget({ index, introPhase, containerSize, morphValue, rotateValue, parallaxValue, totalImages }) {
   if (introPhase === 'scatter') return SCATTER_POSITIONS[index]
 
@@ -122,6 +158,17 @@ function computeTarget({ index, introPhase, containerSize, morphValue, rotateVal
 
 // ── FlipCard ──────────────────────────────────
 
+/**
+ * Single meme thumbnail card. On desktop it flips on hover to reveal
+ * the meme name; on mobile (`simple=true`) it renders a flat image.
+ *
+ * @param {object} props
+ * @param {string} props.src - Image URL for the card face
+ * @param {string} props.name - Meme template name (shown on card back)
+ * @param {{ x: number, y: number, rotation: number, scale: number, opacity: number }} props.target - Computed transform target
+ * @param {boolean} props.simple - When true, renders a flat card (no 3-D flip)
+ * @returns {JSX.Element}
+ */
 function FlipCard({ src, name, target, simple }) {
   if (simple) {
     return (
@@ -171,6 +218,11 @@ function FlipCard({ src, name, target, simple }) {
 
 // ── useIsMobile ───────────────────────────────
 
+/**
+ * Hook that tracks the mobile media-query breakpoint via `matchMedia`.
+ *
+ * @returns {boolean} `true` when the viewport is ≤ 767 px wide
+ */
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia(MOBILE_MQ).matches,
@@ -187,6 +239,16 @@ function useIsMobile() {
 
 // ── ScrollMorphHero ───────────────────────────
 
+/**
+ * Full-viewport animated landing section.
+ *
+ * @param {object} props
+ * @param {(dataUrl: string) => void} props.onLaunchWithMeme - Called with a
+ *   data-URL when the user uploads an image from the hero CTA
+ * @param {() => void} props.onBrowseTemplates - Called when the user clicks
+ *   "browse templates"
+ * @returns {JSX.Element}
+ */
 export function ScrollMorphHero({ onLaunchWithMeme, onBrowseTemplates }) {
   const reducedMotion = prefersReducedMotion()
   const isMobile      = useIsMobile()

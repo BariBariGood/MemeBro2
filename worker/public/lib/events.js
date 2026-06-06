@@ -1,9 +1,18 @@
-// ─────────────────────────────────────────────
-// All DOM event listener registrations.
-// ─────────────────────────────────────────────
+/**
+ * @module events
+ * All DOM event listener registrations.
+ * Binds click, pointer, keyboard, and change handlers to the cached
+ * DOM nodes so UI interactions flow through the shared state/render loop.
+ */
 
 import { configureAiPrompting } from "./ai-prompting.js";
 
+/**
+ * Registers every event listener the MemeBro app needs.
+ *
+ * @param {object} ctx - Dependency bag containing `dom`, `state`, render
+ *   helpers, face/template modules, and editor actions
+ */
 export function registerEvents(ctx) {
     const {
         dom, state, STATES, clamp,
