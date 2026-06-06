@@ -206,7 +206,7 @@ export async function detectFaces(file, deps) {
     setStatus(STATES.DETECTING);
 
     try {
-        const faceLimit = getTemplateFaceCapacity();
+        const faceLimit = Math.max(getTemplateFaceCapacity(), 6);
         const faces = await detectFacesForBitmap(imageBitmap, faceLimit, { adapter });
         if (mySequence !== state.sequence) return;
 

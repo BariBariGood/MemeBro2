@@ -166,19 +166,48 @@
   top: var(--face-ring-top);
   width: var(--face-ring-width);
   height: var(--face-ring-height);
-  border: 2px dashed rgba(194, 255, 56, 0.85);
-  border-radius: var(--radius-pill);
-  background: rgba(184, 247, 58, 0.08);
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
 }
 
 .face-box.selected .face-box-ring {
   border-style: solid;
-  border-color: #ffb13b;
-  box-shadow: 0 0 0 3px rgba(255, 177, 59, 0.35);
+  border-color: #b8f73a;
+  box-shadow: 0 0 0 3px rgba(184, 247, 58, 0.4), 0 0 12px rgba(184, 247, 58, 0.25);
+}
+
+.face-box:not(.selected) .face-box-ring {
+  opacity: 0.55;
 }
 
 .face-box:disabled:not(.selected) .face-box-ring {
   opacity: 0.38;
+}
+
+.face-box-label {
+  position: absolute;
+  top: var(--face-ring-top);
+  left: var(--face-ring-left);
+  transform: translate(-40%, -40%);
+  min-width: 22px;
+  height: 22px;
+  line-height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: rgba(20, 20, 30, 0.85);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.face-box.selected .face-box-label {
+  background: #b8f73a;
+  color: #111;
 }
 
 .face-box:focus-visible {
