@@ -66,6 +66,7 @@ export async function submitSelectedFace({
     _state.faceSwapAbortController = new AbortController();
     startFaceSwapLoading();
     let payload;
+    let optimizingTimer = null;
 
     try {
         const cropType = getFaceCropMimeType(_state.file);
@@ -77,7 +78,6 @@ export async function submitSelectedFace({
         // Compress the face crop before uploading (resize to max 1024px,
         // re-encode JPEG q0.85, strip metadata). Show "Optimizing..." if
         // compression takes longer than 500ms.
-        let optimizingTimer = null;
         optimizingTimer = setTimeout(() => {
             state.isOptimizingImage = true;
             render();
@@ -109,6 +109,7 @@ export async function submitSelectedFace({
         signal: _state.faceSwapAbortController.signal,
         });
     } finally {
+        clearTimeout(optimizingTimer);
         state.isOptimizingImage = false;
         stopFaceSwapLoading();
     }
