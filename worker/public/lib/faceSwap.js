@@ -6,6 +6,8 @@
  */
 
 import { state } from "./state.js";
+import { compressForUpload } from "./compressImage.js";
+import { DEFAULT_MEME_TEXT } from "./constants.js";
 
 export function startFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap   = true;
@@ -25,6 +27,22 @@ export function stopFaceSwapLoadingState({ render }) {
     if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
     state.faceSwapSlowTimer = null;
     render();
+}
+
+export function getSelectedFaceIndex(state) {
+    if (!state.faces.length || !state.selectedFaceIds.length) return -1;
+    return state.faces.findIndex((f) => f.id === state.selectedFaceIds[0]);
+}
+
+export function getSelectedFaceSummary(state) {
+    const index = getSelectedFaceIndex(state);
+    if (index === -1) return null;
+    return {
+        index,
+        faceNumber: index + 1,
+        totalFaces: state.faces.length,
+        faceId: state.selectedFaceIds[0],
+    };
 }
 
 export async function submitSelectedFace({
@@ -47,8 +65,10 @@ export async function submitSelectedFace({
     if (!selectedFace) return;
 
     _state.faceSwapAbortController = new AbortController();
+    const faceSwapSignal = _state.faceSwapAbortController.signal;
     startFaceSwapLoading();
     let payload;
+    let optimizingTimer = null;
 
     try {
         const cropType = getFaceCropMimeType(_state.file);
@@ -57,12 +77,31 @@ export async function submitSelectedFace({
         type: cropType,
         });
 
+        // Compress the face crop before uploading (resize to max 1024px,
+        // re-encode JPEG q0.85, strip metadata). Show "Optimizing..." if
+        // compression takes longer than 500ms.
+        optimizingTimer = setTimeout(() => {
+            _state.isOptimizingImage = true;
+            render();
+        }, 500);
+
+        const compressedBlob = await compressForUpload(faceCrop.blob);
+        clearTimeout(optimizingTimer);
+        _state.isOptimizingImage = false;
+        render();
+
+        const compressedFaceCrop = {
+            ...faceCrop,
+            blob: compressedBlob,
+            type: compressedBlob.type || "image/jpeg",
+        };
+
         payload = await requestFaceSwap({
         file:       _state.file,
-        faceCrop,
+        faceCrop:   compressedFaceCrop,
         templateId: _state.selectedTemplateId,
         selectedFaces,
-        memeText:   _state.editor.overlayText || "",
+        memeText:   (_state.editor.overlayText || "").toUpperCase() === DEFAULT_MEME_TEXT ? "" : (_state.editor.overlayText || ""),
         textStyle: {
             fontKey:        _state.editor.overlayFontKey,
             fontPx:         _state.editor.overlayFontPx,
@@ -70,9 +109,11 @@ export async function submitSelectedFace({
             outlineEnabled: _state.editor.overlayOutlineEnabled,
             outlineColor:   _state.editor.overlayOutlineColor,
         },
-        signal: _state.faceSwapAbortController.signal,
+        signal: faceSwapSignal,
         });
     } finally {
+        clearTimeout(optimizingTimer);
+        _state.isOptimizingImage = false;
         stopFaceSwapLoading();
     }
 
@@ -84,6 +125,7 @@ export async function submitSelectedFace({
     }
 
     _state.editor.generatedImage = generatedImage;
+    _state.view = "studio";
     _state.showResetConfirmation  = false;
 
     if (_state.previewUrl) {

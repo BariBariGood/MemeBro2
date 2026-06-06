@@ -122,7 +122,9 @@ export const dom = {
   manualControls: document.getElementById("manual-controls"),
   manualZoom: document.getElementById("manual-zoom"),
   manualRotation: document.getElementById("manual-rotation"),
+  zoomBadge: document.getElementById("zoom-badge"),
   faceSwapLoader: document.getElementById("face-swap-loader"),
+  faceSwapLoaderOptimizing: document.getElementById("face-swap-loader-optimizing"),
   faceSwapLoaderDelay: document.getElementById("face-swap-loader-delay"),
   faceSwapLoaderCancel: document.getElementById("face-swap-loader-cancel"),
 };

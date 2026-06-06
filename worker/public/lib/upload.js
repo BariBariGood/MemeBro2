@@ -71,10 +71,12 @@ export function clearFaceFitState() {
   state.manualRotation = 0;
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
+  state.gesture = null;
   state.dragPointerId = null;
   state.showResetConfirmation = false;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
   dom.previewImage.style.transform = "";
 }
 
@@ -132,14 +134,34 @@ export function buildManualFaceBoxNatural() {
   const finalScale = base * state.manualScale;
   const displayedW = nw * finalScale;
   const displayedH = nh * finalScale;
-  const imageLeft = (rendered.width - displayedW) / 2 + state.manualOffsetX;
-  const imageTop = (rendered.height - displayedH) / 2 + state.manualOffsetY;
   const circle = getManualCircleBox();
+
+  // Image center in screen space (after translate)
+  const imgCenterX = rendered.width / 2 + state.manualOffsetX;
+  const imgCenterY = rendered.height / 2 + state.manualOffsetY;
+
+  // Circle center relative to image center
+  const circleCX = circle.x + circle.width / 2 - imgCenterX;
+  const circleCY = circle.y + circle.height / 2 - imgCenterY;
+
+  // Inverse-rotate to undo CSS rotation around image center
+  const rad = -state.manualRotation * (Math.PI / 180);
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const rotCX = circleCX * cos - circleCY * sin;
+  const rotCY = circleCX * sin + circleCY * cos;
+
+  // Map back to natural image coordinates
+  const natCX = (rotCX + displayedW / 2) / finalScale;
+  const natCY = (rotCY + displayedH / 2) / finalScale;
+  const natW = circle.width / finalScale;
+  const natH = circle.height / finalScale;
+
   return {
-    x: clamp((circle.x - imageLeft) / finalScale, 0, nw),
-    y: clamp((circle.y - imageTop) / finalScale, 0, nh),
-    width: clamp(circle.width / finalScale, 10, nw),
-    height: clamp(circle.height / finalScale, 10, nh),
+    x: clamp(natCX - natW / 2, 0, nw),
+    y: clamp(natCY - natH / 2, 0, nh),
+    width: clamp(natW, 10, nw),
+    height: clamp(natH, 10, nh),
   };
 }
 
@@ -199,7 +221,7 @@ export function alignManualViewToFace(face) {
     circle.width / (face.boxNatural.width * 1.18),
     circle.height / (face.boxNatural.height * 1.18)
   );
-  const manualScale = clamp(targetScale / base, 0.5, 2.2);
+  const manualScale = clamp(targetScale / base, 0.5, 3.0);
   const finalScale = base * manualScale;
   const displayedW = natural.width * finalScale;
   const displayedH = natural.height * finalScale;
@@ -216,6 +238,7 @@ export function alignManualViewToFace(face) {
   state.manualOffsetY = circleCenterY - faceCenterY * finalScale - baseTop;
   dom.manualZoom.value = String(manualScale);
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = `${Math.round(manualScale * 100)}%`;
 }
 
 export function enterManualMode(faceToAlign = null) {
@@ -228,8 +251,10 @@ export function enterManualMode(faceToAlign = null) {
   state.manualRotation = 0;
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
+  state.gesture = null;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
   requestAnimationFrame(() => {
     alignManualViewToFace(faceToAlign);
     applyManualTransform();
@@ -426,11 +451,13 @@ export function goBackToUploadChoices() {
     state.manualRotation = 0;
     state.manualOffsetX = 0;
     state.manualOffsetY = 0;
+    state.gesture = null;
     state.dragPointerId = null;
     dom.cameraInput.value = "";
     dom.libraryInput.value = "";
     dom.manualZoom.value = "1";
     dom.manualRotation.value = "0";
+    if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
     dom.previewImage.style.transform = "";
     dom.previewImage.removeAttribute("src");
     state.view = "studio";
@@ -441,7 +468,7 @@ export function goBackToUploadChoices() {
 export function startManualDrag(event) {
   const state = getDep("state");
   const dom = getDep("dom");
-  if (!state.manualMode) return;
+  if (!state.manualMode || state.gesture) return;
   event.preventDefault();
   state.dragPointerId = event.pointerId;
   state.dragStartX = event.clientX;
@@ -455,7 +482,7 @@ export function startManualDrag(event) {
 export function moveManualDrag(event) {
   const state = getDep("state");
   const renderOverlay = getDep("renderOverlay");
-  if (!state.manualMode || state.dragPointerId !== event.pointerId) return;
+  if (!state.manualMode || state.dragPointerId !== event.pointerId || state.gesture) return;
   event.preventDefault();
   state.manualOffsetX = state.dragOriginOffsetX + (event.clientX - state.dragStartX);
   state.manualOffsetY = state.dragOriginOffsetY + (event.clientY - state.dragStartY);

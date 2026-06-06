@@ -7,7 +7,6 @@
 
 import {
   validateFaceCrop,
-  validateMemeText,
   validateTemplateImage,
 } from "./validator.js";
 import { buildImageResponseFromBody } from "./openai/image.js";
@@ -38,8 +37,7 @@ export async function compositeImage({
   validateTemplateImage(templateImage);
   validateFaceCrop(faceCrop);
 
-  const safeText = validateMemeText(text);
-  const prompt = buildCompositePrompt({ safeText, faceRegion, textOptions });
+  const prompt = buildCompositePrompt({ faceRegion });
   const imageResponse = await buildImageResponseFromBody(
     {
       mode: "cast",
@@ -84,19 +82,15 @@ export async function compositeImage({
   };
 }
 
-function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
+function buildCompositePrompt({ faceRegion }) {
   const region = faceRegion
     ? `Template face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
     : "Use the most obvious face region in the template.";
-  const outline = textOptions?.outlineEnabled === false
-    ? "without an outline"
-    : `with a ${textOptions?.outlineColor || "white"} outline`;
   return [
     "Create a meme image by casting the subject face crop into the provided meme template.",
     region,
     "Preserve the original template composition and avoid distorting the subject face.",
-    `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
-    `Use ${textOptions?.textColor || "black"} text color when possible.`,
+    "Do NOT add any text or captions to the image.",
   ].join(" ");
 }
 
