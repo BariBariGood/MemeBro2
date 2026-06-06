@@ -1,61 +1,62 @@
-import { dom } from "./lib/dom.js";
+// ─────────────────────────────────────────────
+// app.js — entry point
+// Imports all modules and wires everything up.
+// ─────────────────────────────────────────────
+
+import { dom }                      from "./lib/dom.js";
 import { loadTemplates, requestFaceSwap } from "./lib/api.js";
 import {
-  clearCameraStream,
-  clearCameraReview,
-  clearFaceFitState,
-  decodeImage,
-  getManualCircleBox,
-  buildManualFaceBoxNatural,
-  updateManualFaceSelection,
-  applyManualTransform,
-  alignManualViewToFace,
-  enterManualMode,
-  startManualFitFromSelection,
-  startCameraCapture,
-  snapCameraPhoto,
-  useReviewedPhoto,
-  flipCamera,
-  goBackToUploadChoices,
-  startManualDrag,
-  moveManualDrag,
-  configureUpload,
+  clearCameraStream, clearCameraReview, clearFaceFitState,
+  decodeImage, applyManualTransform,
+  enterManualMode, startManualFitFromSelection,
+  startCameraCapture, snapCameraPhoto, useReviewedPhoto,
+  flipCamera, goBackToUploadChoices,
+  startManualDrag, moveManualDrag, configureUpload,
 } from "./lib/upload.js";
 import adapter from "./lib/faceDetect.js";
 
 import {
-  STATES,
-  ALLOWED_TYPES,
-  DETECTION_FAILURE_MESSAGES,
-  DEFAULT_MEME_TEXT,
-  DEFAULT_MEME_FONT_KEY,
-  DEFAULT_MEME_FONT_SIZE_MODE,
-  DEFAULT_MEME_TEXT_COLOR,
-  DEFAULT_MEME_OUTLINE_ENABLED,
-  DEFAULT_MEME_OUTLINE_COLOR,
-  ROTATE_STEP,
+  STATES, ALLOWED_TYPES, DETECTION_FAILURE_MESSAGES,
+  DEFAULT_MEME_FONT_KEY, DEFAULT_MEME_TEXT_COLOR,
   FACE_BOX_TAP_TARGET,
-  FACE_CROP_DEFAULT_TYPE,
-  FACE_CROP_QUALITY,
 } from "./lib/constants.js";
 import { state } from "./lib/state.js";
 
-import * as Editor from "./lib/editor.js";
+import * as Editor      from "./lib/editor.js";
 import * as TextOverlay from "./lib/textOverlay.js";
-import * as Templates from "./lib/templates.js";
-import * as Faces from "./lib/faces.js";
 import { recentMemeStorage } from "./js/recents.js";
 import { saveCurrentMeme } from "./js/save.js";
+import * as Templates   from "./lib/templates.js";
+import * as Faces       from "./lib/faces.js";
+import * as FaceSwap    from "./lib/faceSwap.js";
+import * as Render      from "./lib/render.js";
+import * as AiPrompting from "./lib/ai-prompting.js";
+import * as ProjectActions from "./lib/projectActions.js";
+import { registerEvents } from "./lib/events.js";
 
-function setStatus(next) {
-  state.status = next;
-  render();
+// ── Shared utilities ──────────────────────────
+
+function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+
+function normalizeBox(boxNatural, natural, rendered) {
+  return {
+    x:      boxNatural.x      * (rendered.width  / natural.width),
+    y:      boxNatural.y      * (rendered.height / natural.height),
+    width:  boxNatural.width  * (rendered.width  / natural.width),
+    height: boxNatural.height * (rendered.height / natural.height),
+  };
 }
 
-function setError(code, message) {
-  state.error = { code, message };
-  setStatus(STATES.ERROR);
+function getRenderedSize() {
+  const rect = dom.previewImage.getBoundingClientRect();
+  return { width: rect.width || 320, height: rect.height || 320 };
 }
+
+// ── Status / error helpers ────────────────────
+
+function setStatus(next) { state.status = next; render(); }
+
+function setError(code, message) { state.error = { code, message }; setStatus(STATES.ERROR); }
 
 function setDetectionRecoveryError(code) {
   state.error = {
@@ -64,120 +65,25 @@ function setDetectionRecoveryError(code) {
   };
 }
 
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(() => {
-        const err = new Error("Face detection timed out.");
-        err.code = "DETECTION_TIMEOUT";
-        reject(err);
-      }, ms);
-    }),
-  ]);
-}
-
-function normalizeBox(boxNatural, natural, rendered) {
-  return {
-    x: boxNatural.x * (rendered.width / natural.width),
-    y: boxNatural.y * (rendered.height / natural.height),
-    width: boxNatural.width * (rendered.width / natural.width),
-    height: boxNatural.height * (rendered.height / natural.height),
-  };
-}
-
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function getRenderedSize() {
-  const rect = dom.previewImage.getBoundingClientRect();
-  return { width: rect.width || 320, height: rect.height || 320 };
-}
-
-function getFaceCropBounds(detectedFace, natural) {
-  return Faces.getFaceCropBounds(detectedFace, natural, { clamp });
-}
-
-function getFaceCropMimeType(file) {
-  return Faces.getFaceCropMimeType(file);
-}
-
-async function extractFaceCrop(fullImageBlob, detectedFace, options = {}) {
-  return Faces.extractFaceCrop(fullImageBlob, detectedFace, options, { decodeImage, clamp });
-}
-
-function getTemplatePreviewImage(template) {
-  return Templates.getTemplatePreviewImage(template);
-}
-
-function getTemplateMainImage(template) {
-  return Templates.getTemplateMainImage(template);
-}
-
-function getTemplateImageDimensions(template) {
-  return Templates.getTemplateImageDimensions(template);
-}
-
-function getTemplateImageSources(primarySource, fallbacks = []) {
-  return Templates.getTemplateImageSources(primarySource, fallbacks);
-}
-
-function updateImageWithFallback(image, sources) {
-  return Templates.updateImageWithFallback(image, sources);
-}
-
-function getStudioTemplateBox(template) {
-  return Templates.getStudioTemplateBox(template);
-}
-
-function getSelectedTemplate() {
-  return Templates.getSelectedTemplate();
-}
-
-function getTemplateFaceCapacity() {
-  return Templates.getTemplateFaceCapacity();
-}
-
-function extractGeneratedImageUrl(payload) {
-  return Templates.extractGeneratedImageUrl(payload);
-}
-
-function getRecentTemplateIds() {
-  return Templates.getRecentTemplateIds();
-}
-
-function recordTemplateUsage(templateId) {
-  return Templates.recordTemplateUsage(templateId);
-}
-
-function getVisibleTemplates() {
-  return Templates.getVisibleTemplates();
-}
-
-async function loadTemplateCatalog() {
-  return Templates.loadTemplateCatalog({ loadTemplates });
-}
-
 function renderTemplates() {
   return Templates.renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme });
 }
+// ── Template wrappers ─────────────────────────
 
-function renderStudioTemplate(template) {
-  return Templates.renderStudioTemplate(template, { dom, state });
-}
+const getSelectedTemplate     = ()              => Templates.getSelectedTemplate();
+const getTemplateFaceCapacity = ()              => Templates.getTemplateFaceCapacity();
+const getTemplateMainImage    = (t)             => Templates.getTemplateMainImage(t);
+const extractGeneratedImageUrl = (p)            => Templates.extractGeneratedImageUrl(p);
+const recordTemplateUsage     = (id)            => Templates.recordTemplateUsage(id);
+const renderStudioTemplate    = (t)             => Templates.renderStudioTemplate(t, { dom, state });
+const renderTemplates         = ()              => Templates.renderTemplates({ dom, clamp, openStudioForTemplate });
 
 async function showTemplateSelection() {
-  return Templates.showTemplateSelection({
-    loadTemplates,
-    dom,
-    render,
-    renderTemplates,
-  });
+  return Templates.showTemplateSelection({ loadTemplates, dom, render, renderTemplates });
 }
 
 function openStudioForTemplate(templateId) {
-  const result = Templates.openStudioForTemplate(templateId, {
+  return Templates.openStudioForTemplate(templateId, {
     recordTemplateUsage,
     initializeEditorState,
     restoreEditorSession,
@@ -185,8 +91,6 @@ function openStudioForTemplate(templateId) {
     render,
     STATES,
   });
-
-  return result;
 }
 
 async function openStudioForRecentMeme(recentMemeId) {
@@ -225,178 +129,92 @@ async function openStudioForRecentMeme(recentMemeId) {
   return recent;
 }
 
-function getMemeFontFamily(fontKey = DEFAULT_MEME_FONT_KEY) {
-  return TextOverlay.getMemeFontFamily(fontKey);
-}
+const getMemeFontFamily = (fontKey = DEFAULT_MEME_FONT_KEY) =>
+  TextOverlay.getMemeFontFamily(fontKey);
 
-function getMemeTextColor(colorKey = DEFAULT_MEME_TEXT_COLOR) {
-  return TextOverlay.getMemeTextColor(colorKey);
-}
+const applyMemeOutline = (preview) =>
+  TextOverlay.applyMemeOutline(preview);
 
-function getEditableTextValue(node) {
-  return TextOverlay.getEditableTextValue(node);
-}
+const positionTextHandles = () =>
+  TextOverlay.positionTextHandles({ dom, clamp });
 
-function applyMemeOutline(preview) {
-  return TextOverlay.applyMemeOutline(preview);
-}
-
-function syncOutlineSwatchState() {
-  return TextOverlay.syncOutlineSwatchState({ dom });
-}
-
-function fitMemeTextToCanvas() {
-  return TextOverlay.fitMemeTextToCanvas({ dom });
-}
-
-function positionTextHandles() {
-  return TextOverlay.positionTextHandles({ dom, clamp });
-}
-
-function syncMemeTextAppearance() {
-  return TextOverlay.syncMemeTextAppearance({ dom, clamp });
-}
-
-function freezeCurrentTextItem() {
-  return TextOverlay.freezeCurrentTextItem();
-}
-
-function renderFrozenTextItems() {
-  return TextOverlay.renderFrozenTextItems({ dom, clamp });
-}
-
-function selectFrozenTextItem(index) {
-  return TextOverlay.selectFrozenTextItem(index, { recordEditorSnapshot, render });
-}
-
-function createOrSelectTextAtPointer(event) {
-  return TextOverlay.createOrSelectTextAtPointer(event, {
+const createOrSelectTextAtPointer = (event) =>
+  TextOverlay.createOrSelectTextAtPointer(event, {
     dom,
     clamp,
     recordEditorSnapshot,
     beginInlineTextEdit,
   });
 }
+// ── Editor wrappers ───────────────────────────
 
-function updateEditorTextSetting(key, value) {
-  return TextOverlay.updateEditorTextSetting(key, value, { recordEditorSnapshot, render });
-}
+const initializeEditorState  = ()  => Editor.initializeEditorState({ getTemplateMainImage, getSelectedTemplate });
+const recordEditorSnapshot   = ()  => Editor.recordEditorSnapshot({ getTemplateMainImage, getSelectedTemplate });
+const restoreEditorSession   = ()  => Editor.restoreEditorSession({ getTemplateMainImage });
+const hasUnsavedStudioEdits  = ()  => Editor.hasUnsavedStudioEdits();
+const undoEditorSnapshot     = ()  => Editor.undoEditorSnapshot({ getTemplateMainImage, render });
+const redoEditorSnapshot     = ()  => Editor.redoEditorSnapshot({ getTemplateMainImage, render });
+const resetEditorToTemplate  = ()  => Editor.resetEditorToTemplate({ getTemplateMainImage, getSelectedTemplate, render });
+const confirmBackAndResetStudio = () => Editor.confirmBackAndResetStudio({ getTemplateMainImage, getSelectedTemplate, render, renderTemplates });
+
+// ── Text overlay wrappers ─────────────────────
+
+const getMemeTextColor        = (k) => TextOverlay.getMemeTextColor(k);
+const getEditableTextValue    = (n) => TextOverlay.getEditableTextValue(n);
+const syncOutlineSwatchState  = ()  => TextOverlay.syncOutlineSwatchState({ dom });
+const syncMemeTextAppearance  = ()  => TextOverlay.syncMemeTextAppearance({ dom, clamp });
+const fitMemeTextToCanvas     = ()  => TextOverlay.fitMemeTextToCanvas({ dom });
+const renderFrozenTextItems   = ()  => TextOverlay.renderFrozenTextItems({ dom, clamp });
+const freezeCurrentTextItem   = ()  => TextOverlay.freezeCurrentTextItem();
+const selectFrozenTextItem    = (i) => TextOverlay.selectFrozenTextItem(i, { recordEditorSnapshot, render });
+const deleteMemeText          = ()  => TextOverlay.deleteMemeText({ recordEditorSnapshot, render });
+const finishInlineTextEdit    = ()  => TextOverlay.finishInlineTextEdit({ dom, recordEditorSnapshot, render });
+const rotateTextOneStep       = (e) => TextOverlay.rotateTextOneStep(e, { recordEditorSnapshot, render });
+const startTextDrag           = (e) => TextOverlay.startTextDrag(e, { dom });
+const moveTextDrag            = (e) => TextOverlay.moveTextDrag(e, { dom, clamp, render });
+const endTextDrag             = (e) => TextOverlay.endTextDrag(e, { recordEditorSnapshot });
+const startTextResize         = (e) => TextOverlay.startTextResize(e);
+const moveTextResize          = (e) => TextOverlay.moveTextResize(e, { dom, clamp, render });
+const endTextResize           = (e) => TextOverlay.endTextResize(e, { recordEditorSnapshot });
+const selectTextObject        = (e) => TextOverlay.selectTextObject(e, { render });
+const updateEditorTextSetting = (k, v) => TextOverlay.updateEditorTextSetting(k, v, { recordEditorSnapshot, render });
 
 function beginInlineTextEdit(event) {
   return TextOverlay.beginInlineTextEdit(event, { dom, render });
 }
 
-function selectTextObject(event) {
-  return TextOverlay.selectTextObject(event, { render });
+function createOrSelectTextAtPointer(event) {
+  return TextOverlay.createOrSelectTextAtPointer(event, { dom, clamp, recordEditorSnapshot, beginInlineTextEdit });
 }
 
-function finishInlineTextEdit() {
-  return TextOverlay.finishInlineTextEdit({ dom, recordEditorSnapshot, render });
-}
+// ── Face wrappers ─────────────────────────────
 
-function deleteMemeText() {
-  return TextOverlay.deleteMemeText({ recordEditorSnapshot, render });
-}
-
-function startTextDrag(event) {
-  return TextOverlay.startTextDrag(event, { dom });
-}
-
-function moveTextDrag(event) {
-  return TextOverlay.moveTextDrag(event, { dom, clamp, render });
-}
-
-function endTextDrag(event) {
-  return TextOverlay.endTextDrag(event, { recordEditorSnapshot });
-}
-
-function startTextResize(event) {
-  return TextOverlay.startTextResize(event);
-}
-
-function moveTextResize(event) {
-  return TextOverlay.moveTextResize(event, { dom, clamp, render });
-}
-
-function endTextResize(event) {
-  return TextOverlay.endTextResize(event, { recordEditorSnapshot });
-}
-
-function rotateTextOneStep(event) {
-  return TextOverlay.rotateTextOneStep(event, { recordEditorSnapshot, render });
-}
-
-function setSelectedFaceIds(faceIds) {
-  return Faces.setSelectedFaceIds(faceIds);
-}
-
-function selectSingleFace(faceId) {
-  return Faces.selectSingleFace(faceId);
-}
-
-function getSelectedFaces() {
-  return Faces.getSelectedFaces();
-}
-
-function getSelectableFaceLimit() {
-  return Faces.getSelectableFaceLimit({ getTemplateFaceCapacity });
-}
+const getFaceCropBounds       = (f, n) => Faces.getFaceCropBounds(f, n, { clamp });
+const getFaceCropMimeType     = (f)    => Faces.getFaceCropMimeType(f);
+const extractFaceCrop         = (b, f, o) => Faces.extractFaceCrop(b, f, o, { decodeImage, clamp });
+const setSelectedFaceIds      = (ids) => Faces.setSelectedFaceIds(ids);
+const selectSingleFace        = (id)  => Faces.selectSingleFace(id);
+const getSelectedFaces        = ()    => Faces.getSelectedFaces();
+const getSelectableFaceLimit  = ()    => Faces.getSelectableFaceLimit({ getTemplateFaceCapacity });
 
 function toggleDetectedFaceSelection(faceId) {
-  return Faces.toggleDetectedFaceSelection(faceId, {
-    getTemplateFaceCapacity,
-    getSelectableFaceLimit,
-  });
-}
-
-async function detectFacesForBitmap(imageBitmap, faceLimit = 1) {
-  return Faces.detectFacesForBitmap(imageBitmap, faceLimit, { adapter });
+  return Faces.toggleDetectedFaceSelection(faceId, { getTemplateFaceCapacity, getSelectableFaceLimit });
 }
 
 async function detectFaces(file) {
   return Faces.detectFaces(file, {
-    adapter,
-    decodeImage,
-    clamp,
-    normalizeBox,
-    clearFaceFitState,
-    enterManualMode,
-    setStatus,
-    setError,
-    setDetectionRecoveryError,
-    getRenderedSize,
-    getTemplateFaceCapacity,
+    adapter, decodeImage, clamp, normalizeBox,
+    clearFaceFitState, enterManualMode,
+    setStatus, setError, setDetectionRecoveryError,
+    getRenderedSize, getTemplateFaceCapacity,
     selectSingleFace,
   });
 }
 
-function initializeEditorState() {
-  return Editor.initializeEditorState({ getTemplateMainImage, getSelectedTemplate });
-}
+// ── Face swap wrappers ────────────────────────
 
-function recordEditorSnapshot() {
-  return Editor.recordEditorSnapshot({ getTemplateMainImage, getSelectedTemplate });
-}
-
-function restoreEditorSession() {
-  return Editor.restoreEditorSession({ getTemplateMainImage });
-}
-
-function undoEditorSnapshot() {
-  return Editor.undoEditorSnapshot({ getTemplateMainImage, render });
-}
-
-function redoEditorSnapshot() {
-  return Editor.redoEditorSnapshot({ getTemplateMainImage, render });
-}
-
-function resetEditorToTemplate() {
-  return Editor.resetEditorToTemplate({ getTemplateMainImage, getSelectedTemplate, render });
-}
-
-function hasUnsavedStudioEdits() {
-  return Editor.hasUnsavedStudioEdits();
-}
+const startFaceSwapLoadingState = () => FaceSwap.startFaceSwapLoadingState({ render });
+const stopFaceSwapLoadingState  = () => FaceSwap.stopFaceSwapLoadingState({ render });
 
 /**
  * Saves the currently edited meme through the save module.
@@ -481,239 +299,33 @@ function renderOverlay() {
     });
 
     dom.overlayLayer.appendChild(button);
+async function submitSelectedFace() {
+  return FaceSwap.submitSelectedFace({
+    state, getSelectedFaces, getSelectedTemplate,
+    getFaceCropMimeType, extractFaceCrop, extractGeneratedImageUrl,
+    requestFaceSwap, recordEditorSnapshot,
+    startFaceSwapLoading: startFaceSwapLoadingState,
+    stopFaceSwapLoading:  stopFaceSwapLoadingState,
+    render, STATES,
   });
 }
 
-function startFaceSwapLoadingState() {
-  state.isSubmittingFaceSwap = true;
-  state.showSlowFaceSwapMessage = false;
-  if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
-  state.faceSwapSlowTimer = setTimeout(() => {
-    state.showSlowFaceSwapMessage = true;
-    render();
-  }, 5000);
-  render();
-}
+// ── Render ────────────────────────────────────
 
-function stopFaceSwapLoadingState() {
-  state.isSubmittingFaceSwap = false;
-  state.showSlowFaceSwapMessage = false;
-  state.faceSwapAbortController = null;
-  if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
-  state.faceSwapSlowTimer = null;
-  render();
-}
-
-function render() {
-  const cameraActive = Boolean(state.cameraStream);
-  const reviewingCameraPhoto = Boolean(state.cameraReviewUrl);
-  const editingPhoto = Boolean(state.previewUrl) && [STATES.FACES_FOUND, STATES.READY].includes(state.status);
-  const showingHome = state.view === "home";
-  const showingTemplates = state.view === "templates";
-  const showingStudio = state.view === "studio";
-  const selectedTemplate = getSelectedTemplate();
-  const selectedFaceCount = getSelectedFaces().length;
-  const selectableFaceLimit = getSelectableFaceLimit();
-  dom.uploadPage.classList.toggle("home-mode", showingHome);
-  dom.uploadPage.classList.toggle("camera-mode", cameraActive || reviewingCameraPhoto);
-  dom.titleScreen?.classList.toggle("hidden", !showingHome);
-  dom.topbar?.classList.toggle("hidden", showingHome);
-  dom.backBtn?.classList.toggle("hidden", showingHome);
-  dom.saveCta?.classList.toggle("hidden", !showingStudio);
-  dom.cameraShell.classList.toggle("hidden", !cameraActive);
-  dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
-  dom.templateScreen.classList.toggle("hidden", !showingTemplates);
-  dom.studioScreen.classList.toggle("hidden", !showingStudio);
-  dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
-  dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !state.isAiPromptPanelOpen);
-  dom.vibePanel?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
-  dom.vibeContainer?.classList.toggle("hidden", showingStudio && state.isAiPromptPanelOpen);
-  dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
-  dom.backConfirmation.classList.toggle("hidden", !showingStudio || !state.showBackConfirmation);
-  dom.overlayShell.classList.toggle("hidden", !editingPhoto || showingTemplates || showingStudio);
-  dom.cameraCancelCta.classList.toggle("hidden", !cameraActive);
-  dom.ctaRow.classList.toggle("hidden", !state.uploadModalOpen || cameraActive || reviewingCameraPhoto || editingPhoto);
-  dom.cameraCta.classList.toggle("hidden", cameraActive || reviewingCameraPhoto || editingPhoto);
-  dom.libraryCta.classList.toggle("hidden", cameraActive || reviewingCameraPhoto || editingPhoto);
-  dom.manualFitCta.classList.toggle(
-    "hidden",
-    !editingPhoto || showingTemplates || showingStudio || state.manualMode || !state.imageBitmap
-  );
-  dom.overlayShell.classList.toggle("manual-active", state.manualMode);
-  dom.overlayShell.classList.toggle("dragging", state.dragPointerId !== null);
-  dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
-  if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
-  if (!state.isEditingMemeText) dom.memeTextPreview.textContent = state.editor.overlayText;
-  dom.studioTemplateArt.classList.toggle("editing-text", state.isEditingMemeText);
-  dom.studioTemplateArt.classList.toggle("text-selected", state.isTextSelected);
-  dom.memeTextPreview.setAttribute("contenteditable", state.isEditingMemeText ? "true" : "false");
-  dom.memeTextPreview.classList.toggle("hidden", !state.editor.overlayVisible);
-  dom.memeTextHint?.classList.toggle("hidden", showingStudio && (state.editor.overlayVisible || state.editor.frozenTextItems.length > 0));
-  const noTextSelection = !showingStudio || !state.editor.overlayVisible || !state.isTextSelected;
-  const transformDisabled = noTextSelection || state.isTextLocked;
-  dom.memeTextDelete.disabled = noTextSelection;
-  dom.memeTextRotateHandle.disabled = transformDisabled;
-  dom.memeTextResizeHandles?.forEach((handle) => {
-    handle.classList.toggle("hidden", transformDisabled);
-    handle.disabled = transformDisabled;
+function renderOverlay() {
+  return Render.renderOverlay({
+    dom, state, normalizeBox, clamp,
+    FACE_BOX_TAP_TARGET, toggleDetectedFaceSelection,
+    getRenderedSize, render,
   });
-  dom.textToolbar.classList.toggle("hidden", !showingStudio);
-  dom.textLocalControls.classList.toggle("hidden", !showingStudio || !state.editor.overlayVisible || !state.isTextSelected);
-  const showTextPopups = showingStudio && state.editor.overlayVisible && state.isTextSelected;
-  dom.textMoreMenu.classList.toggle("hidden", !showTextPopups || !state.showTextMore);
-  if (dom.textBorderToggleCta) {
-    const outlineOn = !!state.editor.overlayOutlineEnabled;
-    dom.textBorderToggleCta.textContent = `border: ${outlineOn ? "on" : "off"}`;
-    dom.textBorderToggleCta.classList.toggle("active", outlineOn);
-    dom.textBorderToggleCta.disabled = noTextSelection;
-    dom.textBorderToggleCta.setAttribute("aria-pressed", String(outlineOn));
-  }
-  dom.textLockCta.textContent = state.isTextLocked ? "🔒" : "🔓";
-  dom.memeFontSelect.value = state.editor.overlayFontKey;
-  dom.memeFontSizeInput.value = String(Math.round(state.editor.overlayFontPx || 22));
-  dom.memeTextColorInput.value = getMemeTextColor(state.editor.overlayTextColor);
-  dom.memeOutlineColorInput.value = state.editor.overlayOutlineColor || "#ffffff";
-  syncOutlineSwatchState();
-  dom.textStyleBoldCta.classList.toggle("active", state.editor.overlayBold);
-  dom.textStyleItalicCta.classList.toggle("active", state.editor.overlayItalic);
-  dom.textStyleUnderlineCta.classList.toggle("active", state.editor.overlayUnderline);
-  dom.faceSwapLoader.classList.toggle("hidden", !state.isSubmittingFaceSwap);
-  dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
-  dom.undoCta.disabled = state.editor.historyStack.length <= 1;
-  dom.redoCta.disabled = state.editor.futureStack.length === 0;
-  dom.resetCta.disabled = !selectedTemplate;
-
-  dom.progressWrap.classList.toggle(
-    "hidden",
-    !(state.status === STATES.LOADING_IMAGE || state.status === STATES.DETECTING)
-  );
-
-  if (state.status === STATES.LOADING_IMAGE) {
-    dom.progressBar.value = 40;
-    dom.progressLabel.textContent = "Loading image...";
-  }
-
-  if (state.status === STATES.DETECTING) {
-    dom.progressBar.value = 80;
-    dom.progressLabel.textContent = "Detecting faces...";
-  }
-
-  dom.errorState.classList.toggle(
-    "hidden",
-    !state.error && state.status !== STATES.ERROR
-  );
-  dom.errorMessage.textContent = state.error?.message || "";
-
-  if (state.previewUrl) {
-    dom.previewImage.src = state.previewUrl;
-  }
-
-  if (state.status === STATES.FACES_FOUND) {
-    dom.statusText.textContent = selectableFaceLimit > 1
-      ? `${state.faces.length} faces found. Select up to ${selectableFaceLimit} faces for this template.`
-      : `${state.faces.length} faces found. Tap or click one face to continue.`;
-  } else if (state.status === STATES.READY) {
-    if (state.manualMode && state.error?.code === "NO_FACE_DETECTED") {
-      dom.statusText.textContent = "No face detected. Use the oval to choose the face manually.";
-    } else if (state.manualMode && state.error?.code === "DETECTOR_UNAVAILABLE") {
-      dom.statusText.textContent = "Face detection could not load. Use the oval to choose the face manually.";
-    } else if (state.manualMode && state.error) {
-      dom.statusText.textContent = "Face detection had trouble. Use the oval to choose the face manually.";
-    } else if (state.manualMode && state.usedDetectedFace) {
-      dom.statusText.textContent = "Face detected. Drag to fine tune the fit inside the oval.";
-    } else if (state.manualMode) {
-      dom.statusText.textContent = "Drag the photo until the face sits inside the oval.";
-    } else if (selectableFaceLimit > 1 && selectedFaceCount === 0) {
-      dom.statusText.textContent = "Select a face to continue.";
-    } else if (selectableFaceLimit > 1 && selectedFaceCount > 1) {
-      dom.statusText.textContent = `${selectedFaceCount} faces selected and ready.`;
-    } else if (selectableFaceLimit > 1) {
-      dom.statusText.textContent = `${selectedFaceCount || 1} face selected. Select another face or continue.`;
-    } else {
-      dom.statusText.textContent = "Face selected and ready.";
-    }
-  } else {
-    dom.statusText.textContent = "";
-  }
-
-  dom.continueBtn.disabled = state.status !== STATES.READY || (!state.manualMode && selectedFaceCount === 0);
-  dom.continueBtn.classList.toggle("hidden", !editingPhoto || showingTemplates);
-  dom.manualOverlay.classList.toggle("hidden", !state.manualMode);
-  dom.manualControls.classList.toggle("hidden", !state.manualMode);
-
-  applyManualTransform();
-  renderOverlay();
-  renderFrozenTextItems();
-  syncMemeTextAppearance();
-  renderAiPromptHistory();
 }
-
 
 function renderAiPromptHistory() {
-  if (!dom.aiPromptHistory) return;
-  const messages = state.aiPromptHistory.length
-    ? state.aiPromptHistory
-    : [{ role: "system", text: "Tell me what to change — caption, mood, style, or face-swap direction." }];
-  dom.aiPromptHistory.innerHTML = "";
-  messages.forEach((message) => {
-    const node = document.createElement("article");
-    node.className = `ai-prompt-message ai-prompt-message--${message.role}`;
-    node.textContent = message.text;
-    dom.aiPromptHistory.appendChild(node);
-  });
-  dom.aiPromptHistory.scrollTop = dom.aiPromptHistory.scrollHeight;
+  return AiPrompting.renderAiPromptHistory({ dom, state });
 }
 
-async function submitSelectedFace() {
-  if (state.status !== STATES.READY) return;
-  const selectedFaces = getSelectedFaces();
-  const selectedFace = selectedFaces[0];
-  if (!selectedFace) return;
-  const selectedTemplate = getSelectedTemplate();
-
-  state.faceSwapAbortController = new AbortController();
-  startFaceSwapLoadingState();
-  let payload;
-
-  try {
-    const cropType = getFaceCropMimeType(state.file);
-    const faceCrop = await extractFaceCrop(state.file, selectedFace, {
-      decodedImage: state.imageBitmap,
-      type: cropType,
-    });
-
-    payload = await requestFaceSwap({
-      file: state.file,
-      faceCrop,
-      templateId: state.selectedTemplateId,
-      selectedFaces,
-      memeText: state.editor.overlayText || "",
-      textStyle: {
-        fontKey: state.editor.overlayFontKey,
-        fontPx: state.editor.overlayFontPx,
-        textColor: state.editor.overlayTextColor,
-        outlineEnabled: state.editor.overlayOutlineEnabled,
-        outlineColor: state.editor.overlayOutlineColor,
-      },
-      signal: state.faceSwapAbortController.signal,
-    });
-  } finally {
-    stopFaceSwapLoadingState();
-  }
-
-  const generatedImage = extractGeneratedImageUrl(payload);
-
-  if (!generatedImage) {
-    const error = new Error("Face swap completed, but no composited image URL was returned.");
-    error.code = "MISSING_GENERATED_IMAGE";
-    throw error;
-  }
-
-  state.editor.generatedImage = generatedImage;
-  state.showResetConfirmation = false;
-  recordEditorSnapshot();
-  render();
-  return payload;
+function renderAiPromptLoadMode() {
+  return AiPrompting.renderAiPromptLoadMode({ dom, state });
 }
 
 
@@ -1188,23 +800,60 @@ function endDrag(event) {
   event.preventDefault();
   state.dragPointerId = null;
   dom.previewImage.classList.remove("dragging");
+function render() {
+  const result = Render.render({
+    dom, state,
+    getSelectedTemplate, getSelectedFaces, getSelectableFaceLimit,
+    renderStudioTemplate, renderFrozenTextItems,
+    syncMemeTextAppearance, syncOutlineSwatchState,
+    applyManualTransform: () => applyManualTransform(),
+    renderOverlay, renderAiPromptHistory, renderAiPromptLoadMode,
+    getMemeTextColor,
+  });
+  projectActions?.scheduleAutoSave();
+  return result;
 }
 
-dom.overlayShell.addEventListener("pointerdown", startManualDrag);
-dom.overlayShell.addEventListener("pointermove", moveManualDrag);
-dom.overlayShell.addEventListener("pointerup", endDrag);
-dom.overlayShell.addEventListener("pointercancel", endDrag);
-
-dom.continueBtn.addEventListener("click", async () => {
-  try {
-    await submitSelectedFace();
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      return;
-    }
-    setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
-  }
+const projectActions = ProjectActions.configureProjectActions({
+  dom, state, render,
+  getTemplateMainImage,
+  recordEditorSnapshot,
 });
+
+// ── Events ────────────────────────────────────
+
+registerEvents({
+  dom, state, STATES, clamp,
+  // Camera / upload
+  startCameraCapture, snapCameraPhoto, flipCamera,
+  clearCameraStream, clearCameraReview,
+  useReviewedPhoto, goBackToUploadChoices,
+  startManualFitFromSelection, startManualDrag, moveManualDrag,
+  configureUpload, detectFaces,
+  applyManualTransform: () => applyManualTransform(),
+  // Template
+  showTemplateSelection, renderTemplates, openStudioForTemplate,
+  // Text overlay
+  createOrSelectTextAtPointer, selectTextObject, beginInlineTextEdit,
+  finishInlineTextEdit, deleteMemeText, freezeCurrentTextItem,
+  selectFrozenTextItem, updateEditorTextSetting,
+  startTextDrag, moveTextDrag, endTextDrag,
+  startTextResize, moveTextResize, endTextResize,
+  rotateTextOneStep, syncMemeTextAppearance, syncOutlineSwatchState,
+  getEditableTextValue,
+  // Editor
+  undoEditorSnapshot, redoEditorSnapshot, resetEditorToTemplate,
+  confirmBackAndResetStudio, recordEditorSnapshot,
+  // Face swap
+  submitSelectedFace, startFaceSwapLoadingState, stopFaceSwapLoadingState,
+  // Render
+  render, renderOverlay,
+  // Misc
+  getSelectedFaces, selectSingleFace, getRenderedSize,
+  hasUnsavedStudioEdits, normalizeBox, setStatus, setError,
+});
+
+// ── Test hooks (keep for test suite) ─────────
 
 export const __testHooks = {
   dom,
@@ -1228,10 +877,14 @@ export const __testHooks = {
   syncMemeTextAppearance,
   fitMemeTextToCanvas,
   updateEditorTextSetting,
+  projectActions,
 };
 
+// ── Init ──────────────────────────────────────
+
 async function init() {
+  await Templates.loadTemplateCatalog({ loadTemplates });
+  projectActions.restoreAutoSave();
   render();
 }
-
 init();

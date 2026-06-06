@@ -23,6 +23,8 @@ vi.mock("../public/.generated/mediapipe/vision_bundle.mjs", () => ({
 const testDir = path.dirname(fileURLToPath(import.meta.url));
 const htmlPath = path.resolve(testDir, "../public/index.html");
 const indexHtml = readFileSync(htmlPath, "utf8");
+const vibePanelCss = readFileSync(path.resolve(testDir, "../public/styles/studio/vibe-panel.css"), "utf8");
+const aiPromptingCss = readFileSync(path.resolve(testDir, "../public/styles/studio/ai-prompting.css"), "utf8");
 
 function mountAppHtml() {
   const mainMarkup = indexHtml.match(/<main[\s\S]*<\/main>/)?.[0] || "";
@@ -282,6 +284,8 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    delete globalThis.__MEMEBRO_AI_PROMPT_REQUEST__;
+    delete globalThis.__MEMEBRO_EXPORT_BLOB__;
   });
 
   test("custom: text is editable inline and preview updates live", async () => {
@@ -316,7 +320,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.memeFontSelect.value).toBe("impact");
     expect(dom.memeFontSizeInput.value).toBe("22");
     expect(dom.memeTextColorInput.value).toBe("#000000");
-    expect(dom.memeOutlineRemoveCta.classList.contains("hidden")).toBe(false);
+    expect(dom.memeOutlineRemoveCta).toBeNull();
 
     updateEditorTextSetting("overlayFontKey", "comic-sans");
     updateEditorTextSetting("overlayFontPx", 14);
@@ -790,5 +794,516 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.editor.overlayText).toBe("TAP TO EDIT TEXT");
     expect(state.editor.historyStack).toEqual([]);
     expect(localStorage.getItem("meme-editor-history")).toBeNull();
+  });
+
+  test("custom: AI prompt overlay opens with accessible textarea and rem-based copy", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+
+    expect(state.aiPrompt.panelState).toBe("open");
+    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptInput.tagName).toBe("TEXTAREA");
+    expect(dom.aiPromptInput.getAttribute("aria-label")).toBe("Prompt AI for meme changes");
+    expect(document.querySelector('label[for="ai-prompt-input"]')).not.toBeNull();
+    expect(vibePanelCss).not.toMatch(/\.ai-prompt-panel/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-panel textarea[\s\S]*font-size:\s*1rem/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*border-radius:\s*22px/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*resize:\s*none/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*overflow-y:\s*auto/);
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-form[\s\S]*align-items:\s*end/);
+    expect(dom.aiPromptWordCount.textContent).toBe("0 / 500");
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(true);
+  });
+
+  test("custom: text more button opens Copy/Paste/Link menu", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.isTextSelected = true;
+    render();
+
+    expect(dom.textMoreMenu.classList.contains("hidden")).toBe(true);
+
+    dom.textMoreCta.click();
+
+    expect(state.showTextMore).toBe(true);
+    expect(dom.textMoreMenu.classList.contains("hidden")).toBe(false);
+    expect(dom.textMoreCta.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("custom: AI prompt textarea expands as the user types", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    Object.defineProperty(dom.aiPromptInput, "scrollHeight", {
+      configurable: true,
+      value: 96,
+    });
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "line one\nline two\nline three";
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(dom.aiPromptInput.style.height).toBe("96px");
+  });
+
+  test("custom: AI prompt enforces a 500 character limit and updates counter", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    const characters = "a".repeat(505);
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = characters;
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+    expect(dom.aiPromptInput.value).toHaveLength(500);
+    expect(dom.aiPromptWordCount.textContent).toBe("500 / 500");
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptWordCount.classList.contains("is-at-limit")).toBe(true);
+  });
+
+  test("custom: AI prompt counter appears only within 50 characters of the limit", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "a".repeat(449);
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(true);
+
+    dom.aiPromptInput.value = "a".repeat(450);
+    dom.aiPromptInput.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(dom.aiPromptWordCount.textContent).toBe("450 / 500");
+    expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptWordCount.classList.contains("is-at-limit")).toBe(false);
+  });
+
+  test("custom: AI prompt bottom sheet tracks mobile keyboard viewport offset", async () => {
+    const visualViewport = new EventTarget();
+    visualViewport.height = 500;
+    visualViewport.offsetTop = 0;
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      writable: true,
+      value: 800,
+    });
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: visualViewport,
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    visualViewport.dispatchEvent(new Event("resize"));
+
+    expect(dom.uploadPage.style.getPropertyValue("--ai-prompt-keyboard-offset")).toBe("300px");
+  });
+
+  test("custom: AI prompt submit renders load mode until async placeholder resolves", async () => {
+    let resolvePrompt;
+    globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = vi.fn(() => new Promise((resolve) => {
+      resolvePrompt = resolve;
+    }));
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "make it more dramatic";
+    dom.aiPromptForm.requestSubmit();
+
+    expect(state.aiPrompt.requestState).toBe("submitting");
+    expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptLoadMessage.textContent).toBe("Generating your meme variant…");
+
+    resolvePrompt({ text: "Placeholder response" });
+    await vi.waitFor(() => {
+      expect(state.aiPrompt.requestState).toBe("idle");
+      expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(true);
+      expect(dom.aiPromptHistory.textContent).toContain("Placeholder response");
+    });
+  });
+
+  test.each([
+    ["FEATURE_DISABLED", "temporarily unavailable"],
+    ["QUEUE_FULL", "heavy load"],
+    ["RATE_LIMITED", "rate-limiting"],
+  ])("custom: AI prompt handles %s with friendly retry UI", async (code, copy) => {
+    let calls = 0;
+    globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) {
+        const error = new Error(`${code}: raw backend message`);
+        error.code = code;
+        throw error;
+      }
+      return { text: "Retry worked" };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "make a variant";
+    dom.aiPromptForm.requestSubmit();
+
+    await vi.waitFor(() => {
+      expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(false);
+      expect(dom.aiPromptRetryCta.classList.contains("hidden")).toBe(false);
+      expect(dom.aiPromptLoadMessage.textContent).toContain(copy);
+    });
+
+    dom.aiPromptRetryCta.click();
+
+    await vi.waitFor(() => {
+      expect(calls).toBe(2);
+      expect(dom.aiPromptHistory.textContent).toContain("Retry worked");
+      expect(dom.aiPromptLoadMode.classList.contains("hidden")).toBe(true);
+    });
+  });
+
+  test("custom: acute load errors show retry UI and retry face swap", async () => {
+    mockFaceCropCanvas("image/png");
+    let processCalls = 0;
+    global.fetch = vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      if (url === "/api/process") {
+        processCalls += 1;
+        if (processCalls === 1) {
+          return {
+            ok: false,
+            status: 503,
+            json: async () => ({ code: "QUEUE_FULL", message: "queue saturated" }),
+          };
+        }
+        return { ok: true, json: async () => ({ generatedImageUrl: "/generated/retry.png" }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.status = "ready";
+    seedSelectedFaceCrop(state, {
+      face: { id: "face-0", boxNatural: { x: 0, y: 0, width: 10, height: 10 } },
+    });
+    render();
+
+    dom.continueBtn.click();
+
+    await vi.waitFor(() => {
+      expect(dom.errorState.classList.contains("hidden")).toBe(false);
+    });
+    expect(dom.errorMessage.textContent).toContain("heavy load");
+    expect(dom.errorRetryCta.classList.contains("hidden")).toBe(false);
+
+    dom.errorRetryCta.click();
+
+    await vi.waitFor(() => {
+      expect(processCalls).toBe(2);
+      expect(state.editor.generatedImage).toBe("/generated/retry.png");
+    });
+    expect(dom.errorRetryCta.classList.contains("hidden")).toBe(true);
+  });
+
+  test("custom: project actions download the edited meme with a timestamped PNG filename", async () => {
+    let clickedDownload = "";
+    globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-download");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click() {
+      clickedDownload = this.download;
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+    dom.saveCta.click();
+
+    await vi.waitFor(() => {
+      expect(globalThis.__MEMEBRO_EXPORT_BLOB__).toHaveBeenCalledWith(expect.objectContaining({ type: "image/png" }));
+      expect(clickedDownload).toMatch(/^memebro-\d{8}T\d{6}Z\.png$/);
+    });
+  });
+
+  test("custom: studio actions use Face Swap label and keep project utilities in a menu", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    expect(dom.openUploadModalCta.textContent).toContain("Face Swap");
+    expect(dom.projectMenu.classList.contains("hidden")).toBe(true);
+
+    dom.projectMenuCta.click();
+
+    expect(dom.projectMenu.classList.contains("hidden")).toBe(false);
+    expect(dom.projectMenuCta.getAttribute("aria-expanded")).toBe("true");
+    expect(dom.exportProjectCta.textContent).toContain("Export");
+    expect(dom.importProjectCta.textContent).toContain("Import");
+  });
+
+  test("custom: canvas exporter composites the base image and text layers to a PNG blob", async () => {
+    const drawImage = vi.fn();
+    const fillText = vi.fn();
+    const strokeText = vi.fn();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({
+      drawImage,
+      fillText,
+      strokeText,
+      measureText: (text) => ({ width: String(text).length * 10 }),
+      save: vi.fn(),
+      restore: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      set font(value) { this._font = value; },
+      get font() { return this._font; },
+      set textAlign(value) { this._textAlign = value; },
+      set textBaseline(value) { this._textBaseline = value; },
+      set fillStyle(value) { this._fillStyle = value; },
+      set lineJoin(value) { this._lineJoin = value; },
+      set lineWidth(value) { this._lineWidth = value; },
+      get lineWidth() { return this._lineWidth || 0; },
+      set strokeStyle(value) { this._strokeStyle = value; },
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function toBlob(callback, type) {
+      callback(new Blob(["exported"], { type }));
+    });
+    vi.stubGlobal("Image", class MockImage {
+      set src(value) {
+        this._src = value;
+        this.onload?.();
+      }
+      get src() {
+        return this._src;
+      }
+    });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+    const { exportCanvasBlob } = await import("../public/lib/projectActions.js");
+
+    seedStudioEditorState(state);
+    state.editor.templateImage = "/assets/memes/placeholder.svg";
+    state.editor.overlayText = "EXPORT ME";
+    dom.studioTemplateArt.getBoundingClientRect = () => ({ width: 320, height: 240 });
+    render();
+
+    const blob = await exportCanvasBlob({ dom, state });
+
+    expect(blob.type).toBe("image/png");
+    expect(drawImage).toHaveBeenCalled();
+    expect(fillText).toHaveBeenCalledWith("EXPORT ME", 0, expect.any(Number), expect.any(Number));
+    expect(strokeText).toHaveBeenCalledWith("EXPORT ME", 0, expect.any(Number), expect.any(Number));
+  });
+
+  test("custom: project actions share with Web Share when available", async () => {
+    const share = vi.fn(async () => {});
+    globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    Object.defineProperty(navigator, "canShare", { configurable: true, value: vi.fn(() => true) });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+    dom.shareCta.click();
+
+    await vi.waitFor(() => {
+      expect(share).toHaveBeenCalledWith(expect.objectContaining({
+        title: "MemeBro meme",
+        files: [expect.any(File)],
+      }));
+    });
+  });
+
+  test("custom: project actions fall back to download when Web Share is unavailable", async () => {
+    globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-share");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+    dom.shareCta.click();
+
+    await vi.waitFor(() => {
+      expect(click).toHaveBeenCalled();
+      expect(state.saveStatusMessage).toBe("Downloaded");
+    });
+  });
+
+  test("custom: project export and import round-trip MemeBro JSON", async () => {
+    let exportedBlob;
+    vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+      exportedBlob = blob;
+      return "blob:memebro-project";
+    });
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render, projectActions } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "ROUND TRIP";
+    state.editor.generatedImage = "/generated/project.png";
+    render();
+
+    dom.exportProjectCta.click();
+
+    const exported = JSON.parse(await exportedBlob.text());
+    expect(exported.version).toBe(1);
+    expect(exported.baseImage.generatedImage).toBe("/generated/project.png");
+    expect(exported.layers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "text", text: "ROUND TRIP" }),
+    ]));
+
+    state.editor.overlayText = "changed";
+    await projectActions.importProjectFile(new File([JSON.stringify(exported)], "meme.memebro.json", { type: "application/json" }));
+
+    expect(state.view).toBe("studio");
+    expect(state.editor.overlayText).toBe("ROUND TRIP");
+    expect(state.editor.generatedImage).toBe("/generated/project.png");
+  });
+
+  test("custom: project import rejects external image sources", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { projectActions } = __testHooks;
+    const unsafeProject = {
+      version: 1,
+      selectedTemplateId: "drake",
+      baseImage: {
+        templateImage: "https://tracker.example/image.png",
+        generatedImage: "",
+      },
+      layers: [],
+      editor: {
+        selectedTemplateId: "drake",
+        templateImage: "https://tracker.example/image.png",
+        generatedImage: "",
+      },
+    };
+
+    await expect(projectActions.importProjectFile(
+      new File([JSON.stringify(unsafeProject)], "unsafe.memebro.json", { type: "application/json" })
+    )).rejects.toThrow(/unsupported image sources/i);
+  });
+
+  test("custom: project autosave is throttled, updates status, and restores after reload", async () => {
+    vi.useFakeTimers();
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "autosaved text";
+    render();
+
+    expect(state.saveStatusMessage).toBe("Saving...");
+    expect(localStorage.getItem("memebro-project-autosave")).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(499);
+    expect(localStorage.getItem("memebro-project-autosave")).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(1);
+    const raw = localStorage.getItem("memebro-project-autosave");
+    expect(raw).not.toBeNull();
+    expect(JSON.parse(raw).editor.overlayText).toBe("autosaved text");
+    expect(state.saveStatusMessage).toBe("Saved");
+
+    vi.resetModules();
+    mountAppHtml();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
+
+    const reloaded = await loadApp();
+    await settleApp();
+    expect(reloaded.__testHooks.state.view).toBe("studio");
+    expect(reloaded.__testHooks.state.editor.overlayText).toBe("autosaved text");
+  });
+
+  test("custom: project autosave reports failed when storage is unavailable", async () => {
+    vi.useFakeTimers();
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    localStorage.setItem.mockImplementation(() => {
+      throw new Error("storage full");
+    });
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "cannot save";
+    render();
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(state.saveStatusMessage).toBe("Failed");
+    expect(state.saveStatus).toBe("failed");
   });
 });

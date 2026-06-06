@@ -7,7 +7,13 @@
 @import "./styles/studio/workspace.css";
 @import "./styles/text-controls/toolbar.css";
 @import "./styles/studio/vibe-panel.css";
+@import "./styles/studio/ai-prompting.css";
 @import "./styles/text-controls/options.css";
 @import "./styles/studio/camera.css";
 @import "./styles/studio/templates.css";
-@import "./styles/studio/responsive.css";
+
+/* Studio responsive rules */
+@import "./styles/studio/responsive/global-studio-rules.css";
+@import "./styles/studio/responsive/mobile.css";
+@import "./styles/studio/responsive/tablet.css";
+@import "./styles/studio/responsive/desktop.css";
