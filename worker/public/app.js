@@ -264,7 +264,27 @@ async function init() {
   projectActions.restoreAutoSave();
   render();
   // Bridge from the React scroll-morph hero island to the existing template flow.
-  // Both hero CTAs ("drop a meme" / "browse templates") dispatch this event.
   window.addEventListener('memebro:start', () => showTemplateSelection());
+
+  // "Drop a meme" CTA — load the image directly into the studio editor,
+  // skipping template selection entirely.
+  window.addEventListener('memebro:launch-meme', (e) => {
+    const dataUrl = e.detail?.dataUrl;
+    if (!dataUrl) return;
+    state.selectedTemplateId    = null;
+    state.status                = STATES.IDLE;
+    state.view                  = 'studio';
+    state.uploadModalOpen       = false;
+    state.isEditingMemeText     = false;
+    state.showResetConfirmation = false;
+    state.showBackConfirmation  = false;
+    state.editor.templateImage  = dataUrl;
+    state.editor.generatedImage = '';
+    state.editor.initialSnapshot = Editor.createEditorSnapshot({ templateImage: dataUrl, generatedImage: '' });
+    state.editor.historyStack   = [];
+    state.editor.futureStack    = [];
+    Editor.persistEditorHistory();
+    render();
+  });
 }
 init();
