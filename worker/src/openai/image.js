@@ -108,7 +108,7 @@ export async function buildImageResponseFromBody(body, env, options = {}) {
     ? body.size
     : "1024x1024";
 
-  const model = env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+  const model = env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
   // ai_prompt is strictly text-to-image: ignore any reference/template images
   // so behavior is deterministic and the safety prefix is never buried behind
