@@ -248,6 +248,10 @@ export function registerEvents(ctx) {
         }
     });
 
+    dom.overlayShell.addEventListener("touchcancel", () => {
+        state.gesture = null;
+    });
+
     function syncGestureHud() {
         if (dom.zoomBadge) dom.zoomBadge.textContent = `${Math.round(state.manualScale * 100)}%`;
     }
