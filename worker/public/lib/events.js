@@ -6,6 +6,7 @@
  */
 
 import { configureAiPrompting } from "./ai-prompting.js";
+import { ALLOWED_TYPES } from "./constants.js";
 
 /**
  * Registers every event listener the MemeBro app needs.
@@ -89,6 +90,12 @@ export function registerEvents(ctx) {
     dom.cameraInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!ALLOWED_TYPES.has(file.type)) {
+            state.error = { code: "INVALID_FILE_TYPE", message: "Please upload an image file (JPEG, PNG, or WebP)" };
+            event.target.value = "";
+            render();
+            return;
+        }
         if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
         state.previewUrl = URL.createObjectURL(file);
         render();
@@ -98,6 +105,12 @@ export function registerEvents(ctx) {
     dom.libraryInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!ALLOWED_TYPES.has(file.type)) {
+            state.error = { code: "INVALID_FILE_TYPE", message: "Please upload an image file (JPEG, PNG, or WebP)" };
+            event.target.value = "";
+            render();
+            return;
+        }
         if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
         state.previewUrl = URL.createObjectURL(file);
         render();
