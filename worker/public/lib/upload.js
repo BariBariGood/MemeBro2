@@ -404,7 +404,7 @@ export function goBackToUploadChoices() {
     if (state.editor.generatedImage && state.editor.generatedImage.startsWith("blob:")) {
       URL.revokeObjectURL(state.editor.generatedImage);
     }
-    state.editor.generatedImage = null;
+    state.editor.generatedImage = "";
     state.editor._generatedImageDataUrl = null;
     clearCameraStream();
     clearCameraReview();

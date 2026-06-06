@@ -66,11 +66,15 @@ export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
     state.editor.templateImage      = snapshot.templateImage || getTemplateMainImage();
     const restoredGenerated = snapshot.generatedImage || "";
     if (restoredGenerated && restoredGenerated.startsWith("data:")) {
+        const prevUrl = state.editor.generatedImage;
+        if (prevUrl && prevUrl.startsWith("blob:")) URL.revokeObjectURL(prevUrl);
         state.editor._generatedImageDataUrl = restoredGenerated;
         // Synchronously set the data URL so callers have something immediately,
         // then asynchronously upgrade to a blob URL for better rendering.
         state.editor.generatedImage = restoredGenerated;
         fetch(restoredGenerated).then((r) => r.blob()).then((blob) => {
+            const cur = state.editor.generatedImage;
+            if (cur && cur.startsWith("blob:")) URL.revokeObjectURL(cur);
             state.editor.generatedImage = URL.createObjectURL(blob);
         }).catch(() => { /* keep the data URL fallback */ });
     } else {
