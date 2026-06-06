@@ -258,12 +258,13 @@ export const __testHooks = {
 
 async function init() {
   await Templates.loadTemplateCatalog({ loadTemplates });
-  projectActions.restoreAutoSave();
 
-  // Returning visitors skip the hero and go straight to template selection.
-  if (localStorage.getItem('memebro_visited')) {
+  // Returning visitors skip the hero and go straight to template selection,
+  // unless an auto-saved studio session was restored.
+  const restored = projectActions.restoreAutoSave();
+  if (!restored && localStorage.getItem('memebro_visited')) {
     await showTemplateSelection();
-  } else {
+  } else if (!restored) {
     render();
   }
 
