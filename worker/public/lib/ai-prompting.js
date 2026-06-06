@@ -189,6 +189,9 @@ export function configureAiPrompting({ dom, state, render }) {
         try {
             const result = await requestAiPromptVariant(prompt);
             appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
+            if (result?.imageUrl) {
+                state.editor.generatedImage = result.imageUrl;
+            }
             finishRequest();
             if (dom.aiPromptInput) dom.aiPromptInput.value = "";
         } catch (error) {
