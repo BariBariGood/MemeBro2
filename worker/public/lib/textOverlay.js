@@ -174,7 +174,7 @@ export function syncMemeTextAppearance({ dom, clamp }) {
 export function freezeCurrentTextItem() {
     if (!state.editor.overlayVisible) return;
     const text = (state.editor.overlayText || "").trim();
-    if (!text) return;
+    if (!text || text.toUpperCase() === DEFAULT_MEME_TEXT) return;
     state.editor.frozenTextItems.push({
         text,
         fontKey:      state.editor.overlayFontKey,
@@ -299,6 +299,7 @@ export function beginInlineTextEdit(event, { dom, render }) {
     state.isTextSelected    = true;
     if ((state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
         state.editor.overlayText = "";
+        dom.memeTextPreview.textContent = "";
     }
     dom.memeTextPreview.classList.remove("is-placeholder");
     dom.memeTextPreview.contentEditable = "true";
