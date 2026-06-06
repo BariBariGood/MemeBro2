@@ -259,9 +259,25 @@ export const __testHooks = {
 async function init() {
   await Templates.loadTemplateCatalog({ loadTemplates });
   projectActions.restoreAutoSave();
-  render();
+
+  // Returning visitors skip the hero and go straight to template selection.
+  if (localStorage.getItem('memebro_visited')) {
+    await showTemplateSelection();
+  } else {
+    render();
+  }
+
   // Bridge from the React scroll-morph hero island to the existing template flow.
   // Both hero CTAs ("drop a meme" / "browse templates") dispatch this event.
-  window.addEventListener('memebro:start', () => showTemplateSelection());
+  window.addEventListener('memebro:start', () => {
+    localStorage.setItem('memebro_visited', 'true');
+    showTemplateSelection();
+  });
+
+  // "Show intro" link lets returning users replay the hero.
+  document.getElementById('show-intro-cta')?.addEventListener('click', () => {
+    state.view = 'home';
+    render();
+  });
 }
 init();

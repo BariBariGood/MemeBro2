@@ -141,3 +141,21 @@
 .template-empty {
   color: var(--text-muted-72);
 }
+
+.show-intro-cta {
+  display: block;
+  margin: 1rem auto 0;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--text-muted-72);
+  background: transparent;
+  border: 1px solid var(--white-08);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.show-intro-cta:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
