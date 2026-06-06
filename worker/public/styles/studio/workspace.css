@@ -37,8 +37,8 @@
 
 /* Reset — pop up */
 .danger-action {
-  min-height: 38px !important; /* Height-matched to your modal style actions */
-  height: 38px !important;
+  min-height: 44px !important;
+  height: 44px !important;
   padding: 0 24px !important; /* Wide horizontal padding matching the modal buttons */
   font-size: 0.9rem !important;
   font-weight: 600 !important;
