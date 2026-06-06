@@ -48,7 +48,7 @@ export async function compositeImage({
       referenceMime: faceCrop.mimeType,
       templateRefB64: templateImage.b64,
       templateRefMime: templateImage.mimeType,
-      quality: "low",
+      quality: "high",
       size: "1024x1024",
     },
     env
@@ -80,18 +80,18 @@ export async function compositeImage({
 }
 
 function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
-  const region = faceRegion
-    ? `Template face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
-    : "Use the most obvious face region in the template.";
-  const outline = textOptions?.outlineEnabled === false
-    ? "without an outline"
-    : `with a ${textOptions?.outlineColor || "white"} outline`;
   return [
-    "Create a meme image by casting the subject face crop into the provided meme template.",
-    region,
-    "Preserve the original template composition and avoid distorting the subject face.",
-    `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
-    `Use ${textOptions?.textColor || "black"} text color when possible.`,
+    "You are creating a meme by seamlessly replacing a face in the provided meme template with the face from the reference photo.",
+    "CRITICAL INSTRUCTIONS:",
+    "1. Keep the EXACT same meme template composition, background, other people, and layout — only replace the target face.",
+    "2. The replacement face must match the lighting, angle, and expression style of the original face in the template.",
+    "3. Blend the skin tone and edges naturally so the face swap looks photorealistic.",
+    "4. Preserve the face's distinctive features: eye shape, nose, jawline, skin tone, facial hair if any.",
+    "5. Do NOT alter the template image outside the face region.",
+    faceRegion
+      ? `6. Target face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
+      : "6. Replace the most prominent face in the template.",
+    "Output a single high-quality meme image.",
   ].join(" ");
 }
 
