@@ -7,6 +7,7 @@
 
 import { configureAiPrompting } from "./ai-prompting.js";
 import { ALLOWED_TYPES, MAX_MEME_TEXT_ITEMS } from "./constants.js";
+import { setImageSrc } from "./templates.js";
 
 /**
  * Registers every event listener the MemeBro app needs.
@@ -522,7 +523,7 @@ export function registerEvents(ctx) {
         console.error("[render] studioTemplateImage failed to load source index", nextIndex - 1, "of", sources.length);
         if (nextIndex < sources.length) {
         dom.studioTemplateImage.dataset.fallbackIndex = String(nextIndex);
-        dom.studioTemplateImage.src = sources[nextIndex];
+        setImageSrc(dom.studioTemplateImage, sources[nextIndex]);
         return;
         }
         dom.studioTemplateArt.classList.add("image-error");
