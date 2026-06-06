@@ -65,9 +65,6 @@ function setDetectionRecoveryError(code) {
   };
 }
 
-function renderTemplates() {
-  return Templates.renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme });
-}
 // ── Template wrappers ─────────────────────────
 
 const getSelectedTemplate     = ()              => Templates.getSelectedTemplate();
@@ -180,10 +177,6 @@ const updateEditorTextSetting = (k, v) => TextOverlay.updateEditorTextSetting(k,
 
 function beginInlineTextEdit(event) {
   return TextOverlay.beginInlineTextEdit(event, { dom, render });
-}
-
-function createOrSelectTextAtPointer(event) {
-  return TextOverlay.createOrSelectTextAtPointer(event, { dom, clamp, recordEditorSnapshot, beginInlineTextEdit });
 }
 
 // ── Face wrappers ─────────────────────────────
