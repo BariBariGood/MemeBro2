@@ -2,8 +2,8 @@ import { createRoot } from 'react-dom/client'
 import { ScrollMorphHero } from './ScrollMorphHero.jsx'
 import './hero.css'
 
-function onLaunchWithMeme(_dataUrl) {
-  window.dispatchEvent(new CustomEvent('memebro:start'))
+function onLaunchWithMeme(dataUrl) {
+  window.dispatchEvent(new CustomEvent('memebro:launch-meme', { detail: { dataUrl } }))
 }
 
 function onBrowseTemplates() {
