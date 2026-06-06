@@ -6,7 +6,7 @@
  */
 
 import { configureAiPrompting } from "./ai-prompting.js";
-import { ALLOWED_TYPES, MAX_MEME_TEXT_ITEMS } from "./constants.js";
+import { ALLOWED_TYPES, DEFAULT_MEME_TEXT, MAX_MEME_TEXT_ITEMS } from "./constants.js";
 import { setImageSrc } from "./templates.js";
 
 /**
@@ -283,7 +283,14 @@ export function registerEvents(ctx) {
     });
 
     // ── Meme text preview interactions ──────────
-    dom.memeTextPreview.addEventListener("click",   selectTextObject);
+    dom.memeTextPreview.addEventListener("click", (event) => {
+        const isPlaceholder = (state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT;
+        if (isPlaceholder) {
+            beginInlineTextEdit(event);
+        } else {
+            selectTextObject(event);
+        }
+    });
     dom.memeTextPreview.addEventListener("dblclick", beginInlineTextEdit);
     dom.memeTextPreview.addEventListener("blur",     finishInlineTextEdit);
     dom.memeTextPreview.addEventListener("input", () => {
@@ -296,6 +303,8 @@ export function registerEvents(ctx) {
 
     dom.memeTextPreview.addEventListener("pointerdown", (event) => {
         if (state.isEditingMemeText) return;
+        const isPlaceholder = (state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT;
+        if (isPlaceholder) return;
         startTextDrag(event);
     });
     dom.memeTextPreview.addEventListener("pointermove",  moveTextDrag);
