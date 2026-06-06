@@ -29,7 +29,7 @@ const DETECTION_TILE_OVERLAP = 0.18;
 const DETECTION_TILE_MAX_EDGE = 900;
 const DETECTION_TILE_MAX_PASSES = 12;
 const DETECTION_DUPLICATE_OVERLAP = 0.45;
-const DETECTION_MIN_CONFIDENCE = 0.7;
+const DETECTION_MIN_CONFIDENCE = 0.35;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
