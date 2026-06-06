@@ -219,7 +219,7 @@ export function registerEvents(ctx) {
         const [a, b] = [e.touches[0], e.touches[1]];
         const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
         const angle = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI);
-        const scaleFactor = dist / state.gesture.startDist;
+        const scaleFactor = state.gesture.startDist > 0 ? dist / state.gesture.startDist : 1;
         state.manualScale = clamp(state.gesture.startScale * scaleFactor, 0.5, 3.0);
         let angleDiff = angle - state.gesture.startAngle;
         if (angleDiff > 180) angleDiff -= 360;
