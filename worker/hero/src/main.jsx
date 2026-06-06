@@ -12,14 +12,13 @@ import { ScrollMorphHero } from './ScrollMorphHero.jsx'
 import './hero.css'
 
 /**
- * Hero callback — fires `memebro:start` so the vanilla app hides the
- * hero and opens the studio with the user's uploaded image.
+ * Hero callback — fires `memebro:launch-meme` so the vanilla app hides the
+ * hero and loads the dropped image directly into the studio editor.
  *
- * @param {string} _dataUrl - Base-64 data-URL of the dropped image (unused
- *   by the event; the studio re-reads the file independently)
+ * @param {string} dataUrl - Base-64 data-URL of the dropped image
  */
-function onLaunchWithMeme(_dataUrl) {
-  window.dispatchEvent(new CustomEvent('memebro:start'))
+function onLaunchWithMeme(dataUrl) {
+  window.dispatchEvent(new CustomEvent('memebro:launch-meme', { detail: { dataUrl } }))
 }
 
 /**
