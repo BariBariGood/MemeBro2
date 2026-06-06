@@ -202,3 +202,55 @@ body {
   outline: var(--focus-ring);
   outline-offset: 3px;
 }
+
+/* ── Toast notification ─────────────────────── */
+.memebro-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--color-bg-mid, #050812);
+  color: var(--color-lime, #b8f73a);
+  font-family: var(--font-app);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: var(--radius-pill, 999px);
+  border: 1px solid var(--color-lime, #b8f73a);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.memebro-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── Save status indicator ──────────────────── */
+.save-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-app);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--color-text, #f6f7fb);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  margin-left: 8px;
+}
+.save-status-indicator.visible {
+  opacity: 1;
+}
+.save-status-indicator.saved {
+  color: var(--color-lime, #b8f73a);
+}
+.save-status-indicator.saving {
+  color: var(--color-text, #f6f7fb);
+}
+.save-status-indicator.failed {
+  color: var(--color-danger, #dc2626);
+}

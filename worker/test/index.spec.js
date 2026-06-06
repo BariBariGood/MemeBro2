@@ -238,6 +238,140 @@ describe("MemeBro API gateway", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it("local face swap works even when FACE_SWAP_API_URL is not set (routing order fix)", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: [{ b64_json: arrayBufferToBase64(await fakePng()) }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const cropPng = await fakePng();
+    const templatePng = await fakePng(128, 128);
+    const assets = {
+      fetch: vi.fn(async (request) => {
+        const url = new URL(request.url);
+        if (url.pathname === "/templates.json") {
+          return new Response(
+            JSON.stringify({
+              templates: [
+                {
+                  id: "drake",
+                  templateImage: "/assets/memes/drake.png",
+                  faceRegions: [{ x: 10, y: 10, width: 40, height: 40 }],
+                  images: { width: 128, height: 128 },
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        if (url.pathname === "/assets/memes/drake.png") {
+          return new Response(templatePng, {
+            status: 200,
+            headers: { "content-type": "image/png" },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    };
+
+    const request = new Request("http://example.com/api/process?mode=face_swap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/png",
+        "X-MemeBro-Filename": "face.png",
+        "X-MemeBro-Face-Crop": JSON.stringify({ x: 0, y: 0, width: 128, height: 128 }),
+        "X-MemeBro-Template": "drake",
+        "X-MemeBro-Meme-Text": "test meme",
+      },
+      body: cropPng,
+    });
+
+    // No FACE_SWAP_API_URL in env — would previously fail with FEATURE_DISABLED
+    const envWithoutFaceSwapUrl = {
+      OPENAI_API_KEY: "sk-test123",
+      ASSETS: assets,
+    };
+
+    const response = await worker.fetch(request, envWithoutFaceSwapUrl);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.generatedImageUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.mode).toBe("face_swap");
+  });
+
+  it("local face swap bypasses assertFeatureEnabled even when health check would fail", async () => {
+    // Mock fetch: return 502 for the health-check probe (FACE_SWAP_API_URL),
+    // but return a valid OpenAI response for the image compositing call.
+    const generatedPng = await fakePng();
+    const mockFetch = vi.fn((url) => {
+      const urlStr = typeof url === "string" ? url : url.url;
+      if (urlStr.includes("face.example")) {
+        return Promise.resolve(new Response("", { status: 502 }));
+      }
+      // OpenAI image edit response
+      return Promise.resolve(new Response(
+        JSON.stringify({ data: [{ b64_json: arrayBufferToBase64(generatedPng) }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      ));
+    });
+    vi.stubGlobal("fetch", mockFetch);
+
+    const cropPng = await fakePng();
+    const templatePng = await fakePng(128, 128);
+    const assets = {
+      fetch: vi.fn(async (request) => {
+        const url = new URL(request.url);
+        if (url.pathname === "/templates.json") {
+          return new Response(
+            JSON.stringify({
+              templates: [
+                {
+                  id: "drake",
+                  templateImage: "/assets/memes/drake.png",
+                  faceRegions: [{ x: 10, y: 10, width: 40, height: 40 }],
+                  images: { width: 128, height: 128 },
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        if (url.pathname === "/assets/memes/drake.png") {
+          return new Response(templatePng, {
+            status: 200,
+            headers: { "content-type": "image/png" },
+          });
+        }
+        return new Response("not found", { status: 404 });
+      }),
+    };
+
+    const request = new Request("http://example.com/api/process?mode=face_swap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/png",
+        "X-MemeBro-Filename": "face.png",
+        "X-MemeBro-Face-Crop": JSON.stringify({ x: 0, y: 0, width: 128, height: 128 }),
+        "X-MemeBro-Template": "drake",
+        "X-MemeBro-Meme-Text": "test meme",
+      },
+      body: cropPng,
+    });
+
+    // Even with FACE_SWAP_API_URL set but upstream unhealthy, local path should work
+    const response = await worker.fetch(request, { ...testEnv, ASSETS: assets });
+    const body = await response.json();
+
+    // Local face swap should succeed despite upstream being unhealthy
+    expect(response.status).toBe(200);
+    expect(body.generatedImageUrl).toMatch(/^data:image\/png;base64,/);
+    expect(body.mode).toBe("face_swap");
+  });
+
   it("disables face_swap with FEATURE_DISABLED when upstream is unhealthy (issue #33)", async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response("", { status: 502 })

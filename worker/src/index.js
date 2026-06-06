@@ -424,6 +424,13 @@ export async function handleGatewayRequest(request, env) {
     const prepared = await prepareOutboundRequest(request);
     const { mode, options, payload, isJson } = prepared;
 
+    // Local face swap path: doesn't need the upstream to be healthy — it uses
+    // the worker-local compositeImage() function. Check BEFORE assertFeatureEnabled
+    // so local dev works even when FACE_SWAP_API_URL is not configured.
+    if (shouldUseLocalFaceSwap(mode, isJson, prepared.requestHeaders)) {
+      return handleLocalFaceSwap(prepared, env);
+    }
+
     // Fallback strategy (issue #33): refuse the request early when the
     // upstream powering this mode is currently unhealthy. The client sees a
     // FEATURE_DISABLED error code so it can disable the affected UI affordance
@@ -440,10 +447,6 @@ export async function handleGatewayRequest(request, env) {
       return await enqueueRequest(() =>
         buildImageResponseFromBody(payload ?? {}, env, { throwErrors: true })
       );
-    }
-
-    if (shouldUseLocalFaceSwap(mode, isJson, prepared.requestHeaders)) {
-      return handleLocalFaceSwap(prepared, env);
     }
 
     // Request queue (issue #34): smooths bursts above 10 req/s and applies

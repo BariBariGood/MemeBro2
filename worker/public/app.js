@@ -258,12 +258,35 @@ export const __testHooks = {
   projectActions,
 };
 
+// ── Toast helper ──────────────────────────────
+
+function showToast(message, duration = 3000) {
+  const el = document.createElement("div");
+  el.className = "memebro-toast";
+  el.textContent = message;
+  el.setAttribute("role", "status");
+  el.setAttribute("aria-live", "polite");
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("visible"));
+  setTimeout(() => {
+    el.classList.remove("visible");
+    el.addEventListener("transitionend", () => el.remove(), { once: true });
+    setTimeout(() => el.remove(), 400);
+  }, duration);
+}
+
 // ── Init ──────────────────────────────────────
 
 async function init() {
   await Templates.loadTemplateCatalog({ loadTemplates });
-  projectActions.restoreAutoSave();
+  const restored = projectActions.restoreAutoSave();
   render();
+  if (restored) showToast("Welcome back! Restored your previous work.");
+
+  // Save current state before the page unloads
+  window.addEventListener("beforeunload", () => {
+    projectActions.saveProjectNow();
+  });
   // Bridge from the React scroll-morph hero island to the existing template flow.
   window.addEventListener('memebro:start', () => showTemplateSelection());
 

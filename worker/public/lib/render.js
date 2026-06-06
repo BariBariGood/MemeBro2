@@ -274,6 +274,15 @@ export function render(ctx) {
     dom.redoCta.disabled  = state.editor.futureStack.length === 0;
     dom.resetCta.disabled = !selectedTemplate;
 
+    // ── Save status indicator ──
+    if (dom.saveStatusEl) {
+        const status = state.saveStatus || "idle";
+        const isActive = showingStudio && status !== "idle";
+        const label = status === "saving" ? "Saving..." : status === "saved" ? "Saved" : status === "failed" ? "Failed" : "";
+        dom.saveStatusEl.textContent = label;
+        dom.saveStatusEl.className = "save-status-indicator " + status + (isActive ? " visible" : "");
+    }
+
     // ── Progress ──
     dom.progressWrap.classList.toggle("hidden",
         !(state.status === STATES.LOADING_IMAGE || state.status === STATES.DETECTING)

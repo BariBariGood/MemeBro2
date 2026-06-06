@@ -22,6 +22,20 @@ export function getMemeFilename(extension = "png") {
 }
 
 function getCanvasSize(dom) {
+    const image = dom.studioTemplateImage;
+    const naturalWidth = image?.naturalWidth || 0;
+    const naturalHeight = image?.naturalHeight || 0;
+    if (naturalWidth > 0 && naturalHeight > 0) {
+        return { width: naturalWidth, height: naturalHeight };
+    }
+    const rect = dom.studioTemplateArt?.getBoundingClientRect?.();
+    return {
+        width: Math.max(1, Math.round(rect?.width || 1080)),
+        height: Math.max(1, Math.round(rect?.height || 1080)),
+    };
+}
+
+function getDisplaySize(dom) {
     const rect = dom.studioTemplateArt?.getBoundingClientRect?.();
     const image = dom.studioTemplateImage;
     return {
@@ -101,8 +115,8 @@ function wrapCanvasText(ctx, text, maxWidth) {
     return lines;
 }
 
-function drawTextLayer(ctx, layer, canvasWidth, canvasHeight) {
-    const fontPx = Math.max(8, Number(layer.fontPx) || 22);
+function drawTextLayer(ctx, layer, canvasWidth, canvasHeight, scale = 1) {
+    const fontPx = Math.max(8, (Number(layer.fontPx) || 22) * scale);
     const fontStyle = layer.italic ? "italic " : "";
     const fontWeight = layer.bold ? "700 " : "400 ";
     const fontFamily = getMemeFontFamily(layer.fontKey);
@@ -146,14 +160,25 @@ export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME,
     }
 
     const { width, height } = getCanvasSize(dom);
+    const display = getDisplaySize(dom);
+    const scale = Math.max(width / display.width, height / display.height) || 1;
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, width, height);
+
+    const isJpeg = type === "image/jpeg";
+    if (isJpeg) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+    }
+
     const image = await loadImage(state.editor.generatedImage || state.editor.templateImage || dom.studioTemplateImage?.currentSrc || dom.studioTemplateImage?.src);
 
     ctx.drawImage(image, 0, 0, width, height);
-    getTextLayers(state).forEach((layer) => drawTextLayer(ctx, layer, width, height));
+    getTextLayers(state).forEach((layer) => drawTextLayer(ctx, layer, width, height, scale));
     return canvasToBlob(canvas, type, quality);
 }
 
@@ -252,11 +277,23 @@ export function configureProjectActions({
     let autosaveTimer = null;
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
+    let saveStatusFadeTimer = null;
     const storage = globalThis.localStorage;
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
         state.saveStatusMessage = message;
+        clearTimeout(saveStatusFadeTimer);
+        if (status === "saved") {
+            saveStatusFadeTimer = setTimeout(() => {
+                state.saveStatus = "idle";
+                state.saveStatusMessage = "";
+                if (dom.saveStatusEl) {
+                    dom.saveStatusEl.textContent = "";
+                    dom.saveStatusEl.className = "save-status-indicator idle";
+                }
+            }, 2000);
+        }
     }
 
     function serializeProject() {
@@ -285,6 +322,7 @@ export function configureProjectActions({
     function scheduleAutoSave() {
         if (state.view !== "studio" || !state.selectedTemplateId) return;
         autosaveDirty = true;
+        clearTimeout(saveStatusFadeTimer);
         state.saveStatus = "saving";
         state.saveStatusMessage = "Saving...";
         clearTimeout(autosaveTimer);

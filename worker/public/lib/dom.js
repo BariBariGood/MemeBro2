@@ -59,6 +59,7 @@ export const dom = {
   memeTextCharWarn: document.getElementById("meme-text-char-warn"),
   undoCta: document.getElementById("undo-cta"),
   redoCta: document.getElementById("redo-cta"),
+  saveStatusEl: document.getElementById("save-status"),
   resetCta: document.getElementById("reset-cta"),
   resetConfirmation: document.getElementById("reset-confirmation"),
   resetConfirmationBackdrop: document.getElementById("reset-confirmation-backdrop"),

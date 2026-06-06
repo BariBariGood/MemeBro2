@@ -6,7 +6,7 @@
  */
 
 import { configureAiPrompting } from "./ai-prompting.js";
-import { MAX_MEME_TEXT_ITEMS } from "./constants.js";
+import { ALLOWED_TYPES, MAX_MEME_TEXT_ITEMS } from "./constants.js";
 
 /**
  * Registers every event listener the MemeBro app needs.
@@ -90,6 +90,12 @@ export function registerEvents(ctx) {
     dom.cameraInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!ALLOWED_TYPES.has(file.type)) {
+            state.error = { code: "INVALID_FILE_TYPE", message: "Please upload an image file (JPEG, PNG, or WebP)" };
+            event.target.value = "";
+            render();
+            return;
+        }
         if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
         state.previewUrl = URL.createObjectURL(file);
         render();
@@ -99,6 +105,12 @@ export function registerEvents(ctx) {
     dom.libraryInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!ALLOWED_TYPES.has(file.type)) {
+            state.error = { code: "INVALID_FILE_TYPE", message: "Please upload an image file (JPEG, PNG, or WebP)" };
+            event.target.value = "";
+            render();
+            return;
+        }
         if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
         state.previewUrl = URL.createObjectURL(file);
         render();
@@ -522,19 +534,22 @@ export function registerEvents(ctx) {
         }
     });
 
-    // ── Debounced text-input snapshot ────────────
+    // ── Debounced text-input snapshot + autosave ─
     let _textInputDebounceTimer = null;
     dom.memeTextPreview.addEventListener("input", () => {
         clearTimeout(_textInputDebounceTimer);
         _textInputDebounceTimer = setTimeout(() => {
+            _textInputDebounceTimer = null;
             recordEditorSnapshot();
-        }, 500);
+            render();
+        }, 1500);
     });
     dom.memeTextPreview.addEventListener("blur", () => {
         // Flush any pending debounced snapshot immediately on blur
         if (_textInputDebounceTimer) {
             clearTimeout(_textInputDebounceTimer);
             _textInputDebounceTimer = null;
+            recordEditorSnapshot();
         }
     });
 
