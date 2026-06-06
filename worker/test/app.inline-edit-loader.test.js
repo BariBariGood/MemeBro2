@@ -535,19 +535,29 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
     dom.aiPromptCta.click();
 
+    expect(state.view).toBe("ai_prompt");
     expect(state.aiPrompt.panelState).toBe("open");
     expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(false);
     expect(dom.aiPromptInput.tagName).toBe("TEXTAREA");
+    expect(dom.aiPromptInput.getAttribute("placeholder")).toBe("What kind of meme would you like?");
     expect(dom.aiPromptInput.getAttribute("aria-label")).toBe("Prompt AI for meme changes");
     expect(document.querySelector('label[for="ai-prompt-input"]')).not.toBeNull();
     expect(vibePanelCss).not.toMatch(/\.ai-prompt-panel/);
-    expect(aiPromptingCss).toMatch(/\.ai-prompt-panel textarea[\s\S]*font-size:\s*1rem/);
+    expect(aiPromptingCss).not.toMatch(/\.ai-prompt-panel/);
+    expect(dom.aiPromptForm.querySelector(".ai-prompt-submit-cta").textContent).toBe("→");
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*border-radius:\s*22px/);
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*resize:\s*none/);
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*overflow-y:\s*auto/);
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form[\s\S]*align-items:\s*end/);
     expect(dom.aiPromptWordCount.textContent).toBe("0 / 500");
     expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(true);
+
+    dom.backBtn.click();
+
+    expect(state.view).toBe("templates");
+    expect(state.aiPrompt.panelState).toBe("closed");
+    expect(dom.templateScreen.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptScreen.classList.contains("hidden")).toBe(true);
   });
 
   test("custom: text more button opens Copy/Paste/Link menu", async () => {

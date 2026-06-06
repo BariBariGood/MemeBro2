@@ -110,6 +110,7 @@ export function configureAiPrompting({ dom, state, render }) {
     }
 
     function openPanel() {
+        state.view = "ai_prompt";
         setPanelOpen(true);
         render();
         syncKeyboardOffset();
@@ -119,6 +120,7 @@ export function configureAiPrompting({ dom, state, render }) {
 
     function closePanel() {
         setPanelOpen(false);
+        state.view = "templates";
         render();
     }
 
