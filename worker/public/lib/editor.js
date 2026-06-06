@@ -160,7 +160,7 @@ export function initializeEditorState({ getTemplateMainImage, getSelectedTemplat
         overlayY:              80,
         overlayWidthPct:       48,
         overlayRotation:       0,
-        overlayVisible:        false,
+        overlayVisible:        true,
         frozenTextItems:       [],
     });
     state.editor.historyStack       = [];
