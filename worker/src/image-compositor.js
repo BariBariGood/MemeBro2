@@ -62,12 +62,15 @@ export async function compositeImage({
     return jsonResponse({ error: "no_image_returned" }, 502);
   }
 
-  const finalized = await applyTextAndOptimize(b64, safeText, textOptions);
-  const mimeType = finalized.mimeType || "image/png";
+  // Return the raw OpenAI image directly. The server-side text overlay
+  // (applyTextAndOptimize) uses a minimal PNG decoder that doesn't handle
+  // all color types and filter modes, corrupting the image. Text is added
+  // client-side in the editor instead.
+  const mimeType = "image/png";
 
   return {
-    generatedImageUrl: `data:${mimeType};base64,${finalized.b64}`,
-    b64: finalized.b64,
+    generatedImageUrl: `data:${mimeType};base64,${b64}`,
+    b64,
     mimeType,
     model: generated.model,
     quality: generated.quality,
