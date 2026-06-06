@@ -26,6 +26,7 @@ export function registerEvents(ctx) {
         // Editor
         undoEditorSnapshot, redoEditorSnapshot, resetEditorToTemplate,
         confirmBackAndResetStudio, recordEditorSnapshot,
+        saveCurrentEditorMeme,
         // Face swap
         submitSelectedFace,
         startFaceSwapLoadingState, stopFaceSwapLoadingState,
@@ -119,6 +120,18 @@ export function registerEvents(ctx) {
     // ── Navigation ───────────────────────────────
     dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
     dom.backBtn.addEventListener("click", goBackToUploadChoices);
+
+    dom.saveCta?.addEventListener("click", async () => {
+        if (state.view !== "studio") return;
+        dom.saveCta.disabled = true;
+        try {
+            await saveCurrentEditorMeme();
+        } catch {
+            // Keep save non-blocking for the editor if browser storage fails.
+        } finally {
+            dom.saveCta.disabled = false;
+        }
+    });
 
     // ── Upload configuration ─────────────────────
     configureUpload({

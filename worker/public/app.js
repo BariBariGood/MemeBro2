@@ -300,8 +300,8 @@ registerEvents({
   // Editor
   undoEditorSnapshot, redoEditorSnapshot, resetEditorToTemplate,
   confirmBackAndResetStudio, recordEditorSnapshot,
-	// Save
-	saveCurrentEditorMeme,
+  // Save
+  saveCurrentEditorMeme,
   // Face swap
   submitSelectedFace, startFaceSwapLoadingState, stopFaceSwapLoadingState,
   // Render
