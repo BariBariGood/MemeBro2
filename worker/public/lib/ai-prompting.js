@@ -22,13 +22,27 @@ function waitForAiPromptFrame() {
     });
 }
 
-async function requestAiPromptVariant(prompt) {
-    // Tests and future API wiring can provide the real request implementation here.
+export async function requestAiPromptVariant(prompt) {
+    // Test override: allows unit tests to stub the network call.
     if (typeof globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ === "function") {
         return globalThis.__MEMEBRO_AI_PROMPT_REQUEST__(prompt);
     }
-    await waitForAiPromptFrame();
-    return { text: AI_PROMPT_PLACEHOLDER_RESPONSE };
+
+    const response = await fetch("/api/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "ai_prompt", prompt }),
+    });
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const error = new Error(body?.message || `Request failed with HTTP ${response.status}.`);
+        error.code = body?.code || "AI_PROMPT_FAILED";
+        throw error;
+    }
+
+    const data = await response.json();
+    return { text: data?.text || "AI variant generated.", imageUrl: data?.b64 || data?.url || null };
 }
 
 function getAiPromptCharacters(value) {
@@ -159,7 +173,14 @@ export function configureAiPrompting({ dom, state, render }) {
     async function submitPrompt(event) {
         event.preventDefault();
         const prompt = dom.aiPromptInput?.value.trim();
-        if (!prompt) return;
+
+        if (!prompt) {
+            dom.aiPromptInput?.classList.add("ai-prompt-input--shake");
+            setTimeout(() => dom.aiPromptInput?.classList.remove("ai-prompt-input--shake"), 400);
+            appendAiPromptMessage("system", "Enter a prompt.");
+            render();
+            return;
+        }
 
         startRequest(prompt);
         render();
@@ -171,6 +192,7 @@ export function configureAiPrompting({ dom, state, render }) {
             finishRequest();
             if (dom.aiPromptInput) dom.aiPromptInput.value = "";
         } catch (error) {
+            appendAiPromptMessage("system", error?.message || "Something went wrong. Try again.");
             failRequest(error);
         }
 
