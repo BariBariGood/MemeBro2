@@ -44,7 +44,7 @@ export function registerEvents(ctx) {
         // Misc
         getSelectedFaces, selectSingleFace, getRenderedSize,
         hasUnsavedStudioEdits, normalizeBox, setStatus, setError,
-        applyManualTransform,
+        applyManualTransform, showToast,
     } = ctx;
 
     const loadErrorCodes = new Set(["FEATURE_DISABLED", "QUEUE_FULL", "RATE_LIMITED"]);
@@ -91,8 +91,10 @@ export function registerEvents(ctx) {
         const file = event.target.files?.[0];
         if (!file) return;
         if (!ALLOWED_TYPES.has(file.type)) {
-            state.error = { code: "INVALID_FILE_TYPE", message: "Please upload an image file (JPEG, PNG, or WebP)" };
+            const msg = "Please upload an image file (JPEG, PNG, or WebP)";
+            state.error = { code: "INVALID_FILE_TYPE", message: msg };
             event.target.value = "";
+            if (showToast) showToast(msg);
             render();
             return;
         }
@@ -106,8 +108,10 @@ export function registerEvents(ctx) {
         const file = event.target.files?.[0];
         if (!file) return;
         if (!ALLOWED_TYPES.has(file.type)) {
-            state.error = { code: "INVALID_FILE_TYPE", message: "Please upload an image file (JPEG, PNG, or WebP)" };
+            const msg = "Please upload an image file (JPEG, PNG, or WebP)";
+            state.error = { code: "INVALID_FILE_TYPE", message: msg };
             event.target.value = "";
+            if (showToast) showToast(msg);
             render();
             return;
         }

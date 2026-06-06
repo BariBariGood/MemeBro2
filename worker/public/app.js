@@ -242,6 +242,7 @@ registerEvents({
   // Misc
   getSelectedFaces, selectSingleFace, getRenderedSize,
   hasUnsavedStudioEdits, normalizeBox, setStatus, setError,
+  showToast,
 });
 
 // ── Test hooks (keep for test suite) ─────────
