@@ -6,7 +6,7 @@
  * art, sidebar positioning, and the text-overlay preview.
  */
 
-import { STATES } from "./constants.js";
+import { STATES, MEME_TEXT_CHAR_WARN } from "./constants.js";
 import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES, NEW_PHOTO_ERROR_CODES } from "./loadErrors.js";
 
 function positionStudioSidebar({ dom, showingStudio }) {
@@ -255,11 +255,10 @@ export function render(ctx) {
 
     // ── Character limit warning ──
     const charLen = (state.editor.overlayText || "").length;
-    const CHAR_WARN = 200;
     if (dom.memeTextCharWarn) {
-        const showWarn = showingStudio && state.editor.overlayVisible && charLen >= CHAR_WARN;
+        const showWarn = showingStudio && state.editor.overlayVisible && charLen >= MEME_TEXT_CHAR_WARN;
         dom.memeTextCharWarn.classList.toggle("hidden", !showWarn);
-        if (showWarn) dom.memeTextCharWarn.textContent = `${charLen} / ${CHAR_WARN} characters`;
+        if (showWarn) dom.memeTextCharWarn.textContent = `${charLen} / ${MEME_TEXT_CHAR_WARN} characters`;
     }
 
     // ── Face swap loader ──
