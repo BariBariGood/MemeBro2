@@ -151,11 +151,19 @@
               <span>Text</span>
               <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" />
             </label>
+            <div class="toolbar-color-swatches" aria-label="Quick text colors">
+              <button type="button" class="color-swatch" data-color-key="black" style="background:#000000" aria-label="Black" title="Black"></button>
+              <button type="button" class="color-swatch" data-color-key="white" style="background:#ffffff" aria-label="White" title="White"></button>
+              <button type="button" class="color-swatch" data-color-key="red" style="background:#d62828" aria-label="Red" title="Red"></button>
+              <button type="button" class="color-swatch" data-color-key="blue" style="background:#2563eb" aria-label="Blue" title="Blue"></button>
+              <button type="button" class="color-swatch" data-color-key="yellow" style="background:#ffd60a" aria-label="Yellow" title="Yellow"></button>
+            </div>
             <label class="toolbar-color-group toolbar-color-group--outline is-off" for="meme-outline-color-input">
               <span>Border</span>
               <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" />
             </label>
           </div>
+          <div id="meme-text-char-warn" class="meme-text-char-warn hidden" aria-live="polite"></div>
           <section class="template-bottom-actions" aria-label="Edit history actions">
             <div class="history-left">
               <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo">↶ Undo</button>

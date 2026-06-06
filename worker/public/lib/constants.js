@@ -48,6 +48,8 @@ export const DEFAULT_MEME_OUTLINE_ENABLED = false;
 export const DEFAULT_MEME_OUTLINE_COLOR = "#ffffff";
 export const RECENTS_STORAGE_KEY = "meme-template-recents";
 export const ROTATE_STEP = 90;
+export const MAX_MEME_TEXT_ITEMS = 10;
+export const MEME_TEXT_CHAR_WARN = 200;
 export const FACE_CROP_DEFAULT_TYPE = "image/jpeg";
 export const FACE_CROP_QUALITY = 0.92;
 

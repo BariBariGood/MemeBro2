@@ -15,6 +15,7 @@ import {
     MEME_FONT_OPTIONS,
     MEME_TEXT_COLORS,
     ROTATE_STEP,
+    MAX_MEME_TEXT_ITEMS,
 } from "./constants.js";
 import { state } from "./state.js";
 
@@ -248,6 +249,8 @@ export function selectFrozenTextItem(index, { recordEditorSnapshot, render }) {
 // ── Create / select at pointer ───────────────
 
 export function createOrSelectTextAtPointer(event, { dom, clamp, recordEditorSnapshot, beginInlineTextEdit }) {
+    const totalItems = state.editor.frozenTextItems.length + (state.editor.overlayVisible ? 1 : 0);
+    if (totalItems >= MAX_MEME_TEXT_ITEMS) return;
     const artRect  = dom.studioTemplateArt.getBoundingClientRect();
     const xPercent = clamp(((event.clientX - artRect.left) / artRect.width)  * 100, 5, 95);
     const yPercent = clamp(((event.clientY - artRect.top)  / artRect.height) * 100, 5, 95);
@@ -272,6 +275,7 @@ export function createOrSelectTextAtPointer(event, { dom, clamp, recordEditorSna
     state.isTextSelected               = true;
     state.showTextMore                 = false;
     dom.memeTextPreview.textContent    = DEFAULT_MEME_TEXT;
+    dom.memeTextPreview.classList.add("is-placeholder");
     recordEditorSnapshot();
     beginInlineTextEdit();
 }
@@ -296,6 +300,7 @@ export function beginInlineTextEdit(event, { dom, render }) {
     if ((state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
         state.editor.overlayText = "";
     }
+    dom.memeTextPreview.classList.remove("is-placeholder");
     dom.memeTextPreview.contentEditable = "true";
     requestAnimationFrame(() => dom.memeTextPreview.focus());
     render();
@@ -312,8 +317,10 @@ export function selectTextObject(event, { render }) {
 
 export function finishInlineTextEdit({ dom, recordEditorSnapshot, render }) {
     state.isEditingMemeText  = false;
-    state.editor.overlayText = getEditableTextValue(dom.memeTextPreview).trim() || DEFAULT_MEME_TEXT;
+    const raw = getEditableTextValue(dom.memeTextPreview).trim();
+    state.editor.overlayText = raw || DEFAULT_MEME_TEXT;
     dom.memeTextPreview.textContent = state.editor.overlayText;
+    dom.memeTextPreview.classList.toggle("is-placeholder", !raw);
     recordEditorSnapshot();
     render();
 }
@@ -346,9 +353,13 @@ export function moveTextDrag(event, { dom, clamp, render }) {
     if (state.textDragPointerId !== event.pointerId) return;
     event.preventDefault();
     const artRect  = dom.studioTemplateArt.getBoundingClientRect();
+    if (!artRect.width || !artRect.height) return;
     const dxPct = (event.clientX - state.textPointerStartX) / artRect.width  * 100;
     const dyPct = (event.clientY - state.textPointerStartY) / artRect.height * 100;
-    state.editor.overlayX = clamp(state.textStartX + dxPct, 5, 95);
+    const halfW = (state.editor.overlayWidthPct || 48) / 2;
+    const minX  = Math.max(5, halfW);
+    const maxX  = Math.min(95, 100 - halfW);
+    state.editor.overlayX = clamp(state.textStartX + dxPct, minX, maxX);
     state.editor.overlayY = clamp(state.textStartY + dyPct, 5, 95);
     if (Math.abs(dxPct) > 0.1 || Math.abs(dyPct) > 0.1) state.textDidDrag = true;
     render();

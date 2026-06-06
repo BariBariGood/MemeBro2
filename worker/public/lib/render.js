@@ -191,6 +191,8 @@ export function render(ctx) {
     dom.studioTemplateArt.classList.toggle("text-selected", state.isTextSelected);
     dom.memeTextPreview.setAttribute("contenteditable", state.isEditingMemeText ? "true" : "false");
     dom.memeTextPreview.classList.toggle("hidden", !state.editor.overlayVisible);
+    const isPlaceholder = (state.editor.overlayText || "").trim().toUpperCase() === "TAP TO EDIT TEXT";
+    dom.memeTextPreview.classList.toggle("is-placeholder", isPlaceholder && !state.isEditingMemeText);
     dom.memeTextHint?.classList.toggle("hidden",
         showingStudio && (state.editor.overlayVisible || state.editor.frozenTextItems.length > 0)
     );
@@ -242,6 +244,23 @@ export function render(ctx) {
     dom.textStyleBoldCta.setAttribute("aria-pressed",      String(state.editor.overlayBold));
     dom.textStyleItalicCta.setAttribute("aria-pressed",    String(state.editor.overlayItalic));
     dom.textStyleUnderlineCta.setAttribute("aria-pressed", String(state.editor.overlayUnderline));
+
+    // ── Color swatches active state ──
+    const currentColor = getMemeTextColor(state.editor.overlayTextColor);
+    dom.colorSwatches?.forEach((swatch) => {
+        const COLORS = { black: "#000000", white: "#ffffff", red: "#d62828", blue: "#2563eb", yellow: "#ffd60a" };
+        const swatchHex = COLORS[swatch.dataset.colorKey];
+        swatch.classList.toggle("active", swatchHex === currentColor);
+    });
+
+    // ── Character limit warning ──
+    const charLen = (state.editor.overlayText || "").length;
+    const CHAR_WARN = 200;
+    if (dom.memeTextCharWarn) {
+        const showWarn = showingStudio && state.editor.overlayVisible && charLen >= CHAR_WARN;
+        dom.memeTextCharWarn.classList.toggle("hidden", !showWarn);
+        if (showWarn) dom.memeTextCharWarn.textContent = `${charLen} / ${CHAR_WARN} characters`;
+    }
 
     // ── Face swap loader ──
     dom.faceSwapLoader.classList.toggle("hidden",      !state.isSubmittingFaceSwap);

@@ -261,6 +261,13 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
 // ── Navigation ───────────────────────────────
 
 export function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
+    const hadEdits = state.selectedTemplateId
+        && state.selectedTemplateId !== templateId
+        && state.editor.historyStack.length > 1;
+    if (hadEdits) {
+        const ok = window.confirm("Switching templates will reset your edits. Continue?");
+        if (!ok) return;
+    }
     state.selectedTemplateId   = templateId;
     recordUsage(templateId);
     state.status               = S.IDLE;

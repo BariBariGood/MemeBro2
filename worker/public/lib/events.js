@@ -379,6 +379,18 @@ export function registerEvents(ctx) {
         }
     });
 
+    // ── Quick color swatches ─────────────────────
+    dom.colorSwatches?.forEach((swatch) => {
+        swatch.addEventListener("click", () => {
+            const key = swatch.dataset.colorKey;
+            if (!key) return;
+            const MEME_TEXT_COLORS = { black: "#000000", white: "#ffffff", red: "#d62828", blue: "#2563eb", yellow: "#ffd60a" };
+            const hex = MEME_TEXT_COLORS[key];
+            if (!hex) return;
+            updateEditorTextSetting("overlayTextColor", hex);
+        });
+    });
+
     // ── Outline color ────────────────────────────
     let outlineColorFocusStart      = state.editor.overlayOutlineColor;
     let outlineColorCommittedInFocus = false;
@@ -578,8 +590,8 @@ export function registerEvents(ctx) {
             }
         }
 
-        // Backspace — delete selected text
-        if (event.key !== "Backspace") return;
+        // Backspace / Delete — delete selected text
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
         if (!state.editor.overlayVisible || !state.isTextSelected || state.isEditingMemeText) return;
         if (inInput) return;
         event.preventDefault();
