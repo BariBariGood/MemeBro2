@@ -60,6 +60,7 @@ export const state = {
     view: "home",
     isEditingMemeText: false,
     isSubmittingFaceSwap: false,
+    isOptimizingImage: false,
     showSlowFaceSwapMessage: false,
     faceSwapAbortController: null,
     faceSwapSlowTimer: null,

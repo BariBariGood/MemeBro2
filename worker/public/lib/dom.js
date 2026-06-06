@@ -123,6 +123,7 @@ export const dom = {
   manualZoom: document.getElementById("manual-zoom"),
   manualRotation: document.getElementById("manual-rotation"),
   faceSwapLoader: document.getElementById("face-swap-loader"),
+  faceSwapLoaderOptimizing: document.getElementById("face-swap-loader-optimizing"),
   faceSwapLoaderDelay: document.getElementById("face-swap-loader-delay"),
   faceSwapLoaderCancel: document.getElementById("face-swap-loader-cancel"),
 };

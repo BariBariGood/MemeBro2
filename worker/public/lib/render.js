@@ -274,6 +274,7 @@ export function render(ctx) {
 
     // ── Face swap loader ──
     dom.faceSwapLoader.classList.toggle("hidden",      !state.isSubmittingFaceSwap);
+    dom.faceSwapLoaderOptimizing.classList.toggle("hidden", !state.isOptimizingImage);
     dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
 
     // ── AI prompt load mode ──

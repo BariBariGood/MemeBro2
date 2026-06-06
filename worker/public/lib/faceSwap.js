@@ -6,6 +6,7 @@
  */
 
 import { state } from "./state.js";
+import { compressForUpload } from "./compressImage.js";
 
 export function startFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap   = true;
@@ -63,8 +64,10 @@ export async function submitSelectedFace({
     if (!selectedFace) return;
 
     _state.faceSwapAbortController = new AbortController();
+    const faceSwapSignal = _state.faceSwapAbortController.signal;
     startFaceSwapLoading();
     let payload;
+    let optimizingTimer = null;
 
     try {
         const cropType = getFaceCropMimeType(_state.file);
@@ -73,9 +76,28 @@ export async function submitSelectedFace({
         type: cropType,
         });
 
+        // Compress the face crop before uploading (resize to max 1024px,
+        // re-encode JPEG q0.85, strip metadata). Show "Optimizing..." if
+        // compression takes longer than 500ms.
+        optimizingTimer = setTimeout(() => {
+            _state.isOptimizingImage = true;
+            render();
+        }, 500);
+
+        const compressedBlob = await compressForUpload(faceCrop.blob);
+        clearTimeout(optimizingTimer);
+        _state.isOptimizingImage = false;
+        render();
+
+        const compressedFaceCrop = {
+            ...faceCrop,
+            blob: compressedBlob,
+            type: compressedBlob.type || "image/jpeg",
+        };
+
         payload = await requestFaceSwap({
         file:       _state.file,
-        faceCrop,
+        faceCrop:   compressedFaceCrop,
         templateId: _state.selectedTemplateId,
         selectedFaces,
         memeText:   _state.editor.overlayText || "",
@@ -86,9 +108,11 @@ export async function submitSelectedFace({
             outlineEnabled: _state.editor.overlayOutlineEnabled,
             outlineColor:   _state.editor.overlayOutlineColor,
         },
-        signal: _state.faceSwapAbortController.signal,
+        signal: faceSwapSignal,
         });
     } finally {
+        clearTimeout(optimizingTimer);
+        _state.isOptimizingImage = false;
         stopFaceSwapLoading();
     }
 

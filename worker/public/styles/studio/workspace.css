@@ -95,6 +95,13 @@
   font-weight: 700;
 }
 
+.face-swap-loader-optimizing {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: rgba(236, 239, 250, 0.7);
+}
+
 .face-swap-loader-time,
 .face-swap-loader-delay {
   margin: 0;
