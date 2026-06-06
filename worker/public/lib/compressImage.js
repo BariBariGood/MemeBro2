@@ -58,7 +58,7 @@ export async function compressForUpload(blob) {
   bitmap.close();
 
   let compressed;
-  if (canvas instanceof OffscreenCanvas) {
+  if (typeof OffscreenCanvas !== "undefined" && canvas instanceof OffscreenCanvas) {
     compressed = await canvas.convertToBlob({
       type: "image/jpeg",
       quality: JPEG_QUALITY,
