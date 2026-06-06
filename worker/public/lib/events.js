@@ -123,8 +123,21 @@ export function registerEvents(ctx) {
     });
 
     // ── Navigation ───────────────────────────────
-    dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
+    dom.titleStartCta?.addEventListener("click", async () => {
+        await showTemplateSelection();
+        // Push a history entry so the browser back button won't return to the hero.
+        history.replaceState({ view: "home" }, "");
+        history.pushState({ view: "templates" }, "");
+    });
     dom.backBtn.addEventListener("click", goBackToUploadChoices);
+
+    // Prevent browser back button from returning to the hero/landing page.
+    window.addEventListener("popstate", (event) => {
+        if (!event.state || event.state.view === "home") {
+            // Re-push so the user stays on templates (or wherever they are).
+            history.pushState({ view: state.view }, "");
+        }
+    });
 
     // ── Upload configuration ─────────────────────
     configureUpload({

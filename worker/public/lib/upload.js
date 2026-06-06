@@ -315,8 +315,7 @@ export function goBackToUploadChoices() {
   const renderTemplates = getDep("renderTemplates");
 
   if (state.view === "templates") {
-    state.view = "home";
-    render();
+    // Templates is the effective home — do not navigate back to the hero/landing.
     return;
   }
 

@@ -133,7 +133,7 @@ export function render(ctx) {
     // ── Show/hide sections ──
     dom.titleScreen?.classList.toggle("hidden", !showingHome);
     dom.topbar?.classList.toggle("hidden", showingHome);
-    dom.backBtn?.classList.toggle("hidden", showingHome);
+    dom.backBtn?.classList.toggle("hidden", showingHome || showingTemplates);
     dom.saveCta?.classList.toggle("hidden", !showingStudio);
     dom.shareCta?.classList.toggle("hidden", !showingStudio);
     dom.projectMenuCta?.classList.toggle("hidden", !showingStudio);
