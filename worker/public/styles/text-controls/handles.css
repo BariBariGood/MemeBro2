@@ -30,6 +30,11 @@
     transform 140ms ease;
 }
 
+.meme-text-preview.is-placeholder {
+  opacity: 0.48;
+  border: 2px dashed var(--white-28);
+}
+
 .meme-text-hint {
   margin: 2px 0 0;
   text-align: center;
@@ -42,6 +47,10 @@
 @keyframes hint-glow {
   from { opacity: 0.55; }
   to { opacity: 1; }
+}
+
+.meme-text-preview:not(:disabled):hover {
+  cursor: grab;
 }
 
 .studio-template-art.text-selected .meme-text-preview:not(:disabled):hover,
@@ -85,20 +94,20 @@
 }
 
 .studio-template-art.text-selected:not(.editing-text) .meme-text-preview::after {
-  content: "✥";
+  content: "Double-click to edit";
   position: absolute;
   left: 50%;
-  top: -26px;
+  top: -30px;
   transform: translateX(-50%);
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  white-space: nowrap;
+  padding: 3px 10px;
   border-radius: 6px;
-  background: rgba(14, 16, 25, 0.8);
+  background: rgba(14, 16, 25, 0.88);
   border: 1px solid var(--white-18);
   color: var(--white-82);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   line-height: 1;
   opacity: 0;
   pointer-events: none;
@@ -134,6 +143,7 @@
   z-index: 5;
   background: rgba(60, 136, 244, 0.96);
   border: 2px solid var(--color-editor-blue-border);
+  box-shadow: 0 0 6px rgba(60, 136, 244, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
   touch-action: none;
 }
 
@@ -165,4 +175,11 @@
   text-align: center;
   line-height: 1.15;
   pointer-events: auto;
+  cursor: grab;
+}
+
+.frozen-text-item:hover {
+  outline: 2px dashed var(--color-editor-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
 }

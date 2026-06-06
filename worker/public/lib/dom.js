@@ -55,6 +55,8 @@ export const dom = {
   memeOutlineColorInput: document.getElementById("meme-outline-color-input"),
   outlineColorGroup: document.querySelector(".toolbar-color-group--outline"),
   memeOutlineRemoveCta: memeOutlineRemoveCompat,
+  colorSwatches: document.querySelectorAll(".color-swatch"),
+  memeTextCharWarn: document.getElementById("meme-text-char-warn"),
   undoCta: document.getElementById("undo-cta"),
   redoCta: document.getElementById("redo-cta"),
   saveStatusEl: document.getElementById("save-status"),
