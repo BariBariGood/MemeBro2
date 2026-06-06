@@ -1,3 +1,10 @@
+/**
+ * @module memes
+ * Static catalog of meme template thumbnails displayed in the hero carousel.
+ * Each entry maps a preview image path to its human-readable name.
+ *
+ * @type {Array<{ src: string, name: string }>}
+ */
 export const MEMES = [
   { src: './assets/preview-images/drake-hotline-bling.jpg',        name: 'Drake' },
   { src: './assets/preview-images/distracted-boyfriend.jpg',        name: 'Distracted Boyfriend' },

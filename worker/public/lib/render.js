@@ -1,6 +1,10 @@
-// ─────────────────────────────────────────────
-// Main render function and overlay renderer.
-// ─────────────────────────────────────────────
+/**
+ * @module render
+ * Main render function and overlay renderer.
+ * Reads the global `state` object each call and imperatively updates
+ * the DOM to match: visibility of screens, error banners, template
+ * art, sidebar positioning, and the text-overlay preview.
+ */
 
 import { STATES } from "./constants.js";
 import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES, NEW_PHOTO_ERROR_CODES } from "./loadErrors.js";

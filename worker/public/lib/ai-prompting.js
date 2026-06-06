@@ -1,5 +1,12 @@
+/**
+ * @module ai-prompting
+ * AI prompt panel logic: character counting, form submission, history
+ * rendering, and load-state transitions for the AI variant generator.
+ */
+
 import { getLoadErrorMessage } from "./loadErrors.js";
 
+/** Maximum characters allowed in the AI prompt input. */
 const AI_PROMPT_CHARACTER_LIMIT = 500;
 const AI_PROMPT_COUNTER_WARNING_AT = AI_PROMPT_CHARACTER_LIMIT - 50;
 const AI_PROMPT_PLACEHOLDER_RESPONSE = "Got it. AI variant generation will use this prompt once connected.";

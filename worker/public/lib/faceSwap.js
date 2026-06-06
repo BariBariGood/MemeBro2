@@ -1,6 +1,9 @@
-// ─────────────────────────────────────────────
-// Face swap submission and loading state.
-// ─────────────────────────────────────────────
+/**
+ * @module faceSwap
+ * Face swap submission and loading state.
+ * Orchestrates the face-swap API call, manages the abort controller
+ * for cancellation, and toggles the slow-request UX message.
+ */
 
 import { state } from "./state.js";
 

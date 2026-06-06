@@ -1,3 +1,10 @@
+/**
+ * @module constants
+ * Shared constants for the MemeBro frontend: application states, file-type
+ * allow-lists, detection tunables, font/color maps, and editor defaults.
+ */
+
+/** Application state machine values used across modules. */
 export const STATES = {
     IDLE: "idle",
     LOADING_IMAGE: "loading-image",
