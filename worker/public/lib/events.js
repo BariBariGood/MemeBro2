@@ -6,7 +6,7 @@
  */
 
 import { configureAiPrompting } from "./ai-prompting.js";
-import { ALLOWED_TYPES } from "./constants.js";
+import { ALLOWED_TYPES, MAX_MEME_TEXT_ITEMS } from "./constants.js";
 
 /**
  * Registers every event listener the MemeBro app needs.
@@ -276,6 +276,8 @@ export function registerEvents(ctx) {
     // ── Text duplicate ───────────────────────────
     dom.textDuplicateCta.addEventListener("click", () => {
         if (!state.editor.overlayVisible) return;
+        const totalItems = state.editor.frozenTextItems.length + 1;
+        if (totalItems >= MAX_MEME_TEXT_ITEMS) return;
         const text = (state.editor.overlayText || "").trim();
         if (!text) return;
 
