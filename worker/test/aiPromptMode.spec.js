@@ -537,7 +537,7 @@ describe("requestAiPromptVariant — client-side /api/process wiring", () => {
       mode: "ai_prompt",
       prompt: "a funny cat meme",
     });
-    expect(result).toMatchObject({ text: "Here is your meme", imageUrl: "BASE64DATA" });
+    expect(result).toMatchObject({ text: "Here is your meme", imageUrl: "data:image/png;base64,BASE64DATA" });
   });
 
   it("uses __MEMEBRO_AI_PROMPT_REQUEST__ override when defined", async () => {

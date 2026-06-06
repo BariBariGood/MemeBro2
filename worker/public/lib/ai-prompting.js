@@ -42,7 +42,7 @@ export async function requestAiPromptVariant(prompt) {
     }
 
     const data = await response.json();
-    return { text: data?.text || "AI variant generated.", imageUrl: data?.b64 || data?.url || null };
+    return { text: data?.text || "AI variant generated.", imageUrl: data?.b64 ? `data:image/png;base64,${data.b64}` : data?.url || null };
 }
 
 function getAiPromptCharacters(value) {
