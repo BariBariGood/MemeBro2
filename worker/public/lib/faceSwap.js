@@ -63,13 +63,14 @@ export async function submitSelectedFace({
         // re-encode JPEG q0.85, strip metadata). Show "Optimizing..." if
         // compression takes longer than 500ms.
         optimizingTimer = setTimeout(() => {
-            state.isOptimizingImage = true;
+            _state.isOptimizingImage = true;
             render();
         }, 500);
 
         const compressedBlob = await compressForUpload(faceCrop.blob);
         clearTimeout(optimizingTimer);
-        state.isOptimizingImage = false;
+        _state.isOptimizingImage = false;
+        render();
 
         const compressedFaceCrop = {
             ...faceCrop,
@@ -94,7 +95,7 @@ export async function submitSelectedFace({
         });
     } finally {
         clearTimeout(optimizingTimer);
-        state.isOptimizingImage = false;
+        _state.isOptimizingImage = false;
         stopFaceSwapLoading();
     }
 
