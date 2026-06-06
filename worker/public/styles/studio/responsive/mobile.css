@@ -52,11 +52,18 @@
         gap: 12px;
     }
 
+    .share-action {
+        min-height: 28px;
+        padding: 0 12px;
+        font-size: 0.72rem;
+    }
+
     .project-menu-cta {
         color: rgba(246, 247, 251, 0.72);
     }
 
     .save-action .topbar-action-icon,
+    .share-action .topbar-action-icon,
     .topbar-action .topbar-action-icon {
         width: 20px;
         height: 20px;

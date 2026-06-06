@@ -226,6 +226,29 @@ progress {
   box-shadow: 0 0 26px var(--lime-42), 0 12px 28px var(--black-28);
 }
 
+.share-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.32);
+}
+
+.share-action:not(:disabled):hover {
+  box-shadow: 0 0 26px rgba(99, 102, 241, 0.5), 0 12px 28px var(--black-28);
+  background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+}
+
+.share-action:not(:disabled):active {
+  background: #4338ca;
+}
+
 .topbar-actions {
   justify-self: end;
   display: flex;
