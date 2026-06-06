@@ -272,6 +272,7 @@ export function openStudioForTemplate(templateId, { recordTemplateUsage: recordU
 }
 
 export async function showTemplateSelection({ loadTemplates: _loadTemplates, dom, render, renderTemplates: _renderTemplates }) {
+    const wasHome = state.view === "home";
     await loadTemplateCatalog({ loadTemplates: _loadTemplates });
     state.view                 = "templates";
     state.activeTemplateTab    = "trending";
@@ -284,4 +285,7 @@ export async function showTemplateSelection({ loadTemplates: _loadTemplates, dom
     });
     render();
     _renderTemplates();
+    if (wasHome) {
+        history.replaceState({ view: "templates" }, "");
+    }
 }
