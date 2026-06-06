@@ -247,15 +247,17 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
     dom.studioTemplateImage.alt = template.name;
     updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
 
-    (template.faceRegions || []).slice(0, 4).forEach((region) => {
-        const marker = document.createElement("span");
-        marker.className    = "studio-template-region";
-        marker.style.left   = `${(region.x / width)  * 100}%`;
-        marker.style.top    = `${(region.y / height) * 100}%`;
-        marker.style.width  = `${Math.max(10, (region.width  / width)  * 100)}%`;
-        marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
-        dom.studioTemplateRegions.appendChild(marker);
-    });
+    if (!_state.editor.generatedImage) {
+        (template.faceRegions || []).slice(0, 4).forEach((region) => {
+            const marker = document.createElement("span");
+            marker.className    = "studio-template-region";
+            marker.style.left   = `${(region.x / width)  * 100}%`;
+            marker.style.top    = `${(region.y / height) * 100}%`;
+            marker.style.width  = `${Math.max(10, (region.width  / width)  * 100)}%`;
+            marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
+            dom.studioTemplateRegions.appendChild(marker);
+        });
+    }
 }
 
 // ── Navigation ───────────────────────────────

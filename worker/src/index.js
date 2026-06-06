@@ -302,7 +302,7 @@ async function handleLocalFaceSwap({ buffer, mimeType, requestHeaders }, env) {
   const selectedTemplateId = requestHeaders.get("X-MemeBro-Template") || "";
   const faceCropBounds = parseJsonHeader(requestHeaders, "X-MemeBro-Face-Crop") || {};
   const textOptions = parseJsonHeader(requestHeaders, "X-MemeBro-Text-Style") || {};
-  const memeText = requestHeaders.get("X-MemeBro-Meme-Text") || "TAP TO EDIT TEXT";
+  const memeText = requestHeaders.get("X-MemeBro-Meme-Text") || "";
   const templateImage = await loadTemplateImage(selectedTemplateId, env);
   const faceRegion = getTemplateFaceRegion(templateImage.template);
 
