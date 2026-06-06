@@ -7,6 +7,25 @@
 
 import { state } from "./state.js";
 
+/**
+ * Converts a data-URL to a blob URL for reliable browser rendering.
+ * Large base64 data URLs (>1 MB) can cause rendering corruption in some
+ * browsers; blob URLs delegate storage to the browser's blob subsystem
+ * and avoid the overhead of keeping a multi-megabyte string in the DOM.
+ * Non-data-URL inputs are returned as-is.
+ */
+async function toBlobUrl(url) {
+    if (!url || !url.startsWith("data:")) return url;
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+    } catch (err) {
+        console.error("[faceSwap] toBlobUrl conversion failed, using data URL:", err);
+        return url;
+    }
+}
+
 export function startFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap   = true;
     state.showSlowFaceSwapMessage = false;
@@ -83,8 +102,17 @@ export async function submitSelectedFace({
         throw error;
     }
 
-    _state.editor.generatedImage = generatedImage;
+    const finalUrl = await toBlobUrl(generatedImage);
+    _state.editor.generatedImage = finalUrl;
     _state.showResetConfirmation  = false;
+
+    if (_state.previewUrl) {
+        URL.revokeObjectURL(_state.previewUrl);
+        _state.previewUrl = "";
+    }
+    _state.view   = "studio";
+    _state.status = STATES.IDLE;
+
     recordEditorSnapshot();
     render();
     return payload;

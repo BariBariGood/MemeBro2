@@ -62,6 +62,11 @@ export async function compositeImage({
     return jsonResponse({ error: "no_image_returned" }, 502);
   }
 
+  if (!isValidBase64(b64)) {
+    console.error("[image-compositor] OpenAI returned invalid base64 data");
+    return jsonResponse({ error: "invalid_image_data" }, 502);
+  }
+
   const finalized = await applyTextAndOptimize(b64, safeText, textOptions);
   const mimeType = finalized.mimeType || "image/png";
 
@@ -122,7 +127,8 @@ async function applyTextAndOptimize(generatedB64, text, textOptions = {}) {
       b64: arrayBufferToBase64(exported.buffer),
       mimeType: exported.mimeType,
     };
-  } catch {
+  } catch (err) {
+    console.error("[image-compositor] applyTextAndOptimize failed, returning raw image:", err?.message);
     return {
       b64: generatedB64,
       mimeType: "image/png",
@@ -149,6 +155,16 @@ function compositeOverlay(base, baseWidth, baseHeight, overlay, x, y, overlayWid
     }
   }
   return out;
+}
+
+function isValidBase64(str) {
+  if (typeof str !== "string" || str.length === 0) return false;
+  try {
+    const decoded = atob(str.replace(/^data:[^,]+,/, ""));
+    return decoded.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function base64ToArrayBuffer(b64) {

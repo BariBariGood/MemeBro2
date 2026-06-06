@@ -247,6 +247,14 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
     dom.studioTemplateImage.alt = template.name;
     updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
 
+    if (shouldReset && _state.editor.generatedImage) {
+        dom.studioTemplateImage.decode?.().catch(() => {})
+            .then(() => {
+                dom.studioTemplateArt.classList.add("image-ready");
+                dom.studioTemplateImage.classList.add("is-loaded");
+            });
+    }
+
     (template.faceRegions || []).slice(0, 4).forEach((region) => {
         const marker = document.createElement("span");
         marker.className    = "studio-template-region";

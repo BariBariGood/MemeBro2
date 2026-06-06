@@ -177,6 +177,7 @@ export function render(ctx) {
         if (dom.studioTemplateImage.src !== src) {
             dom.studioTemplateImage.src = src;
             dom.studioTemplateImage.alt = "Dropped meme";
+            dom.studioTemplateImage.decode?.().catch(() => {});
         }
         dom.studioTemplateArt.style.width  = "";
         dom.studioTemplateArt.style.height = "";

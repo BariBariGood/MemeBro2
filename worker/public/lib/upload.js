@@ -5,6 +5,13 @@
  * camera snap/review, and the manual face-positioning mode.
  */
 
+function revokeGeneratedImage(state) {
+  if (state.editor.generatedImage && state.editor.generatedImage.startsWith("blob:")) {
+    URL.revokeObjectURL(state.editor.generatedImage);
+  }
+  state.editor.generatedImage = "";
+}
+
 const uploadDeps = {
   dom: null,
   state: null,
@@ -386,6 +393,7 @@ export function goBackToUploadChoices() {
   }
 
   if (state.view === "studio" && state.status === getDep("STATES").IDLE && state.selectedTemplateId) {
+    revokeGeneratedImage(state);
     state.selectedTemplateId = null;
     state.view = "templates";
     render();
@@ -401,6 +409,7 @@ export function goBackToUploadChoices() {
 
   if (state.cameraReviewUrl || state.previewUrl || state.status !== getDep("STATES").IDLE) {
     if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
+    revokeGeneratedImage(state);
     clearCameraStream();
     clearCameraReview();
     state.status = getDep("STATES").IDLE;

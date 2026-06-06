@@ -63,6 +63,7 @@ export function registerEvents(ctx) {
                 state.lastRetryableAction = null;
                 return;
             }
+            console.error("[faceSwap] submitFaceSwapWithErrorHandling failed:", error);
             // Show error inline without destroying user's work — keep status as READY
             // so the uploaded image, face selection, and template choice remain visible.
             if (!loadErrorCodes.has(error?.code)) state.lastRetryableAction = null;
@@ -518,6 +519,7 @@ export function registerEvents(ctx) {
     dom.studioTemplateImage.addEventListener("error", () => {
         const sources   = JSON.parse(dom.studioTemplateImage.dataset.fallbackSources || "[]");
         const nextIndex = Number(dom.studioTemplateImage.dataset.fallbackIndex || "0") + 1;
+        console.error("[render] studioTemplateImage failed to load source index", nextIndex - 1, "of", sources.length);
         if (nextIndex < sources.length) {
         dom.studioTemplateImage.dataset.fallbackIndex = String(nextIndex);
         dom.studioTemplateImage.src = sources[nextIndex];
