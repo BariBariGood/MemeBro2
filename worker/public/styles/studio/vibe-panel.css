@@ -1,0 +1,28 @@
+.studio-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: min(100%, var(--studio-canvas-max));
+  margin-inline: auto;
+  margin-top: 0;
+}
+
+.studio-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: clamp(56px, 9vw, 72px);
+  padding: 0 22px;
+  font-size: clamp(1rem, 2.6vw, 1.35rem);
+}
+
+.vibe-icon,
+.vibe-label {
+  pointer-events: none;
+}
+
+.pink-action {
+  background: var(--color-pink);
+  color: var(--color-white);
+  box-shadow: 0 0 24px rgba(240, 68, 189, 0.25);
+}

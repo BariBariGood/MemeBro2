@@ -1,4 +1,3 @@
-import { createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import worker from "../src";
 
@@ -20,7 +19,7 @@ describe("OpenAI-backed routes", () => {
       body: JSON.stringify({ templateId: "drake", slotCount: 2 }),
     });
 
-    const response = await worker.fetch(request, {}, createExecutionContext());
+    const response = await worker.fetch(request, {});
     const body = await response.json();
 
     expect(response.status).toBe(503);
@@ -61,9 +60,7 @@ describe("OpenAI-backed routes", () => {
       }),
     });
 
-    const ctx = createExecutionContext();
-    const response = await worker.fetch(request, gatewayEnv, ctx);
-    await waitOnExecutionContext(ctx);
+    const response = await worker.fetch(request, gatewayEnv);
 
     const body = await response.json();
     expect(response.status).toBe(200);
@@ -96,7 +93,7 @@ describe("OpenAI-backed routes", () => {
       body: JSON.stringify({ templateId: "drake", slotCount: 2 }),
     });
 
-    const response = await worker.fetch(request, gatewayEnv, createExecutionContext());
+    const response = await worker.fetch(request, gatewayEnv);
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -111,7 +108,7 @@ describe("OpenAI-backed routes", () => {
       body: JSON.stringify({ prompt: "a cat in space" }),
     });
 
-    const response = await worker.fetch(request, {}, createExecutionContext());
+    const response = await worker.fetch(request, {});
     const body = await response.json();
 
     expect(response.status).toBe(503);
@@ -135,7 +132,7 @@ describe("OpenAI-backed routes", () => {
       body: JSON.stringify({ prompt: "a cat in space" }),
     });
 
-    const response = await worker.fetch(request, gatewayEnv, createExecutionContext());
+    const response = await worker.fetch(request, gatewayEnv);
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -174,7 +171,7 @@ describe("OpenAI-backed routes", () => {
       body: JSON.stringify({ prompt: "violent meme" }),
     });
 
-    const response = await worker.fetch(request, gatewayEnv, createExecutionContext());
+    const response = await worker.fetch(request, gatewayEnv);
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -197,11 +194,7 @@ describe("OpenAI-backed routes", () => {
       body: JSON.stringify({ mode: "extra_roast", prompt: "make it absurd" }),
     });
 
-    const response = await worker.fetch(
-      request,
-      { OPENAI_API_KEY: "sk-test123" },
-      createExecutionContext()
-    );
+    const response = await worker.fetch(request, { OPENAI_API_KEY: "sk-test123" });
     const body = await response.json();
 
     expect(response.status).toBe(200);

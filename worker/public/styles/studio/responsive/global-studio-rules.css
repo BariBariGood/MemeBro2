@@ -1,0 +1,65 @@
+/* ════════════════════════════════════════════
+    GLOBAL STUDIO RULES (all breakpoints)
+    History bar always tied to toolbar, above it.
+   ════════════════════════════════════════════ */
+
+/* Lock page scroll when studio is open */
+body:has(#studio-screen:not(.hidden)),
+.upload-page:has(#studio-screen:not(.hidden)) {
+    overflow: hidden;
+}
+
+/* History row: fixed, centred, above the toolbar */
+.studio-template-card .template-bottom-actions {
+    position: fixed !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    z-index: 68;
+    width: min(var(--studio-canvas-max), calc(100vw - 48px));
+    max-width: calc(100vw - 48px);
+    margin: 0;
+    min-height: 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.studio-template-card .history-left {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(24px, 7vw, 54px);
+}
+
+.studio-template-card .icon-action {
+    min-height: 40px;
+    padding: 0 6px;
+    font-size: clamp(0.9rem, 1.8vw, 1.05rem);
+    font-weight: 800;
+    color: var(--color-text-78);
+}
+
+.studio-template-card .icon-action:disabled { opacity: 0.38; }
+
+.studio-template-card #redo-cta,
+.studio-template-card #redo-cta:disabled { display: inline-flex; }
+
+.studio-template-card .danger-action {
+    min-height: clamp(48px, 6vw, 58px);
+    padding: 0 clamp(20px, 4vw, 30px);
+    border-radius: var(--radius-pill);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    font-weight: 900;
+}
+
+/* Camera mode must never show studio chrome */
+.upload-page.camera-mode .studio-sidebar,
+.upload-page.camera-mode .template-bottom-actions,
+.upload-page.camera-mode .text-toolbar,
+.upload-page.camera-mode .text-local-controls {
+    display: none !important;
+}
+
+/* Mobile title break helper */
+.mobile-title-break { display: none; }
