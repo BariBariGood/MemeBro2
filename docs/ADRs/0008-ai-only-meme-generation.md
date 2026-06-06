@@ -1,5 +1,5 @@
 # Meme Generation from Scratch
-Goal: Test GPT img 1's ability to generate memes from scratch.  
+Goal: Test GPT Image models' ability to generate memes from scratch.  
 
 ## Testing GPT - Issue A
 
@@ -41,6 +41,18 @@ Since many users will likely search for or generate similar trending meme concep
 - Cloudflare KV or Cache API: We will utilize Cloudflare's Edge Cache to store successful generation results. The cache key will be a sanitized, lowercased hash of the user's input prompt.
 - Instantaneous Subsequent Loads: If a requested prompt matches an existing cache key, the Worker will completely bypass the OpenAI API, serving the stored Base64 string directly from the closest global Edge node. This drops response latency for cached memes from several seconds down to double-digit milliseconds (~20–50ms).
 - Cache Expiration (TTL): Implement a Time-To-Live (TTL) strategy (e.g., 7 days) to ensure storage costs remain optimal while retaining high-frequency assets during viral spikes.
+
+#### Updated Caching Best Practices (Cloudflare Workers KV)
+With the upgrade to `gpt-image-2`, caching becomes even more valuable given the model's higher output quality and flexible resolution support. Current best practices:
+
+- **KV Namespace Binding**: Bind a Workers KV namespace (e.g., `MEME_CACHE`) in `wrangler.jsonc`. KV is globally replicated with eventual consistency, so cached memes are available at every Cloudflare edge location.
+- **Cache Key Design**: Use a normalized key derived from the prompt: `meme:<sha256(lowercase(trim(prompt)))>:<size>:<quality>`. Including `size` and `quality` in the key ensures different output configurations are cached independently.
+- **Value Storage**: Store the base64-encoded image string directly in KV. KV values can be up to 25 MB, which comfortably fits any `gpt-image-2` output (typical base64 PNG at 1024×1024 is ~1–4 MB).
+- **Metadata**: Use KV metadata to store the original prompt text, model version, timestamp, and output format for debugging and cache invalidation.
+- **TTL Strategy**: Set `expirationTtl` to 604800 (7 days) for standard memes. For trending/viral prompts detected by frequency counters, extend to 30 days. KV's built-in TTL handles automatic expiration.
+- **Cache-Aside Pattern**: On request, check KV first (`await MEME_CACHE.get(key)`). On cache miss, call the OpenAI Image API, store the result in KV with `await MEME_CACHE.put(key, base64, { expirationTtl, metadata })`, then return the image.
+- **Output Format Optimization**: Use `jpeg` output format with `output_compression: 80` for cached memes to reduce KV storage size and improve response latency. JPEG encoding is faster than PNG on both the OpenAI side and during base64 decode on the client.
+- **Cost Impact**: At KV's free tier (100k reads/day, 1k writes/day), a moderately popular meme app can serve cached results at zero additional cost. Paid KV is $0.50/million reads — orders of magnitude cheaper than regenerating via the API.
 
 ## Stats
 Format:  
@@ -211,3 +223,57 @@ Run 22 - Fail
 - Rejected by AI safety filter due to violent content.
 - Generation failed: Error: Server responded with status 400
 - Latency: 2572
+
+---
+
+## GPT Image 2 — Model Upgrade (June 2025)
+
+### Decision
+MemeBro has upgraded its default image generation model from `gpt-image-1` to `gpt-image-2`. The change is reflected in the Worker source at `worker/src/openai/image.js` where the default model is now `gpt-image-2`. The `OPENAI_IMAGE_MODEL` environment variable can still override this if needed.
+
+### Why We Upgraded
+Based on our `gpt-image-1` testing above (Runs 1–22), the most consistent pain points were:
+1. **Text rendering** — Misspelled captions, unreadable text, and poor font clarity (see Runs 4, 10, 11, 17, 18).
+2. **Meme template fidelity** — The model often invented its own layout instead of reproducing the expected meme format (see Runs 6, 9, 12).
+3. **Safety filter strictness** — Legitimate pop-culture references (Pikachu, Drake) were blocked with no recoverability (Runs 1, 14–16).
+
+`gpt-image-2` addresses these issues with the following improvements:
+
+### Key Improvements for Meme Generation
+| Capability | gpt-image-1 | gpt-image-2 |
+|---|---|---|
+| Text rendering | Frequent misspellings, blurry fonts (avg caption legibility ~3/5) | "Significantly improved" text placement and clarity per OpenAI docs |
+| Prompt adherence | Often deviated from requested meme format | Better instruction following for structured/layout-sensitive compositions |
+| Resolution support | Fixed sizes only (1024×1024, 1024×1536, 1536×1024) | Any resolution up to 3840px per edge (multiples of 16px, ≤3:1 aspect ratio) |
+| Quality tiers | low / medium / high | low / medium / high + `auto` (model selects best) |
+| Output format | PNG (base64) | PNG, JPEG, or WebP with configurable compression (0–100%) |
+| Image editing | Prompt-based edits with mask support | Same + multi-turn editing via Responses API |
+| Streaming | Not available | Partial image streaming (`partial_images: 0–3`) |
+| Moderation control | Default filtering only | `moderation` parameter: `auto` (default) or `low` (less restrictive) |
+| Image input fidelity | Configurable | Always high fidelity (cannot be lowered) |
+
+### Expected Impact on MemeBro Meme Quality
+- **Caption legibility**: The primary weakness in our gpt-image-1 tests. gpt-image-2's improved text rendering should push average caption legibility from ~3/5 to 4+/5.
+- **Meme recognizability**: Better prompt adherence means the model is more likely to reproduce the expected meme layout (e.g., Drake two-panel, Stonks chart, Distracted Boyfriend).
+- **Generation speed**: JPEG output format with `output_compression` can reduce response payload size, improving perceived latency. The `quality: "low"` tier enables fast drafts for preview before committing to a high-quality render.
+- **Content filter handling**: The new `moderation: "low"` option plus structured `moderation_details` in error responses (with `categories` like `harassment`, `violence` and `moderation_stage` of `input`/`output`) gives us better control over the user experience when prompts are rejected.
+
+### Updated Recommendations
+- Continue using guardrails for notable figures/characters (describe visual appearance instead of using names).
+- Use `quality: "low"` for initial preview generation, then `quality: "high"` for the final export — this reduces cost and improves perceived speed.
+- Use `jpeg` output format with `output_compression: 80` for cached and in-app display; use `png` only for the download/share flow.
+- Implement streaming with `partial_images: 1` to show a progressive preview while the full image generates.
+- Leverage the `moderation: "low"` parameter for meme prompts that involve pop-culture references (e.g., movie characters, public figures described by appearance).
+- Use structured error handling: check `error.code === "moderation_blocked"` and surface `moderation_details.categories` to give users actionable feedback on why their prompt was rejected.
+
+### Pricing Comparison (per image, 1024×1024)
+| Model | Low | Medium | High |
+|---|---|---|---|
+| gpt-image-1 | $0.011 | $0.042 | $0.167 |
+| gpt-image-1-mini | $0.005 | $0.011 | $0.036 |
+| gpt-image-1.5 | $0.009 | $0.034 | $0.133 |
+| **gpt-image-2** | **$0.006** | **$0.053** | **$0.211** |
+
+`gpt-image-2` is cheaper at `low` quality ($0.006 vs $0.011) but more expensive at `high` quality ($0.211 vs $0.167). For meme generation where `low`/`medium` quality is typically sufficient, this is a net cost improvement.
+
+See `docs/research/gpt-image-2-research.md` for the full comparison.
