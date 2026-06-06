@@ -49,7 +49,7 @@ export function registerEvents(ctx) {
 
     const loadErrorCodes = new Set(["FEATURE_DISABLED", "QUEUE_FULL", "RATE_LIMITED"]);
     // AI prompting owns its own listeners; events.js only coordinates cross-feature interactions.
-    const aiPrompting = configureAiPrompting({ dom, state, render });
+    const aiPrompting = configureAiPrompting({ dom, state, render, recordEditorSnapshot });
 
     async function submitFaceSwapWithErrorHandling() {
         try {

@@ -79,7 +79,7 @@ export function renderAiPromptLoadMode({ dom, state }) {
         : getLoadErrorMessage(state.aiPrompt?.error) || "Something went sideways. Retry when you are ready.";
 }
 
-export function configureAiPrompting({ dom, state, render }) {
+export function configureAiPrompting({ dom, state, render, recordEditorSnapshot }) {
     function enforceAiPromptCharacterLimit() {
         if (!dom.aiPromptInput) return 0;
         const characters = getAiPromptCharacters(dom.aiPromptInput.value);
@@ -191,6 +191,7 @@ export function configureAiPrompting({ dom, state, render }) {
             appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
             if (result?.imageUrl) {
                 state.editor.generatedImage = result.imageUrl;
+                if (typeof recordEditorSnapshot === "function") recordEditorSnapshot();
             }
             finishRequest();
             if (dom.aiPromptInput) dom.aiPromptInput.value = "";
