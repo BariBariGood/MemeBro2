@@ -297,3 +297,48 @@
   border-color: var(--lime-42);
   color: var(--color-white);
 }
+
+.toolbar-color-swatches {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--white-22);
+  padding: 0;
+  cursor: pointer;
+  transition: transform 100ms ease, border-color 100ms ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.18);
+  border-color: var(--white-55);
+}
+
+.color-swatch.active {
+  border-color: var(--color-lime);
+  box-shadow: 0 0 0 2px var(--lime-42);
+}
+
+.meme-text-char-warn {
+  position: fixed;
+  bottom: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: rgba(248, 113, 113, 0.18);
+  border: 1px solid rgba(248, 113, 113, 0.42);
+  color: #fecaca;
+  font-size: 0.76rem;
+  white-space: nowrap;
+  pointer-events: none;
+}

@@ -6,7 +6,7 @@
  */
 
 import { configureAiPrompting } from "./ai-prompting.js";
-import { ALLOWED_TYPES } from "./constants.js";
+import { ALLOWED_TYPES, MAX_MEME_TEXT_ITEMS } from "./constants.js";
 
 /**
  * Registers every event listener the MemeBro app needs.
@@ -276,6 +276,8 @@ export function registerEvents(ctx) {
     // ── Text duplicate ───────────────────────────
     dom.textDuplicateCta.addEventListener("click", () => {
         if (!state.editor.overlayVisible) return;
+        const totalItems = state.editor.frozenTextItems.length + 1;
+        if (totalItems >= MAX_MEME_TEXT_ITEMS) return;
         const text = (state.editor.overlayText || "").trim();
         if (!text) return;
 
@@ -390,6 +392,18 @@ export function registerEvents(ctx) {
         if (state.editor.overlayTextColor !== textColorFocusStart) {
         updateEditorTextSetting("overlayTextColor", state.editor.overlayTextColor);
         }
+    });
+
+    // ── Quick color swatches ─────────────────────
+    dom.colorSwatches?.forEach((swatch) => {
+        swatch.addEventListener("click", () => {
+            const key = swatch.dataset.colorKey;
+            if (!key) return;
+            const MEME_TEXT_COLORS = { black: "#000000", white: "#ffffff", red: "#d62828", blue: "#2563eb", yellow: "#ffd60a" };
+            const hex = MEME_TEXT_COLORS[key];
+            if (!hex) return;
+            updateEditorTextSetting("overlayTextColor", hex);
+        });
     });
 
     // ── Outline color ────────────────────────────
@@ -594,8 +608,8 @@ export function registerEvents(ctx) {
             }
         }
 
-        // Backspace — delete selected text
-        if (event.key !== "Backspace") return;
+        // Backspace / Delete — delete selected text
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
         if (!state.editor.overlayVisible || !state.isTextSelected || state.isEditingMemeText) return;
         if (inInput) return;
         event.preventDefault();
