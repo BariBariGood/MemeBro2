@@ -83,10 +83,14 @@ export function renderOverlay({
         button.style.top    = `${hitTop}px`;
         button.style.width  = `${hitWidth}px`;
         button.style.height = `${hitHeight}px`;
-        button.style.setProperty("--face-ring-left",   `${boxRendered.x - hitLeft}px`);
-        button.style.setProperty("--face-ring-top",    `${boxRendered.y - hitTop}px`);
-        button.style.setProperty("--face-ring-width",  `${boxRendered.width}px`);
-        button.style.setProperty("--face-ring-height", `${boxRendered.height}px`);
+        const ovalWidth = boxRendered.width;
+        const ovalHeight = Math.max(boxRendered.height, boxRendered.width * 1.3);
+        const ovalLeft = boxRendered.x - hitLeft - (ovalWidth - boxRendered.width) / 2;
+        const ovalTop = boxRendered.y - hitTop - (ovalHeight - boxRendered.height) / 2;
+        button.style.setProperty("--face-ring-left",   `${ovalLeft}px`);
+        button.style.setProperty("--face-ring-top",    `${ovalTop}px`);
+        button.style.setProperty("--face-ring-width",  `${ovalWidth}px`);
+        button.style.setProperty("--face-ring-height", `${ovalHeight}px`);
         button.disabled = !canSelectDetectedFaces;
         button.setAttribute("aria-pressed", String(isSelected));
         button.setAttribute("aria-label", `Select face ${index + 1} of ${state.faces.length}`);
@@ -94,6 +98,13 @@ export function renderOverlay({
         const ring = document.createElement("span");
         ring.className = "face-box-ring";
         button.appendChild(ring);
+
+        if (state.faces.length > 1) {
+            const label = document.createElement("span");
+            label.className = "face-box-label";
+            label.textContent = String(index + 1);
+            button.appendChild(label);
+        }
 
         button.addEventListener("click", () => {
         if (![STATES.FACES_FOUND, STATES.READY].includes(state.status)) return;
@@ -318,6 +329,10 @@ export function render(ctx) {
         else if (selectableFaceLimit > 1 && selectedFaceCount === 0)               dom.statusText.textContent = "Select a face to continue.";
         else if (selectableFaceLimit > 1 && selectedFaceCount > 1)                 dom.statusText.textContent = `${selectedFaceCount} faces selected and ready.`;
         else if (selectableFaceLimit > 1)                                          dom.statusText.textContent = `${selectedFaceCount || 1} face selected. Select another face or continue.`;
+        else if (state.faces.length > 1 && selectedFaceCount === 1) {
+            const selectedIdx = state.faces.findIndex((f) => state.selectedFaceIds.includes(f.id));
+            dom.statusText.textContent = `Face ${selectedIdx + 1} of ${state.faces.length} selected`;
+        }
         else                                                                       dom.statusText.textContent = "Face selected and ready.";
     } else {
         dom.statusText.textContent = "";

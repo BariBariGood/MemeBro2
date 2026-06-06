@@ -27,6 +27,22 @@ export function stopFaceSwapLoadingState({ render }) {
     render();
 }
 
+export function getSelectedFaceIndex(state) {
+    if (!state.faces.length || !state.selectedFaceIds.length) return -1;
+    return state.faces.findIndex((f) => f.id === state.selectedFaceIds[0]);
+}
+
+export function getSelectedFaceSummary(state) {
+    const index = getSelectedFaceIndex(state);
+    if (index === -1) return null;
+    return {
+        index,
+        faceNumber: index + 1,
+        totalFaces: state.faces.length,
+        faceId: state.selectedFaceIds[0],
+    };
+}
+
 export async function submitSelectedFace({
     state: _state,
     getSelectedFaces,
