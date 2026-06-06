@@ -48,8 +48,8 @@ export async function compositeImage({
       referenceMime: faceCrop.mimeType,
       templateRefB64: templateImage.b64,
       templateRefMime: templateImage.mimeType,
-      quality: "low",
-      size: "1024x1024",
+      quality: "high",
+      size: "1024x1536",
     },
     env
   );
@@ -80,19 +80,7 @@ export async function compositeImage({
 }
 
 function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
-  const region = faceRegion
-    ? `Template face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
-    : "Use the most obvious face region in the template.";
-  const outline = textOptions?.outlineEnabled === false
-    ? "without an outline"
-    : `with a ${textOptions?.outlineColor || "white"} outline`;
-  return [
-    "Create a meme image by casting the subject face crop into the provided meme template.",
-    region,
-    "Preserve the original template composition and avoid distorting the subject face.",
-    `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
-    `Use ${textOptions?.textColor || "black"} text color when possible.`,
-  ].join(" ");
+  return "Replace the face in the meme template with the face from the reference photo. Keep everything else exactly the same. Make it look natural and seamless.";
 }
 
 async function applyTextAndOptimize(generatedB64, text, textOptions = {}) {
