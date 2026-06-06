@@ -241,8 +241,11 @@
       <input id="project-import-input" type="file" accept="application/json,.memebro.json" hidden />
 
       <section id="progress-wrap" class="progress-wrap hidden" aria-live="polite">
+        <div class="progress-spinner-row">
+          <span id="progress-spinner" class="progress-spinner"></span>
+          <p id="progress-label">Waiting...</p>
+        </div>
         <progress id="progress-bar" max="100" value="0"></progress>
-        <p id="progress-label">Waiting...</p>
       </section>
 
       <p id="status-text" class="status-text" role="status" aria-live="polite"></p>
