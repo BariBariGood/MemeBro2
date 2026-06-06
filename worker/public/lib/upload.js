@@ -67,10 +67,12 @@ export function clearFaceFitState() {
   state.manualRotation = 0;
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
+  state.gesture = null;
   state.dragPointerId = null;
   state.showResetConfirmation = false;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
   dom.previewImage.style.transform = "";
 }
 
@@ -195,7 +197,7 @@ export function alignManualViewToFace(face) {
     circle.width / (face.boxNatural.width * 1.18),
     circle.height / (face.boxNatural.height * 1.18)
   );
-  const manualScale = clamp(targetScale / base, 0.5, 2.2);
+  const manualScale = clamp(targetScale / base, 0.5, 3.0);
   const finalScale = base * manualScale;
   const displayedW = natural.width * finalScale;
   const displayedH = natural.height * finalScale;
@@ -212,6 +214,7 @@ export function alignManualViewToFace(face) {
   state.manualOffsetY = circleCenterY - faceCenterY * finalScale - baseTop;
   dom.manualZoom.value = String(manualScale);
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = `${Math.round(manualScale * 100)}%`;
 }
 
 export function enterManualMode(faceToAlign = null) {
@@ -224,8 +227,10 @@ export function enterManualMode(faceToAlign = null) {
   state.manualRotation = 0;
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
+  state.gesture = null;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
   requestAnimationFrame(() => {
     alignManualViewToFace(faceToAlign);
     applyManualTransform();
@@ -420,11 +425,13 @@ export function goBackToUploadChoices() {
     state.manualRotation = 0;
     state.manualOffsetX = 0;
     state.manualOffsetY = 0;
+    state.gesture = null;
     state.dragPointerId = null;
     dom.cameraInput.value = "";
     dom.libraryInput.value = "";
     dom.manualZoom.value = "1";
     dom.manualRotation.value = "0";
+    if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
     dom.previewImage.style.transform = "";
     dom.previewImage.removeAttribute("src");
     state.view = "studio";
