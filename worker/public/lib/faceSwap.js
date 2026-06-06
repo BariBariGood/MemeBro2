@@ -6,6 +6,7 @@
  */
 
 import { state } from "./state.js";
+import { compressForUpload } from "./compressImage.js";
 
 export function startFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap   = true;
@@ -57,9 +58,28 @@ export async function submitSelectedFace({
         type: cropType,
         });
 
+        // Compress the face crop before uploading (resize to max 1024px,
+        // re-encode JPEG q0.85, strip metadata). Show "Optimizing..." if
+        // compression takes longer than 500ms.
+        let optimizingTimer = null;
+        optimizingTimer = setTimeout(() => {
+            state.isOptimizingImage = true;
+            render();
+        }, 500);
+
+        const compressedBlob = await compressForUpload(faceCrop.blob);
+        clearTimeout(optimizingTimer);
+        state.isOptimizingImage = false;
+
+        const compressedFaceCrop = {
+            ...faceCrop,
+            blob: compressedBlob,
+            type: compressedBlob.type || "image/jpeg",
+        };
+
         payload = await requestFaceSwap({
         file:       _state.file,
-        faceCrop,
+        faceCrop:   compressedFaceCrop,
         templateId: _state.selectedTemplateId,
         selectedFaces,
         memeText:   _state.editor.overlayText || "",
@@ -73,6 +93,7 @@ export async function submitSelectedFace({
         signal: _state.faceSwapAbortController.signal,
         });
     } finally {
+        state.isOptimizingImage = false;
         stopFaceSwapLoading();
     }
 
