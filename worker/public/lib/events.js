@@ -163,6 +163,7 @@ export function registerEvents(ctx) {
         state.manualScale = Number(dom.manualZoom.value || 1);
         applyManualTransform();
         renderOverlay();
+        syncGestureHud();
     });
 
     dom.manualRotation.addEventListener("input", () => {
@@ -185,6 +186,58 @@ export function registerEvents(ctx) {
         state.dragPointerId = null;
         dom.previewImage.classList.remove("dragging");
     });
+
+    // ── Scroll-to-zoom ────────────────────────────
+    dom.overlayShell.addEventListener("wheel", (e) => {
+        if (!state.manualMode) return;
+        e.preventDefault();
+        const delta = e.deltaY * -0.005;
+        state.manualScale = clamp(state.manualScale + delta, 0.5, 3.0);
+        dom.manualZoom.value = String(state.manualScale);
+        applyManualTransform();
+        renderOverlay();
+        syncGestureHud();
+    }, { passive: false });
+
+    // ── Multi-touch pinch/rotate ──────────────────
+    dom.overlayShell.addEventListener("touchstart", (e) => {
+        if (!state.manualMode || e.touches.length < 2) return;
+        e.preventDefault();
+        const [a, b] = [e.touches[0], e.touches[1]];
+        state.gesture = {
+            startDist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
+            startAngle: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI),
+            startScale: state.manualScale,
+            startRotation: state.manualRotation,
+        };
+    }, { passive: false });
+
+    dom.overlayShell.addEventListener("touchmove", (e) => {
+        if (!state.manualMode || e.touches.length < 2 || !state.gesture) return;
+        e.preventDefault();
+        const [a, b] = [e.touches[0], e.touches[1]];
+        const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        const angle = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI);
+        const scaleFactor = dist / state.gesture.startDist;
+        state.manualScale = clamp(state.gesture.startScale * scaleFactor, 0.5, 3.0);
+        state.manualRotation = clamp(
+            state.gesture.startRotation + (angle - state.gesture.startAngle),
+            -180, 180
+        );
+        dom.manualZoom.value = String(state.manualScale);
+        dom.manualRotation.value = String(Math.round(state.manualRotation));
+        applyManualTransform();
+        renderOverlay();
+        syncGestureHud();
+    }, { passive: false });
+
+    dom.overlayShell.addEventListener("touchend", (e) => {
+        if (e.touches.length < 2) state.gesture = null;
+    });
+
+    function syncGestureHud() {
+        if (dom.zoomBadge) dom.zoomBadge.textContent = `${Math.round(state.manualScale * 100)}%`;
+    }
 
     // ── Template search / tabs ───────────────────
     dom.templateSearch.addEventListener("input", (event) => {
