@@ -28,6 +28,8 @@ import { state } from "./lib/state.js";
 
 import * as Editor      from "./lib/editor.js";
 import * as TextOverlay from "./lib/textOverlay.js";
+import { recentMemeStorage } from "./js/recents.js";
+import { saveCurrentMeme } from "./js/save.js";
 import * as Templates   from "./lib/templates.js";
 import * as Faces       from "./lib/faces.js";
 import * as FaceSwap    from "./lib/faceSwap.js";
@@ -75,7 +77,7 @@ const getTemplateMainImage    = (t)             => Templates.getTemplateMainImag
 const extractGeneratedImageUrl = (p)            => Templates.extractGeneratedImageUrl(p);
 const recordTemplateUsage     = (id)            => Templates.recordTemplateUsage(id);
 const renderStudioTemplate    = (t)             => Templates.renderStudioTemplate(t, { dom, state });
-const renderTemplates         = ()              => Templates.renderTemplates({ dom, clamp, openStudioForTemplate });
+const renderTemplates         = ()              => Templates.renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme });
 
 async function showTemplateSelection() {
   return Templates.showTemplateSelection({ loadTemplates, dom, render, renderTemplates });
@@ -92,6 +94,58 @@ function openStudioForTemplate(templateId) {
   });
 }
 
+async function openStudioForRecentMeme(recentMemeId) {
+  const recent = await recentMemeStorage.get(recentMemeId);
+  const snapshot = recent?.snapshot;
+  const editorSnapshot = snapshot?.editorSnapshot;
+
+  if (!snapshot || !editorSnapshot) return null;
+
+  const restoredEditorSnapshot = {
+    ...editorSnapshot,
+    generatedImage: editorSnapshot.generatedImage || snapshot.currentImage || "",
+  };
+
+  state.selectedTemplateId = restoredEditorSnapshot.selectedTemplateId || state.selectedTemplateId;
+  state.status = STATES.IDLE;
+  state.view = "studio";
+  state.uploadModalOpen = false;
+  state.isEditingMemeText = false;
+  state.isTextSelected = false;
+  state.isTextLocked = false;
+  state.showTextMore = false;
+  state.showResetConfirmation = false;
+  state.showBackConfirmation = false;
+  state.isAiPromptPanelOpen = false;
+  state.editor.historyStack = Array.isArray(snapshot.editHistory?.historyStack)
+    ? [...snapshot.editHistory.historyStack]
+    : [];
+  state.editor.futureStack = Array.isArray(snapshot.editHistory?.futureStack)
+    ? [...snapshot.editHistory.futureStack]
+    : [];
+  state.editor.initialSnapshot = state.editor.historyStack[0] || restoredEditorSnapshot;
+  Editor.applyEditorSnapshot(restoredEditorSnapshot, { getTemplateMainImage });
+  Editor.persistEditorHistory();
+  render();
+  return recent;
+}
+
+const getMemeFontFamily = (fontKey = DEFAULT_MEME_FONT_KEY) =>
+  TextOverlay.getMemeFontFamily(fontKey);
+
+const applyMemeOutline = (preview) =>
+  TextOverlay.applyMemeOutline(preview);
+
+const positionTextHandles = () =>
+  TextOverlay.positionTextHandles({ dom, clamp });
+
+const createOrSelectTextAtPointer = (event) =>
+  TextOverlay.createOrSelectTextAtPointer(event, {
+    dom,
+    clamp,
+    recordEditorSnapshot,
+    beginInlineTextEdit,
+  });
 // ── Editor wrappers ───────────────────────────
 
 const initializeEditorState  = ()  => Editor.initializeEditorState({ getTemplateMainImage, getSelectedTemplate });
@@ -129,10 +183,6 @@ function beginInlineTextEdit(event) {
   return TextOverlay.beginInlineTextEdit(event, { dom, render });
 }
 
-function createOrSelectTextAtPointer(event) {
-  return TextOverlay.createOrSelectTextAtPointer(event, { dom, clamp, recordEditorSnapshot, beginInlineTextEdit });
-}
-
 // ── Face wrappers ─────────────────────────────
 
 const getFaceCropBounds       = (f, n) => Faces.getFaceCropBounds(f, n, { clamp });
@@ -161,6 +211,19 @@ async function detectFaces(file) {
 
 const startFaceSwapLoadingState = () => FaceSwap.startFaceSwapLoadingState({ render });
 const stopFaceSwapLoadingState  = () => FaceSwap.stopFaceSwapLoadingState({ render });
+
+/**
+ * Saves the currently edited meme through the save module.
+ *
+ * @returns {Promise<{metadata: object, snapshot: object}>} Saved recent meme records.
+ */
+async function saveCurrentEditorMeme() {
+  return saveCurrentMeme({
+    state,
+    dom,
+    createEditorSnapshot: Editor.createEditorSnapshot,
+  });
+}
 
 async function submitSelectedFace() {
   return FaceSwap.submitSelectedFace({
@@ -191,6 +254,12 @@ function renderAiPromptLoadMode() {
   return AiPrompting.renderAiPromptLoadMode({ dom, state });
 }
 
+function endDrag(event) {
+  if (state.dragPointerId !== event.pointerId) return;
+  event.preventDefault();
+  state.dragPointerId = null;
+  dom.previewImage.classList.remove("dragging");
+}
 function render() {
   const result = Render.render({
     dom, state,
@@ -235,6 +304,8 @@ registerEvents({
   // Editor
   undoEditorSnapshot, redoEditorSnapshot, resetEditorToTemplate,
   confirmBackAndResetStudio, recordEditorSnapshot,
+  // Save
+  saveCurrentEditorMeme,
   // Face swap
   submitSelectedFace, startFaceSwapLoadingState, stopFaceSwapLoadingState,
   // Render
@@ -248,13 +319,26 @@ registerEvents({
 // ── Test hooks (keep for test suite) ─────────
 
 export const __testHooks = {
-  dom, state, render, setStatus,
-  selectSingleFace, submitSelectedFace,
-  undoEditorSnapshot, redoEditorSnapshot, resetEditorToTemplate,
-  beginInlineTextEdit, finishInlineTextEdit,
-  startFaceSwapLoadingState, stopFaceSwapLoadingState,
-  getFaceCropBounds, extractFaceCrop,
-  syncMemeTextAppearance, fitMemeTextToCanvas,
+  dom,
+  state,
+  render,
+  renderTemplates,
+  setStatus,
+  selectSingleFace,
+  submitSelectedFace,
+  saveCurrentEditorMeme,
+  openStudioForRecentMeme,
+  undoEditorSnapshot,
+  redoEditorSnapshot,
+  resetEditorToTemplate,
+  beginInlineTextEdit,
+  finishInlineTextEdit,
+  startFaceSwapLoadingState,
+  stopFaceSwapLoadingState,
+  getFaceCropBounds,
+  extractFaceCrop,
+  syncMemeTextAppearance,
+  fitMemeTextToCanvas,
   updateEditorTextSetting,
   projectActions,
 };

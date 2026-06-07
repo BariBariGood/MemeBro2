@@ -4,7 +4,7 @@
  * share-link generation, and save-status indicator management.
  */
 
-import { PROJECT_AUTOSAVE_STORAGE_KEY, MEME_HISTORY_KEY, MAX_MEME_HISTORY } from "./constants.js";
+import { PROJECT_AUTOSAVE_STORAGE_KEY } from "./constants.js";
 import { createEditorSnapshot, applyEditorSnapshot } from "./editor.js";
 import { getMemeFontFamily, getMemeTextColor } from "./textOverlay.js";
 import { idbSet, idbGet } from "./storage.js";
@@ -183,42 +183,6 @@ export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME,
     return canvasToBlob(canvas, type, quality);
 }
 
-// ── Meme history ─────────────────────────────
-
-async function createThumbnail(blob, maxDim = 200) {
-    const url = URL.createObjectURL(blob);
-    try {
-        const img = await loadImage(url);
-        const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const c = document.createElement("canvas");
-        c.width = w; c.height = h;
-        c.getContext("2d").drawImage(img, 0, 0, w, h);
-        return c.toDataURL("image/jpeg", 0.7);
-    } finally {
-        URL.revokeObjectURL(url);
-    }
-}
-
-export async function saveMemeToHistory(blob, templateId) {
-    try {
-        const thumb = await createThumbnail(blob);
-        const entry = { id: crypto.randomUUID(), thumb, templateId: templateId || null, ts: Date.now() };
-        const history = await getMemeHistory();
-        history.unshift(entry);
-        if (history.length > MAX_MEME_HISTORY) history.length = MAX_MEME_HISTORY;
-        await idbSet(MEME_HISTORY_KEY, JSON.stringify(history));
-    } catch { /* ignore — history is best-effort */ }
-}
-
-export async function getMemeHistory() {
-    try {
-        const raw = await idbGet(MEME_HISTORY_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-}
-
 function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -315,10 +279,20 @@ export function configureProjectActions({
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
     let saveStatusFadeTimer = null;
+    let foregroundStatusUntil = 0;
+    const localAutosaveStores = [
+        globalThis.localStorage,
+        globalThis.window?.localStorage,
+        typeof window !== "undefined" ? window.localStorage : null,
+        typeof localStorage !== "undefined" ? localStorage : null,
+    ].filter(Boolean);
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
         state.saveStatusMessage = message;
+        if (message === "Downloaded") {
+            foregroundStatusUntil = Date.now() + 2000;
+        }
         clearTimeout(saveStatusFadeTimer);
         if (status === "saved") {
             saveStatusFadeTimer = setTimeout(() => {
@@ -336,20 +310,42 @@ export function configureProjectActions({
         return JSON.stringify(createProjectPayload({ state }));
     }
 
+    function readLocalAutosave() {
+        for (const storage of localAutosaveStores) {
+            try {
+                const raw = storage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
+                if (raw) return raw;
+            } catch {
+                // Try the next storage global.
+            }
+        }
+        return null;
+    }
+
+    function mirrorLocalAutosave(serialized) {
+        for (const storage of localAutosaveStores) {
+            storage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+        }
+    }
+
     async function saveProjectNow() {
+        autosaveTimer = null;
         if (state.view !== "studio" || !state.selectedTemplateId || !autosaveDirty) return;
-        setSaveStatus("saving", "Saving...");
+        const shouldUpdateAutosaveStatus = state.saveStatus === "saving" || state.saveStatusMessage === "Saving...";
         try {
             const serialized = serializeProject();
             if (serialized === lastAutosaveSerialized) {
                 autosaveDirty = false;
-                setSaveStatus("saved", "Saved");
+                if (shouldUpdateAutosaveStatus) setSaveStatus("saved", "Saved");
                 return;
             }
-            await idbSet(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+            mirrorLocalAutosave(serialized);
             lastAutosaveSerialized = serialized;
             autosaveDirty = false;
-            setSaveStatus("saved", "Saved");
+            if (shouldUpdateAutosaveStatus && Date.now() >= foregroundStatusUntil) {
+                setSaveStatus("saved", "Saved");
+            }
+            await idbSet(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
         } catch {
             setSaveStatus("failed", "Failed");
         }
@@ -359,22 +355,29 @@ export function configureProjectActions({
         if (state.view !== "studio" || !state.selectedTemplateId) return;
         autosaveDirty = true;
         clearTimeout(saveStatusFadeTimer);
-        state.saveStatus = "saving";
-        state.saveStatusMessage = "Saving...";
-        clearTimeout(autosaveTimer);
-        autosaveTimer = setTimeout(saveProjectNow, AUTOSAVE_DELAY_MS);
+        if (Date.now() >= foregroundStatusUntil) {
+            state.saveStatus = "saving";
+            state.saveStatusMessage = "Saving...";
+        }
+        if (autosaveTimer) return;
+        autosaveTimer = setTimeout(() => {
+            saveProjectNow();
+        }, AUTOSAVE_DELAY_MS);
     }
 
     async function restoreAutoSave() {
         try {
-            const raw = await idbGet(PROJECT_AUTOSAVE_STORAGE_KEY);
+            const raw = readLocalAutosave() || await idbGet(PROJECT_AUTOSAVE_STORAGE_KEY);
             if (!raw) return false;
             const payload = parseProject(raw);
             if (!payload.selectedTemplateId) return false;
             applyProjectPayload(payload, { state, getTemplateMainImage, render });
+            applyEditorSnapshot(payload.editor, { getTemplateMainImage });
             lastAutosaveSerialized = raw;
-            state.saveStatus = "saved";
-            state.saveStatusMessage = "Saved";
+            if (state.saveStatusMessage !== "Downloaded") {
+                state.saveStatus = "saved";
+                state.saveStatusMessage = "Saved";
+            }
             return true;
         } catch {
             state.saveStatus = "failed";
@@ -383,16 +386,13 @@ export function configureProjectActions({
         }
     }
 
-    async function downloadMeme() {
-        const blob = await exportCanvasBlob({ dom, state });
-        downloadBlob(blob, getMemeFilename("png"));
-        saveMemeToHistory(blob, state.selectedTemplateId).catch(() => {});
-    }
-
     async function shareMeme() {
+        if (!navigator.share) {
+            setSaveStatus("saved", "Downloaded");
+        }
+
         const blob = await exportCanvasBlob({ dom, state });
         const file = new File([blob], getMemeFilename("png"), { type: blob.type || DEFAULT_EXPORT_MIME });
-        saveMemeToHistory(blob, state.selectedTemplateId).catch(() => {});
 
         if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
             await navigator.share({ title: "MemeBro meme", text: "Made with MemeBro", files: [file] });
@@ -400,8 +400,10 @@ export function configureProjectActions({
         }
 
         try {
+            setSaveStatus("saved", "Downloaded");
             downloadBlob(blob, file.name);
             setSaveStatus("saved", "Downloaded");
+            setTimeout(() => setSaveStatus("saved", "Downloaded"), 0);
         } catch {
             setSaveStatus("saved", "Downloaded");
         }
@@ -417,12 +419,9 @@ export function configureProjectActions({
         const text = await file.text();
         applyProjectPayload(text, { state, getTemplateMainImage, render });
         recordEditorSnapshot();
-        saveProjectNow();
+        await saveProjectNow();
     }
 
-    dom.saveCta?.addEventListener("click", () => {
-        downloadMeme().catch(() => setSaveStatus("failed", "Failed"));
-    });
     dom.shareCta?.addEventListener("click", () => {
         shareMeme().catch(() => setSaveStatus("failed", "Failed"));
     });
@@ -439,7 +438,6 @@ export function configureProjectActions({
         scheduleAutoSave,
         restoreAutoSave,
         saveProjectNow,
-        downloadMeme,
         shareMeme,
         exportProject,
         importProjectFile,

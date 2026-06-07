@@ -54,6 +54,81 @@ function createMemoryStorage() {
   };
 }
 
+function createRequest() {
+  return {
+    error: null,
+    result: undefined,
+    onerror: null,
+    onsuccess: null,
+    onupgradeneeded: null,
+  };
+}
+
+function createFakeIndexedDB() {
+  const stores = new Map();
+  let opened = false;
+
+  function ensureStore(name) {
+    if (!stores.has(name)) stores.set(name, new Map());
+    return stores.get(name);
+  }
+
+  const db = {
+    objectStoreNames: {
+      contains: (name) => stores.has(name),
+    },
+    createObjectStore: (name) => {
+      ensureStore(name);
+    },
+    transaction: (storeNames) => {
+      const transaction = {
+        error: null,
+        onabort: null,
+        oncomplete: null,
+        onerror: null,
+        objectStore: (name) => ({
+          put: (value) => {
+            ensureStore(name).set(value.id, value);
+          },
+          delete: (id) => {
+            ensureStore(name).delete(id);
+          },
+          get: (id) => {
+            const request = createRequest();
+            setTimeout(() => {
+              request.result = ensureStore(name).get(id);
+              request.onsuccess?.();
+            }, 0);
+            return request;
+          },
+        }),
+      };
+
+      const names = Array.isArray(storeNames) ? storeNames : [storeNames];
+      names.forEach(ensureStore);
+      setTimeout(() => transaction.oncomplete?.(), 0);
+      return transaction;
+    },
+    close: vi.fn(),
+    onversionchange: null,
+  };
+
+  return {
+    open: vi.fn(() => {
+      const request = createRequest();
+      setTimeout(() => {
+        request.result = db;
+        if (!opened) {
+          opened = true;
+          request.onupgradeneeded?.();
+        }
+        request.onsuccess?.();
+      }, 0);
+      return request;
+    }),
+  };
+}
+
 function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   const template = catalog.templates.find((entry) => entry.id === templateId) || catalog.templates[0];
 
@@ -105,6 +180,52 @@ function mockFaceCropCanvas(blobType = "image/jpeg") {
   };
 }
 
+/**
+ * Mocks browser image loading and canvas export for recent thumbnail saves.
+ *
+ * @returns {{drawImage: import("vitest").Mock}} Canvas draw spy used by thumbnail generation.
+ */
+function mockRecentThumbnailExport() {
+  const drawImage = vi.fn();
+
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => ({ drawImage }));
+  vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback, type) => {
+    callback(new Blob(["recent-thumbnail"], { type: type || "image/webp" }));
+  });
+
+  class MockImage {
+    constructor() {
+      this.naturalWidth = 512;
+      this.naturalHeight = 256;
+      this.width = 512;
+      this.height = 256;
+      this.onload = null;
+      this.onerror = null;
+      this.decoding = "";
+    }
+
+    set src(value) {
+      this.currentSrc = value;
+      setTimeout(() => this.onload?.(), 0);
+    }
+
+    get src() {
+      return this.currentSrc;
+    }
+  }
+
+  Object.defineProperty(globalThis, "Image", {
+    configurable: true,
+    value: MockImage,
+  });
+  Object.defineProperty(window, "Image", {
+    configurable: true,
+    value: MockImage,
+  });
+
+  return { drawImage };
+}
+
 function seedSelectedFaceCrop(state, options = {}) {
   const source = options.source || { width: 120, height: 90 };
   const face = options.face || {
@@ -139,6 +260,18 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: localStorage,
+    });
+    Object.defineProperty(globalThis, "indexedDB", {
+      configurable: true,
+      value: createFakeIndexedDB(),
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:http://localhost/recent-thumb"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
     });
     vi.stubGlobal("requestAnimationFrame", (cb) => cb());
     vi.stubGlobal("fetch", vi.fn(async (url) => {
@@ -229,6 +362,178 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(firstCardImage.getAttribute("src")).toBe(catalog.templates[0].previewImage);
     expect(firstCardImage.loading).toBe("lazy");
     expect(firstCardArt.style.aspectRatio).toBe(`${catalog.templates[0].images.width} / ${catalog.templates[0].images.height}`);
+  });
+
+  test("custom: empty recents tab shows CTA that switches back to trending", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { dom } = __testHooks;
+
+    dom.titleStartCta.click();
+    await settleApp();
+    dom.templateTabs.querySelector("[data-tab='recents']").click();
+    await settleApp();
+
+    expect(dom.templateEmpty.textContent).toContain("No Recent Memes Yet.");
+    expect(dom.templateEmpty.textContent).toContain("Create your first meme from the Trending Tab");
+
+    dom.templateEmpty.querySelector(".template-empty-cta").click();
+    await settleApp();
+
+    expect(dom.templateTabs.querySelector("[data-tab='trending']").classList.contains("active")).toBe(true);
+    expect(dom.templateGrid.querySelector(".template-card")).not.toBeNull();
+  });
+
+  test("custom: recents tab renders saved thumbnails and restores snapshots on click", async () => {
+    const app = await loadApp();
+    const { saveRecentMeme } = await import("../public/js/recents.js");
+    await settleApp();
+    const { __testHooks } = app;
+    const { state, dom } = __testHooks;
+    const template = catalog.templates[0];
+
+    state.templateCatalog = catalog.templates;
+    const savedRecent = await saveRecentMeme({
+      id: "recent-editor-state",
+      savedAt: 2000,
+      currentImage: "/generated/recent.png",
+      mode: "face_swap",
+      editorSnapshot: {
+        selectedTemplateId: template.id,
+        templateImage: template.images.main,
+        generatedImage: "/generated/recent.png",
+        overlayText: "restored caption",
+        overlayVisible: true,
+        overlayX: 22,
+        overlayY: 33,
+        overlayWidthPct: 44,
+        overlayRotation: 90,
+        frozenTextItems: [{ text: "saved lower caption" }],
+      },
+      historyStack: [
+        { selectedTemplateId: template.id, overlayText: "seed" },
+        { selectedTemplateId: template.id, overlayText: "restored caption" },
+      ],
+      futureStack: [{ selectedTemplateId: template.id, overlayText: "redo caption" }],
+      thumbnail: {
+        blob: new Blob(["recent-thumb"], { type: "image/webp" }),
+        width: 256,
+        height: 144,
+        type: "image/webp",
+      },
+    });
+
+    dom.titleStartCta.click();
+    await settleApp();
+    dom.templateTabs.querySelector("[data-tab='recents']").click();
+    await settleApp();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const recentCard = dom.templateGrid.querySelector("[data-recent-meme-id='recent-editor-state']");
+    expect(recentCard).not.toBeNull();
+    expect(recentCard.querySelector("img").getAttribute("src")).toBe("blob:http://localhost/recent-thumb");
+
+    recentCard.click();
+    await settleApp();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(state.view).toBe("studio");
+    expect(state.selectedTemplateId).toBe(template.id);
+    expect(state.editor.generatedImage).toBe("/generated/recent.png");
+    expect(state.editor.overlayText).toBe("restored caption");
+    expect(state.editor.overlayX).toBe(22);
+    expect(state.editor.overlayY).toBe(33);
+    expect(state.editor.overlayWidthPct).toBe(44);
+    expect(state.editor.overlayRotation).toBe(90);
+    expect(state.editor.historyStack).toHaveLength(2);
+    expect(state.editor.futureStack).toHaveLength(1);
+    expect(state.editor.historyStack).not.toBe(savedRecent.snapshot.editHistory.historyStack);
+  });
+
+  test("custom: save button stores the current editor state as a recent meme", async () => {
+    mockRecentThumbnailExport();
+    const { __testHooks } = await loadApp();
+    const { getRecentMeme } = await import("../public/js/recents.js");
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    state.editor.generatedImage = "/generated/saved-by-button.png";
+    state.editor.overlayText = "saved from button";
+    state.editor.overlayX = 24;
+    state.editor.overlayY = 36;
+    state.editor.overlayWidthPct = 58;
+    state.editor.overlayRotation = 90;
+    state.editor.frozenTextItems = [{ text: "lower text" }];
+    state.editor.historyStack = [
+      { overlayText: "seed" },
+      { overlayText: "saved from button" },
+    ];
+    state.editor.futureStack = [{ overlayText: "redo text" }];
+    render();
+
+    dom.saveCta.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const metadata = JSON.parse(localStorage.getItem("recent-memes"));
+    expect(metadata).toHaveLength(1);
+    expect(metadata[0].currentImage).toBe("/generated/saved-by-button.png");
+    expect(metadata[0].mode).toBe("face_swap");
+    expect(metadata[0].thumbnail).toEqual({
+      id: metadata[0].id,
+      width: 256,
+      height: 128,
+      type: "image/webp",
+    });
+
+    const recent = await getRecentMeme(metadata[0].id);
+    expect(recent.snapshot.currentImage).toBe("/generated/saved-by-button.png");
+    expect(recent.snapshot.editorSnapshot.overlayText).toBe("saved from button");
+    expect(recent.snapshot.editHistory.historyStack).toHaveLength(2);
+    expect(recent.snapshot.editHistory.futureStack).toHaveLength(1);
+    expect(recent.snapshot.textContent).toEqual({
+      activeText: "saved from button",
+      frozenTextItems: [{ text: "lower text" }],
+    });
+    expect(recent.snapshot.transformation).toEqual({
+      x: 24,
+      y: 36,
+      widthPct: 58,
+      rotation: 90,
+      visible: true,
+    });
+    expect(recent.thumbnail.blob.type).toBe("image/webp");
+  });
+
+  test("custom: save button surfaces a visible error when no current image exists", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom } = __testHooks;
+
+    state.view = "studio";
+    state.selectedTemplateId = null;
+    state.editor.templateImage = "";
+    state.editor.generatedImage = "";
+    Object.defineProperty(dom.studioTemplateImage, "currentSrc", {
+      configurable: true,
+      value: "",
+    });
+    Object.defineProperty(dom.studioTemplateImage, "src", {
+      configurable: true,
+      value: "",
+    });
+
+    dom.saveCta.click();
+
+    await vi.waitFor(() => {
+      expect(state.error).toMatchObject({
+        code: "MISSING_CURRENT_IMAGE",
+        message: "A current image is required to save this meme.",
+      });
+    });
+    expect(dom.errorState.classList.contains("hidden")).toBe(false);
+    expect(dom.errorMessage.textContent).toContain("current image is required");
   });
 
   test("custom: template face regions stay inside the actual meme image bounds", () => {
@@ -772,27 +1077,26 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.errorRetryCta.classList.contains("hidden")).toBe(true);
   });
 
-  test("custom: project actions download the edited meme with a timestamped PNG filename", async () => {
-    let clickedDownload = "";
+  test("custom: save button is owned by recents and does not also download a PNG", async () => {
+    mockRecentThumbnailExport();
     globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-download");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click() {
-      clickedDownload = this.download;
-    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
     const { __testHooks } = await loadApp();
     await settleApp();
     const { state, dom, render } = __testHooks;
 
     seedStudioEditorState(state);
+    state.editor.generatedImage = "/generated/save-only-recents.png";
     render();
     dom.saveCta.click();
 
     await vi.waitFor(() => {
-      expect(globalThis.__MEMEBRO_EXPORT_BLOB__).toHaveBeenCalledWith(expect.objectContaining({ type: "image/png" }));
-      expect(clickedDownload).toMatch(/^memebro-\d{8}T\d{6}Z\.png$/);
+      expect(JSON.parse(localStorage.getItem("recent-memes"))).toHaveLength(1);
     });
+    expect(globalThis.__MEMEBRO_EXPORT_BLOB__).not.toHaveBeenCalled();
   });
 
   test("custom: studio actions use Face Swap label and keep project utilities in a menu", async () => {

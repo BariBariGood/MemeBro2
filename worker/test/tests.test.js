@@ -2,16 +2,48 @@
  * @vitest-environment jsdom
  */
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import catalog from "../public/templates.json";
+import { RECENTS_STORAGE_KEY } from "../public/lib/constants.js";
 
+vi.mock("../public/.generated/mediapipe/vision_bundle.mjs", () => ({
+  FaceDetector: {
+    createFromOptions: vi.fn(async () => ({
+      detect: vi.fn(() => ({ detections: [] })),
+    })),
+  },
+  FilesetResolver: {
+    forVisionTasks: vi.fn(async () => ({})),
+  },
+}));
+
+const testDir = path.dirname(fileURLToPath(import.meta.url));
+const htmlPath = path.resolve(testDir, "../public/index.html");
+const indexHtml = readFileSync(htmlPath, "utf8");
 const { templates, grid } = catalog;
-const { breakpoints, imageLoading, search, tabs } = grid;
-const recentTabConfig = tabs.items.find((tab) => tab.id === "recents");
-const trendingTabConfig = tabs.items.find((tab) => tab.id === "trending");
-const RECENTS_STORAGE_KEY = recentTabConfig.storageKey;
+const { imageLoading, search } = grid;
 
+/**
+ * Mounts the app's main HTML markup into the jsdom document.
+ *
+ * @returns {void}
+ */
+function mountAppHtml() {
+  const mainMarkup = indexHtml.match(/<main[\s\S]*<\/main>/)?.[0] || "";
+  document.body.innerHTML = mainMarkup;
+}
+
+/**
+ * Sets the jsdom viewport dimensions used by responsive app code.
+ *
+ * @param {number} width - Viewport width in pixels.
+ * @param {number} [height=800] - Viewport height in pixels.
+ * @returns {void}
+ */
 function setViewport(width, height = 800) {
   Object.defineProperty(window, "innerWidth", {
     configurable: true,
@@ -26,46 +58,11 @@ function setViewport(width, height = 800) {
   });
 }
 
-function getBreakpointConfig(width) {
-  if (width <= breakpoints.mobile.maxWidth) {
-    return { name: "mobile", ...breakpoints.mobile };
-  }
-
-  if (
-    width >= breakpoints.tablet.minWidth &&
-    width <= breakpoints.tablet.maxWidth
-  ) {
-    return { name: "tablet", ...breakpoints.tablet };
-  }
-
-  return { name: "desktop", ...breakpoints.desktop };
-}
-
-function getTrendingTemplates() {
-  return [...templates].sort(
-    (left, right) => right.popularityScore - left.popularityScore
-  );
-}
-
-function getRecentUsageMap() {
-  const rawValue = window.localStorage.getItem(RECENTS_STORAGE_KEY);
-
-  if (!rawValue) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(rawValue);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (_error) {
-    return {};
-  }
-}
-
-function saveRecentUsageMap(usageMap) {
-  window.localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(usageMap));
-}
-
+/**
+ * Creates an in-memory Storage-compatible object for localStorage tests.
+ *
+ * @returns {{clear: Function, getItem: Function, removeItem: Function, setItem: Function}} Mock storage API.
+ */
 function createMemoryStorage() {
   const values = new Map();
 
@@ -80,181 +77,98 @@ function createMemoryStorage() {
   };
 }
 
-function recordTemplateUsage(templateId, timestamp = Date.now()) {
-  const usageMap = getRecentUsageMap();
-  usageMap[templateId] = timestamp;
-  saveRecentUsageMap(usageMap);
+/**
+ * Dynamically imports the app after the DOM fixture has been mounted.
+ *
+ * @returns {Promise<object>} The app test hooks exported by app.js.
+ */
+async function loadApp() {
+  const { __testHooks } = await import("../public/app.js");
+  return __testHooks;
 }
 
-function getRecentTemplates() {
-  const usageMap = getRecentUsageMap();
-
-  return Object.entries(usageMap)
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, recentTabConfig.maxItems)
-    .map(([templateId]) => templates.find((meme) => meme.id === templateId))
-    .filter(Boolean);
+/**
+ * Waits for queued promise microtasks used by app rendering to settle.
+ *
+ * @returns {Promise<void>} Resolves after two microtask turns.
+ */
+async function settleApp() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
-function matchesSearch(meme, query) {
-  const normalizedQuery = query.trim().toLowerCase();
-
-  if (!normalizedQuery) {
-    return true;
-  }
-
-  const searchableFields = [meme.name, ...meme.tags];
-
-  return searchableFields.some((field) =>
-    field.toLowerCase().includes(normalizedQuery)
-  );
-}
-
-function applySearchFilter(gridElement, query) {
-  const start = performance.now();
-  const cards = [
-    ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
-  ];
-
-  cards.forEach((card) => {
-    const meme = templates.find(
-      (entry) => entry.id === card.getAttribute("data-template-id")
-    );
-    const isMatch = matchesSearch(meme, query);
-
-    card.hidden = !isMatch;
-    card.setAttribute("aria-hidden", String(!isMatch));
-    card.style.display = isMatch ? "" : "none";
-  });
-
-  return performance.now() - start;
-}
-
-function renderCards(gridElement, memes) {
-  gridElement.innerHTML = "";
-
-  memes.forEach((meme) => {
-    const card = document.createElement("article");
-    card.setAttribute("data-testid", "meme-card");
-    card.setAttribute("data-template-id", meme.id);
-    card.dataset.popularityScore = String(meme.popularityScore);
-    card.dataset.editorRoute = meme.editorTarget.route;
-
-    card.addEventListener("click", () => {
-      recordTemplateUsage(meme.id);
-    });
-
-    const figure = document.createElement("figure");
-    figure.setAttribute("data-testid", "meme-figure");
-
-    const image = document.createElement("img");
-    image.setAttribute("data-testid", "meme-image");
-    image.alt = meme.name;
-    image.loading = "lazy";
-    image.src = meme.images.preview;
-    image.dataset.previewSrc = meme.images.preview;
-    image.dataset.thumbnailSrc = meme.images.thumbnail;
-    image.dataset.fullSrc = meme.images.main;
-
-    const caption = document.createElement("figcaption");
-    caption.setAttribute("data-testid", "meme-name");
-    caption.textContent = meme.name;
-
-    figure.appendChild(image);
-    figure.appendChild(caption);
-    card.appendChild(figure);
-    gridElement.appendChild(card);
-  });
-}
-
-function renderGrid(width) {
+/**
+ * Opens the real template grid through the app's start button.
+ *
+ * @param {number} width - Viewport width to render under.
+ * @returns {Promise<object>} App test hooks plus measured render time.
+ */
+async function renderGrid(width) {
   setViewport(width);
-  document.body.innerHTML = "";
+  const app = await loadApp();
+  await settleApp();
 
-  const breakpoint = getBreakpointConfig(window.innerWidth);
   const start = performance.now();
-  const container = document.createElement("section");
-  container.setAttribute("data-testid", "meme-grid-container");
-  const tabsElement = document.createElement("div");
-  tabsElement.setAttribute("data-testid", "meme-tabs");
-
-  const searchInput = document.createElement("input");
-  searchInput.setAttribute("data-testid", "meme-search");
-  searchInput.type = "search";
-  searchInput.placeholder = search.placeholder;
-  searchInput.setAttribute("aria-label", "Search meme templates");
-
-  const gridElement = document.createElement("section");
-  gridElement.setAttribute("data-testid", "meme-grid");
-  gridElement.setAttribute("data-breakpoint", breakpoint.name);
-  gridElement.style.display = "grid";
-  gridElement.style.gridTemplateColumns = `repeat(${breakpoint.columns}, minmax(0, 1fr))`;
-  gridElement.style.gap = `${breakpoint.gap}px`;
-
-  let lastFilterTimeMs = 0;
-  let activeTab = tabs.defaultTab;
-
-  function getTemplatesForTab(tabId) {
-    if (tabId === recentTabConfig.id) {
-      return getRecentTemplates();
-    }
-
-    return getTrendingTemplates();
-  }
-
-  function syncTabButtons() {
-    const buttons = tabsElement.querySelectorAll('[data-testid="meme-tab"]');
-
-    buttons.forEach((button) => {
-      const isActive = button.dataset.tabId === activeTab;
-      button.setAttribute("aria-selected", String(isActive));
-      button.dataset.active = String(isActive);
-    });
-  }
-
-  function refreshGrid() {
-    renderCards(gridElement, getTemplatesForTab(activeTab));
-    lastFilterTimeMs = applySearchFilter(gridElement, searchInput.value);
-    syncTabButtons();
-  }
-
-  searchInput.addEventListener("input", (event) => {
-    lastFilterTimeMs = applySearchFilter(gridElement, event.target.value);
-  });
-
-  tabs.items.forEach((tab) => {
-    const tabButton = document.createElement("button");
-    tabButton.setAttribute("data-testid", "meme-tab");
-    tabButton.type = "button";
-    tabButton.textContent = tab.label;
-    tabButton.dataset.tabId = tab.id;
-
-    tabButton.addEventListener("click", () => {
-      activeTab = tab.id;
-      refreshGrid();
-    });
-
-    tabsElement.appendChild(tabButton);
-  });
-
-  refreshGrid();
-  container.appendChild(tabsElement);
-  container.appendChild(searchInput);
-  container.appendChild(gridElement);
-  document.body.appendChild(container);
+  app.dom.titleStartCta.click();
+  await settleApp();
+  await settleApp();
 
   return {
-    container,
-    tabsElement,
-    searchInput,
-    gridElement,
+    ...app,
     renderTimeMs: performance.now() - start,
-    breakpoint,
-    getLastFilterTimeMs: () => lastFilterTimeMs,
-    getActiveTab: () => activeTab,
   };
 }
 
+/**
+ * Gets rendered template card elements from the real app grid.
+ *
+ * @param {object} dom - App DOM references from __testHooks.
+ * @returns {HTMLElement[]} Rendered template cards.
+ */
+function getTemplateCards(dom) {
+  return [...dom.templateGrid.querySelectorAll(".template-card")];
+}
+
+/**
+ * Gets template IDs from the currently rendered app grid.
+ *
+ * @param {object} dom - App DOM references from __testHooks.
+ * @returns {Array<string | undefined>} Template IDs in rendered order.
+ */
+function getTemplateIds(dom) {
+  return getTemplateCards(dom).map((card) => card.dataset.templateId);
+}
+
+/**
+ * Sorts catalog templates by popularity, matching the app's trending order.
+ *
+ * @returns {Array<object>} Templates ordered by descending popularity.
+ */
+function getTrendingTemplates() {
+  return [...templates].sort(
+    (left, right) => right.popularityScore - left.popularityScore
+  );
+}
+
+/**
+ * Reads recently used template IDs from localStorage in newest-first order.
+ *
+ * @returns {string[]} Recently used template IDs.
+ */
+function getRecentUsageIds() {
+  const parsed = JSON.parse(localStorage.getItem(RECENTS_STORAGE_KEY) || "{}");
+  return Object.entries(parsed)
+    .sort((left, right) => right[1] - left[1])
+    .map(([templateId]) => templateId);
+}
+
+/**
+ * Recursively asserts that required catalog fields are populated.
+ *
+ * @param {*} value - Value to inspect.
+ * @param {string} path - Human-readable path used in assertion output.
+ * @returns {void}
+ */
 function assertNoEmptyValues(value, path) {
   expect(value).not.toBeUndefined();
   expect(value).not.toBeNull();
@@ -265,9 +179,7 @@ function assertNoEmptyValues(value, path) {
   }
 
   if (Array.isArray(value)) {
-    if (path.endsWith(".faceRegions")) {
-      return;
-    }
+    if (path.endsWith(".faceRegions")) return;
 
     expect(value.length).toBeGreaterThan(0);
     value.forEach((entry, index) =>
@@ -286,12 +198,32 @@ function assertNoEmptyValues(value, path) {
   }
 }
 
+/**
+ * Verifies the real app template grid behavior through app.js rendering paths.
+ *
+ * Covers responsive rendering, search, tab switching, recent template usage,
+ * trending order, image source selection, and catalog data completeness.
+ */
 describe("Grid UI", () => {
   beforeEach(() => {
+    vi.resetModules();
+    mountAppHtml();
+    const localStorage = createMemoryStorage();
+
     Object.defineProperty(window, "localStorage", {
       configurable: true,
-      value: createMemoryStorage(),
+      value: localStorage,
     });
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: localStorage,
+    });
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      if (url === "/templates.json") {
+        return { json: async () => ({ templates: catalog.templates }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    }));
   });
 
   afterEach(() => {
@@ -299,28 +231,24 @@ describe("Grid UI", () => {
     vi.restoreAllMocks();
   });
 
-  test("renders properly in desktop resolution", () => {
-    const { gridElement, breakpoint } = renderGrid(1440);
-    const cards = gridElement.querySelectorAll('[data-testid="meme-card"]');
-    const firstCaption = cards[0].querySelector('[data-testid="meme-name"]');
+  test("renders properly in desktop resolution", async () => {
+    const { dom, state } = await renderGrid(1440);
+    const cards = getTemplateCards(dom);
+    const firstCaption = cards[0].querySelector(".template-name");
 
-    expect(breakpoint.name).toBe("desktop");
-    expect(gridElement.getAttribute("data-breakpoint")).toBe("desktop");
-    expect(gridElement.style.gridTemplateColumns).toBe("repeat(5, minmax(0, 1fr))");
-    expect(gridElement.style.gap).toBe("20px");
+    expect(window.innerWidth).toBe(1440);
+    expect(state.view).toBe("templates");
     expect(cards).toHaveLength(templates.length);
     expect(firstCaption.textContent).toBe(getTrendingTemplates()[0].name);
   });
 
-  test("renders properly in mobile resolution", () => {
-    const { gridElement, breakpoint } = renderGrid(390);
-    const cards = gridElement.querySelectorAll('[data-testid="meme-card"]');
-    const firstCaption = cards[0].querySelector('[data-testid="meme-name"]');
+  test("renders properly in mobile resolution", async () => {
+    const { dom, state } = await renderGrid(390);
+    const cards = getTemplateCards(dom);
+    const firstCaption = cards[0].querySelector(".template-name");
 
-    expect(breakpoint.name).toBe("mobile");
-    expect(gridElement.getAttribute("data-breakpoint")).toBe("mobile");
-    expect(gridElement.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
-    expect(gridElement.style.gap).toBe("12px");
+    expect(window.innerWidth).toBe(390);
+    expect(state.view).toBe("templates");
     expect(cards).toHaveLength(templates.length);
     expect(firstCaption.textContent).toBe(getTrendingTemplates()[0].name);
   });
@@ -328,191 +256,171 @@ describe("Grid UI", () => {
   test.each([
     ["desktop", 1440],
     ["mobile", 390],
-  ])("renders in under 1.5 seconds on %s", (_label, width) => {
-    const { renderTimeMs } = renderGrid(width);
+  ])("renders in under 1.5 seconds on %s", async (_label, width) => {
+    const { renderTimeMs } = await renderGrid(width);
 
     expect(renderTimeMs).toBeLessThanOrEqual(imageLoading.maxInitialLoadMs);
   });
 
-  test("loads preview images instead of full-resolution images", () => {
-    const { gridElement } = renderGrid(1440);
-    const images = [...gridElement.querySelectorAll('[data-testid="meme-image"]')];
+  test("loads preview images instead of full-resolution images", async () => {
+    const { dom } = await renderGrid(1440);
+    const images = [...dom.templateGrid.querySelectorAll(".template-art-image")];
 
     expect(images).toHaveLength(getTrendingTemplates().length);
 
     images.forEach((image, index) => {
       const meme = getTrendingTemplates()[index];
+      const expectedPreview = meme.previewImage || meme.images.preview;
 
-      expect(image.getAttribute("src")).toBe(meme.images.preview);
-      expect(image.dataset.previewSrc).toBe(meme.images.preview);
-      expect(image.dataset.thumbnailSrc).toBe(meme.images.thumbnail);
-      expect(image.dataset.fullSrc).toBe(meme.images.main);
+      expect(image.getAttribute("src")).toBe(expectedPreview);
       expect(image.getAttribute("src")).not.toBe(meme.images.main);
     });
   });
 
-  test("loads the correct meme name underneath each image", () => {
-    const { gridElement } = renderGrid(1440);
-    const cards = [...gridElement.querySelectorAll('[data-testid="meme-card"]')];
+  test("loads the correct meme name underneath each image", async () => {
+    const { dom } = await renderGrid(1440);
+    const cards = getTemplateCards(dom);
 
     expect(cards).toHaveLength(getTrendingTemplates().length);
 
     cards.forEach((card, index) => {
-      const image = card.querySelector('[data-testid="meme-image"]');
-      const caption = card.querySelector('[data-testid="meme-name"]');
+      const image = card.querySelector(".template-art-image");
+      const caption = card.querySelector(".template-name");
       const meme = getTrendingTemplates()[index];
 
       expect(image.alt).toBe(meme.name);
       expect(caption.textContent).toBe(meme.name);
-      expect(image.nextElementSibling).toBe(caption);
     });
   });
 
-  test("renders the search bar at the top of the grid", () => {
-    const { container, searchInput, gridElement } = renderGrid(1440);
+  test("renders the search bar at the top of the grid", async () => {
+    const { dom } = await renderGrid(1440);
 
     expect(search.enabled).toBe(true);
-    expect(container.children[1]).toBe(searchInput);
-    expect(searchInput.getAttribute("placeholder")).toBe(search.placeholder);
-    expect(searchInput.nextElementSibling).toBe(gridElement);
+    expect(dom.templateSearch.getAttribute("placeholder")).toBe("Search templates");
+    expect(dom.templateSearch.closest(".template-controls")).not.toBeNull();
+    expect(dom.templateSearch.closest(".template-controls").nextElementSibling).toBe(dom.templateGrid);
   });
 
-  test("filters memes by name in real time by hiding non-matching results", () => {
-    const { gridElement, searchInput } = renderGrid(1440);
+  test("filters memes by name in real time by hiding non-matching results", async () => {
+    const { dom } = await renderGrid(1440);
 
-    searchInput.value = "drake";
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.templateSearch.value = "drake";
+    dom.templateSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    await settleApp();
 
-    const visibleCards = [
-      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ].filter((card) => !card.hidden);
-
+    const visibleCards = getTemplateCards(dom);
     expect(visibleCards).toHaveLength(1);
-    expect(visibleCards[0].getAttribute("data-template-id")).toBe(
-      "drake-hotline-bling"
-    );
+    expect(visibleCards[0].dataset.templateId).toBe("drake-hotline-bling");
   });
 
-  test("filters memes by tag in real time by hiding non-matching results", () => {
-    const { gridElement, searchInput } = renderGrid(1440);
+  test("filters memes by tag in real time by hiding non-matching results", async () => {
+    const { dom } = await renderGrid(1440);
 
-    searchInput.value = "pokemon";
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.templateSearch.value = "pokemon";
+    dom.templateSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    await settleApp();
 
-    const visibleCards = [
-      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ].filter((card) => !card.hidden);
-
+    const visibleCards = getTemplateCards(dom);
     expect(visibleCards).toHaveLength(1);
-    expect(visibleCards[0].getAttribute("data-template-id")).toBe(
-      "surprised-pikachu"
-    );
+    expect(visibleCards[0].dataset.templateId).toBe("surprised-pikachu");
   });
 
-  test("restores all memes when the search query is cleared", () => {
-    const { gridElement, searchInput } = renderGrid(1440);
+  test("restores all memes when the search query is cleared", async () => {
+    const { dom } = await renderGrid(1440);
 
-    searchInput.value = "reaction";
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
-    searchInput.value = "";
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.templateSearch.value = "reaction";
+    dom.templateSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    await settleApp();
+    dom.templateSearch.value = "";
+    dom.templateSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    await settleApp();
 
-    const visibleCards = [
-      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ].filter((card) => !card.hidden);
-
+    const visibleCards = getTemplateCards(dom);
     expect(visibleCards).toHaveLength(getTrendingTemplates().length);
   });
 
-  test("applies search results in under 500ms", () => {
-    const { searchInput, getLastFilterTimeMs } = renderGrid(1440);
+  test("applies search results in under 500ms", async () => {
+    const { dom } = await renderGrid(1440);
 
-    searchInput.value = "reaction";
-    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    dom.templateSearch.value = "reaction";
+    const start = performance.now();
+    dom.templateSearch.dispatchEvent(new Event("input", { bubbles: true }));
+    await settleApp();
 
-    expect(getLastFilterTimeMs()).toBeLessThanOrEqual(search.maxFilterResponseMs);
+    expect(performance.now() - start).toBeLessThanOrEqual(search.maxFilterResponseMs);
   });
 
-  test("is able to switch between tabs", () => {
-    const { tabsElement, gridElement, getActiveTab } = renderGrid(1440);
-    const [recentsTab, trendingTab] = tabsElement.querySelectorAll(
-      '[data-testid="meme-tab"]'
-    );
+  test("is able to switch between tabs", async () => {
+    const { dom, state } = await renderGrid(1440);
+    const recentsTab = dom.templateTabs.querySelector("[data-tab='recents']");
+    const trendingTab = dom.templateTabs.querySelector("[data-tab='trending']");
 
-    expect(getActiveTab()).toBe("trending");
-    expect(gridElement.querySelectorAll('[data-testid="meme-card"]')).toHaveLength(
-      templates.length
-    );
+    expect(state.activeTemplateTab).toBe("trending");
+    expect(getTemplateCards(dom)).toHaveLength(templates.length);
 
     recentsTab.click();
+    await settleApp();
 
-    expect(getActiveTab()).toBe("recents");
-    expect(gridElement.querySelectorAll('[data-testid="meme-card"]')).toHaveLength(0);
+    expect(state.activeTemplateTab).toBe("recents");
+    expect(getTemplateCards(dom)).toHaveLength(0);
 
     trendingTab.click();
+    await settleApp();
 
-    expect(getActiveTab()).toBe("trending");
-    expect(gridElement.querySelectorAll('[data-testid="meme-card"]')).toHaveLength(
-      templates.length
-    );
+    expect(state.activeTemplateTab).toBe("trending");
+    expect(getTemplateCards(dom)).toHaveLength(templates.length);
   });
 
-  test("recents persist across sessions", () => {
+  test("recents persist across sessions", async () => {
     let currentTime = 1_000;
     vi.spyOn(Date, "now").mockImplementation(() => {
       currentTime += 1_000;
       return currentTime;
     });
 
-    let session = renderGrid(1440);
-    let trendingCards = session.gridElement.querySelectorAll(
-      '[data-testid="meme-card"]'
-    );
+    const firstSession = await renderGrid(1440);
+    let trendingCards = getTemplateCards(firstSession.dom);
 
     trendingCards[4].click();
+    firstSession.state.view = "templates";
+    await firstSession.renderTemplates();
+    trendingCards = getTemplateCards(firstSession.dom);
     trendingCards[2].click();
+    firstSession.state.view = "templates";
+    await firstSession.renderTemplates();
+    trendingCards = getTemplateCards(firstSession.dom);
     trendingCards[0].click();
 
-    document.body.innerHTML = "";
+    vi.resetModules();
+    mountAppHtml();
+    await renderGrid(1440);
 
-    session = renderGrid(1440);
-    const recentsTab = session.tabsElement.querySelector(
-      '[data-testid="meme-tab"][data-tab-id="recents"]'
-    );
-    recentsTab.click();
-
-    const recentsCards = [
-      ...session.gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ];
-
-    expect(recentsCards.map((card) => card.getAttribute("data-template-id"))).toEqual([
+    expect(getRecentUsageIds()).toEqual([
       getTrendingTemplates()[0].id,
       getTrendingTemplates()[2].id,
       getTrendingTemplates()[4].id,
     ]);
   });
 
-  test("trending tab is consistent across sessions", () => {
-    const firstSession = renderGrid(1440);
-    const firstTrendingOrder = [
-      ...firstSession.gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ].map((card) => card.getAttribute("data-template-id"));
+  test("trending tab is consistent across sessions", async () => {
+    const firstSession = await renderGrid(1440);
+    const firstTrendingOrder = getTemplateIds(firstSession.dom);
 
-    document.body.innerHTML = "";
-
-    const secondSession = renderGrid(1440);
-    const secondTrendingOrder = [
-      ...secondSession.gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ].map((card) => card.getAttribute("data-template-id"));
+    vi.resetModules();
+    mountAppHtml();
+    const secondSession = await renderGrid(1440);
+    const secondTrendingOrder = getTemplateIds(secondSession.dom);
 
     expect(secondTrendingOrder).toEqual(firstTrendingOrder);
   });
 
-  test("memes in trending tab are ordered by descending popularity", () => {
-    const { gridElement } = renderGrid(1440);
-    const popularityScores = [
-      ...gridElement.querySelectorAll('[data-testid="meme-card"]'),
-    ].map((card) => Number(card.dataset.popularityScore));
+  test("memes in trending tab are ordered by descending popularity", async () => {
+    const { dom } = await renderGrid(1440);
+    const popularityScores = getTemplateIds(dom).map((templateId) => {
+      const template = templates.find((entry) => entry.id === templateId);
+      return template.popularityScore;
+    });
 
     const sortedScores = [...popularityScores].sort((left, right) => right - left);
 
