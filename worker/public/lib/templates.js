@@ -6,7 +6,6 @@
  */
 
 import { RECENTS_STORAGE_KEY } from "./constants.js";
-import { getMemeHistory } from "./projectActions.js";
 import { state } from "./state.js";
 import { recentMemeStorage } from "../js/recents.js";
 
@@ -380,69 +379,6 @@ export async function renderTemplates({ dom, clamp, openStudioForTemplate, openS
         if (state.selectedTemplateId === template.id) card.classList.add("selected");
         dom.templateGrid.appendChild(card);
     });
-}
-
-async function renderMemeHistory({ dom, openStudioForTemplate }) {
-    const history = await getMemeHistory();
-    dom.templateGrid.innerHTML = "";
-
-    if (history.length === 0) {
-        dom.templateEmpty.classList.remove("hidden");
-        dom.templateEmpty.textContent = "No memes yet. Create and download one to see it here!";
-        return;
-    }
-    dom.templateEmpty.classList.add("hidden");
-
-    history.forEach((entry) => {
-        const card = document.createElement("button");
-        card.type = "button";
-        card.className = "template-card history-card";
-
-        const art = document.createElement("span");
-        art.className = "template-art";
-        art.style.aspectRatio = "1 / 1";
-
-        const img = document.createElement("img");
-        img.className = "template-art-image is-loaded";
-        img.alt = "Meme created " + new Date(entry.ts).toLocaleDateString();
-        img.src = entry.thumb;
-        img.loading = "lazy";
-        img.decoding = "async";
-        img.addEventListener("load", () => art.classList.add("image-ready"));
-
-        const label = document.createElement("span");
-        label.className = "template-name";
-        label.textContent = formatTimeAgo(entry.ts);
-
-        art.appendChild(img);
-        card.append(art, label);
-
-        if (entry.templateId && state.templateCatalog.find((t) => t.id === entry.templateId)) {
-            card.addEventListener("click", () => openStudioForTemplate(entry.templateId));
-        } else if (entry.thumb) {
-            card.addEventListener("click", () => {
-                state.selectedTemplateId = entry.templateId || null;
-                state.view = "studio";
-                state.editor.templateImage = entry.thumb;
-                state.editor.generatedImage = "";
-                state.editor.initialSnapshot = null;
-            });
-        }
-
-        dom.templateGrid.appendChild(card);
-    });
-}
-
-function formatTimeAgo(ts) {
-    const diff = Date.now() - ts;
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "Just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    const days = Math.floor(hrs / 24);
-    if (days < 7) return `${days}d ago`;
-    return new Date(ts).toLocaleDateString();
 }
 
 export function renderStudioTemplate(template, { dom, state: _state }) {
