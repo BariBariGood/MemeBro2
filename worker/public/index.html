@@ -3,22 +3,44 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MemeBro Upload Flow</title>
+    <title>MemeBro — Create Memes with AI Face Swap</title>
+    <meta name="description" content="MemeBro is a free online meme editor with AI-powered face swap, text overlays, and 25+ templates. Create hilarious memes in seconds." />
+    <meta name="keywords" content="meme maker, meme generator, face swap, AI memes, meme editor, meme templates" />
+    <meta name="author" content="MemeBro" />
+    <meta name="theme-color" content="#6c3ce0" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="MemeBro — Create Memes with AI Face Swap" />
+    <meta property="og:description" content="Free online meme editor with AI-powered face swap, text overlays, and 25+ templates. Create hilarious memes in seconds." />
+    <meta property="og:site_name" content="MemeBro" />
+    <meta property="og:image" content="https://memebro.app/og-image.png" />
+    <meta property="og:url" content="https://memebro.app" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MemeBro — Create Memes with AI Face Swap" />
+    <meta name="twitter:description" content="Free online meme editor with AI-powered face swap, text overlays, and 25+ templates." />
+    <meta name="twitter:image" content="https://memebro.app/og-image.png" />
+
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./hero/hero.css" />
   </head>
   <body>
-    <main class="upload-page">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <main id="main-content" class="upload-page">
       <header class="topbar">
         <button class="back-btn" type="button" aria-label="Back">← back</button>
         <p class="brand">MEMEBRO</p>
         <div class="topbar-actions">
-          <button id="save-cta" class="save-action" type="button" aria-label="Download meme">
-            <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
-            </svg>
-            <span>Download</span>
-          </button>
-          <button id="share-cta" class="secondary topbar-action" type="button" aria-label="Share meme">
+          <button id="share-cta" class="share-action" type="button" aria-label="Share meme" tabindex="14">
             <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="18" cy="5" r="3" />
               <circle cx="6" cy="12" r="3" />
@@ -26,6 +48,12 @@
               <path d="M8.7 10.7 15.3 6.3M8.7 13.3l6.6 4.4" />
             </svg>
             <span>Share</span>
+          </button>
+          <button id="save-cta" class="save-action" type="button" aria-label="Download meme" tabindex="15">
+            <svg class="topbar-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
+            </svg>
+            <span>Download</span>
           </button>
           <div class="project-menu">
             <button id="project-menu-cta" class="secondary topbar-action project-menu-cta" type="button" aria-label="Project utilities" aria-haspopup="menu" aria-expanded="false">
@@ -53,34 +81,12 @@
         </div>
       </header>
       <section id="title-screen" class="title-screen hidden" aria-label="MemeBro title screen">
-        <div class="title-grid-glow title-grid-glow-left" aria-hidden="true"></div>
-        <div class="title-grid-glow title-grid-glow-right" aria-hidden="true"></div>
-        <div class="title-wheel" aria-hidden="true">
-          <span class="title-wheel-card"><img src="./assets/preview-images/drake-hotline-bling.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/always-has-been.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/ancient-aliens.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/surprised-pikachu.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/woman-yelling-at-cat.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/left-exit-12-off-ramp.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/disaster-girl.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/futurama-fry.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/roll-safe-think-about-it.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/gru-plan.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/mocking-spongebob.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/success-kid.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/hide-the-pain-harold.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/this-is-fine.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/two-buttons.jpg" alt="" /></span>
-          <span class="title-wheel-card"><img src="./assets/preview-images/is-this-a-pigeon.jpg" alt="" /></span>
-        </div>
-        <div class="title-center-copy">
-          <p class="title-kicker">MemeBro</p>
-          <h1>MEME IT BEFORE THE MOMENT <br class="mobile-title-break" />DIES.</h1>
-          <button id="title-start-cta" class="title-start-cta" type="button">
-            <span>Get started</span>
-            <span aria-hidden="true">→</span>
-          </button>
-        </div>
+        <div id="scroll-morph-hero-root"></div>
+        <!-- Fallback CTA for non-JS / test environments; hero replaces it visually -->
+        <button id="title-start-cta" class="title-start-cta" type="button" hidden>
+          <span>Get started</span>
+          <span aria-hidden="true">→</span>
+        </button>
       </section>
 
       <section id="overlay-shell" class="image-shell editor-shell hidden" aria-label="Face overlay">
@@ -108,8 +114,8 @@
         </div>
         <img id="review-image" class="camera-media" alt="Captured photo preview" draggable="false" />
         <div class="review-bottom-bar">
-          <button id="retake-cta" class="review-secondary" type="button">↻ Retake</button>
-          <button id="use-photo-cta" class="review-primary" type="button">✓ Use Photo</button>
+          <button id="retake-cta" class="review-secondary" type="button" aria-label="Retake photo">↻ Retake</button>
+          <button id="use-photo-cta" class="review-primary" type="button" aria-label="Use this photo">✓ Use Photo</button>
         </div>
       </section>
 
@@ -126,8 +132,8 @@
             <button class="meme-text-resize-handle meme-text-resize-handle--se" type="button" aria-label="Resize text box from bottom right" data-resize-corner="se"></button>
             <div id="text-local-controls" class="text-local-controls hidden" aria-label="Text object controls">
               <button id="text-border-toggle-cta" type="button" class="toolbar-btn toolbar-btn--text-toggle" aria-label="Toggle editing border" title="Toggle border visibility">border: off</button>
-              <button id="text-duplicate-cta" type="button" class="toolbar-btn">⧉</button>
-              <button id="text-lock-cta" type="button" class="toolbar-btn">🔓</button>
+              <button id="text-duplicate-cta" type="button" class="toolbar-btn" aria-label="Duplicate text" title="Duplicate text">⧉</button>
+              <button id="text-lock-cta" type="button" class="toolbar-btn" aria-label="Lock text position" title="Lock text">🔓</button>
               <button id="text-more-cta" type="button" class="toolbar-btn" aria-haspopup="menu" aria-expanded="false" aria-label="More text actions" title="More text actions">⋯</button>
               <button id="meme-text-rotate-handle" type="button" class="toolbar-btn toolbar-btn--rotate" aria-label="Rotate text" title="Rotate text">↻</button>
               <button id="meme-text-delete" type="button" class="toolbar-btn toolbar-btn--danger" aria-label="Delete text" title="Delete text">×</button>
@@ -139,9 +145,10 @@
             </div>
           </div>
           <div id="text-toolbar" class="text-toolbar" aria-label="Text controls">
-            <button id="add-text-cta" type="button" class="toolbar-btn toolbar-btn--add-text" aria-label="Add text" title="Add text"><span aria-hidden="true">T</span><small>Add</small></button>
+            <button id="add-text-cta" type="button" class="toolbar-btn toolbar-btn--add-text" title="Add text" tabindex="1"><span aria-hidden="true">T</span><small>Add</small></button>
             <span class="toolbar-separator" aria-hidden="true"></span>
-              <select id="meme-font-select" class="toolbar-select">
+              <label class="sr-only" for="meme-font-select">Font family</label>
+              <select id="meme-font-select" class="toolbar-select" aria-label="Font family" tabindex="2">
                 <option value="arial">Arial</option>
                 <option value="impact">Impact</option>
                 <option value="arial-black">Arial Black</option>
@@ -158,28 +165,38 @@
               <option value="optima">Optima</option>
             </select>
             <span class="toolbar-separator" aria-hidden="true"></span>
-            <button id="text-size-dec-cta" type="button" class="toolbar-btn">−</button>
-            <input id="meme-font-size-input" class="toolbar-size-input" type="number" min="8" max="120" step="1" value="22" />
-            <button id="text-size-inc-cta" type="button" class="toolbar-btn">+</button>
+            <button id="text-size-dec-cta" type="button" class="toolbar-btn" aria-label="Decrease font size" title="Decrease font size" tabindex="3">−</button>
+            <label class="sr-only" for="meme-font-size-input">Font size</label>
+            <input id="meme-font-size-input" class="toolbar-size-input" type="number" min="8" max="120" step="1" value="22" aria-label="Font size" tabindex="4" />
+            <button id="text-size-inc-cta" type="button" class="toolbar-btn" aria-label="Increase font size" title="Increase font size" tabindex="5">+</button>
             <span class="toolbar-separator" aria-hidden="true"></span>
-            <button id="text-style-bold-cta" type="button" class="toolbar-btn style-btn">B</button>
-            <button id="text-style-italic-cta" type="button" class="toolbar-btn style-btn">I</button>
-            <button id="text-style-underline-cta" type="button" class="toolbar-btn style-btn">U</button>
+            <button id="text-style-bold-cta" type="button" class="toolbar-btn style-btn" aria-label="Bold" aria-pressed="false" title="Bold" tabindex="6">B</button>
+            <button id="text-style-italic-cta" type="button" class="toolbar-btn style-btn" aria-label="Italic" aria-pressed="false" title="Italic" tabindex="7">I</button>
+            <button id="text-style-underline-cta" type="button" class="toolbar-btn style-btn" aria-label="Underline" aria-pressed="false" title="Underline" tabindex="8">U</button>
             <label class="toolbar-color-group" for="meme-text-color-input">
               <span>Text</span>
-              <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" />
+              <input id="meme-text-color-input" class="toolbar-color-input" type="color" value="#111111" tabindex="9" />
             </label>
+            <div class="toolbar-color-swatches" aria-label="Quick text colors">
+              <button type="button" class="color-swatch" data-color-key="black" style="background:#000000" aria-label="Black" title="Black"></button>
+              <button type="button" class="color-swatch" data-color-key="white" style="background:#ffffff" aria-label="White" title="White"></button>
+              <button type="button" class="color-swatch" data-color-key="red" style="background:#d62828" aria-label="Red" title="Red"></button>
+              <button type="button" class="color-swatch" data-color-key="blue" style="background:#2563eb" aria-label="Blue" title="Blue"></button>
+              <button type="button" class="color-swatch" data-color-key="yellow" style="background:#ffd60a" aria-label="Yellow" title="Yellow"></button>
+            </div>
             <label class="toolbar-color-group toolbar-color-group--outline is-off" for="meme-outline-color-input">
               <span>Border</span>
-              <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" />
+              <input id="meme-outline-color-input" class="toolbar-color-input" type="color" value="#ffffff" tabindex="10" />
             </label>
           </div>
+          <div id="meme-text-char-warn" class="meme-text-char-warn hidden" aria-live="polite"></div>
           <section class="template-bottom-actions" aria-label="Edit history actions">
             <div class="history-left">
-              <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo">↶ Undo</button>
-              <button id="redo-cta" class="icon-action" type="button" disabled aria-label="Redo">↷ Redo</button>
+              <button id="undo-cta" class="icon-action" type="button" disabled aria-label="Undo" tabindex="11">↶ Undo</button>
+              <button id="redo-cta" class="icon-action" type="button" disabled aria-label="Redo" tabindex="12">↷ Redo</button>
+              <span id="save-status" class="save-status-indicator" role="status" aria-live="polite"></span>
             </div>
-            <button id="reset-cta" class="danger-action" type="button">⟲ Reset</button>
+            <button id="reset-cta" class="danger-action" type="button" tabindex="13">⟲ Reset</button>
           </section>
         </article>
 
@@ -188,58 +205,58 @@
             <button id="open-upload-modal-cta" class="primary studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">◎</span><span class="vibe-label">Face Swap</span></button>
             <button id="ai-prompt-cta" class="pink-action studio-action vibe-button" type="button"><span class="vibe-icon" aria-hidden="true">✣</span><span class="vibe-label">AI Prompt</span></button>
           </section>
-          <section id="ai-prompt-panel" class="ai-prompt-panel hidden" role="dialog" aria-modal="true" aria-labelledby="ai-prompt-title" aria-describedby="ai-prompt-description">
-            <div class="ai-prompt-header">
-              <div>
-                <p id="ai-prompt-title" class="vibe-title">AI Prompt</p>
-                <p id="ai-prompt-description" class="vibe-copy">Generate meme variants iteratively.</p>
-              </div>
-              <button id="ai-prompt-close-cta" class="toolbar-btn" type="button" aria-label="Close AI prompt">×</button>
-            </div>
-            <div id="ai-prompt-history" class="ai-prompt-history" aria-live="polite">
-              <article class="ai-prompt-message ai-prompt-message--system">
-                Tell me what to change — caption, mood, style, or face-swap direction.
-              </article>
-            </div>
-            <div id="ai-prompt-load-mode" class="ai-prompt-load-mode hidden" role="status" aria-live="polite">
-              <p id="ai-prompt-load-message">Generating your meme variant…</p>
-              <button id="ai-prompt-retry-cta" class="secondary hidden" type="button">Retry</button>
-            </div>
-            <form id="ai-prompt-form" class="ai-prompt-form">
-              <label class="sr-only" for="ai-prompt-input">Prompt AI for meme changes</label>
-              <div class="ai-prompt-input-wrap">
-                <textarea id="ai-prompt-input" rows="2" autocomplete="off" placeholder="Ask for a variant…" aria-label="Prompt AI for meme changes"></textarea>
-              </div>
-              <div class="ai-prompt-submit-wrap">
-                <p id="ai-prompt-word-count" class="ai-prompt-word-count hidden" aria-live="polite">0 / 500</p>
-                <button type="submit" class="primary">Send</button>
-              </div>
-            </form>
-          </section>
-          <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
-            <div id="reset-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
-            <div class="reset-confirmation-card">
-              <p>Warning: Reset cannot be undone. Are you sure?</p>
-              <div class="reset-confirmation-actions">
-                <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
-                <button id="reset-confirm-cta" class="danger-action" type="button">Reset</button>
-              </div>
-            </div>
-          </section>
-          <section id="back-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
-            <div id="back-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
-            <div class="reset-confirmation-card">
-              <p>You have unsaved template edits. Going back will lose all progress. Continue?</p>
-              <div class="reset-confirmation-actions">
-                <button id="back-cancel-cta" class="secondary" type="button">Stay</button>
-                <button id="back-confirm-cta" class="danger-action" type="button">Go Back</button>
-              </div>
-            </div>
-          </section>
         </div>
+        <section id="ai-prompt-panel" class="ai-prompt-panel hidden" role="dialog" aria-modal="true" aria-labelledby="ai-prompt-title" aria-describedby="ai-prompt-description">
+          <div class="ai-prompt-header">
+            <div>
+              <p id="ai-prompt-title" class="vibe-title">AI Prompt</p>
+              <p id="ai-prompt-description" class="vibe-copy">Generate meme variants iteratively.</p>
+            </div>
+            <button id="ai-prompt-close-cta" class="toolbar-btn" type="button" aria-label="Close AI prompt">×</button>
+          </div>
+          <div id="ai-prompt-history" class="ai-prompt-history" aria-live="polite">
+            <article class="ai-prompt-message ai-prompt-message--system">
+              Tell me what to change — caption, mood, style, or face-swap direction.
+            </article>
+          </div>
+          <div id="ai-prompt-load-mode" class="ai-prompt-load-mode hidden" role="status" aria-live="polite">
+            <p id="ai-prompt-load-message">Generating your meme variant…</p>
+            <button id="ai-prompt-retry-cta" class="secondary hidden" type="button">Retry</button>
+          </div>
+          <form id="ai-prompt-form" class="ai-prompt-form">
+            <label class="sr-only" for="ai-prompt-input">Prompt AI for meme changes</label>
+            <div class="ai-prompt-input-wrap">
+              <textarea id="ai-prompt-input" rows="2" autocomplete="off" placeholder="Ask for a variant…" aria-label="Prompt AI for meme changes"></textarea>
+            </div>
+            <div class="ai-prompt-submit-wrap">
+              <p id="ai-prompt-word-count" class="ai-prompt-word-count hidden" aria-live="polite">0 / 500</p>
+              <button type="submit" class="primary">Send</button>
+            </div>
+          </form>
+        </section>
+        <section id="reset-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
+          <div id="reset-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
+          <div class="reset-confirmation-card">
+            <p>Reset will clear all your edits. Are you sure?</p>
+            <div class="reset-confirmation-actions">
+              <button id="reset-cancel-cta" class="secondary" type="button">Cancel</button>
+              <button id="reset-confirm-cta" class="danger-action" type="button">Reset</button>
+            </div>
+          </div>
+        </section>
+        <section id="back-confirmation" class="reset-confirmation hidden" aria-live="polite" aria-modal="true" role="dialog">
+          <div id="back-confirmation-backdrop" class="reset-confirmation-backdrop"></div>
+          <div class="reset-confirmation-card">
+            <p>You have unsaved template edits. Going back will lose all progress. Continue?</p>
+            <div class="reset-confirmation-actions">
+              <button id="back-cancel-cta" class="secondary" type="button">Stay</button>
+              <button id="back-confirm-cta" class="danger-action" type="button">Go Back</button>
+            </div>
+          </div>
+        </section>
       </section>
 
-      <section id="upload-modal" class="upload-modal hidden" aria-modal="true" aria-label="Add a photo">
+      <section id="upload-modal" class="upload-modal hidden" role="dialog" aria-modal="true" aria-label="Add a photo">
         <div id="upload-modal-backdrop" class="upload-modal-backdrop"></div>
         <div class="upload-modal-card">
           <button id="upload-modal-close" class="upload-modal-close" type="button" aria-label="Close add photo">×</button>
@@ -259,27 +276,37 @@
       <input id="project-import-input" type="file" accept="application/json,.memebro.json" hidden />
 
       <section id="progress-wrap" class="progress-wrap hidden" aria-live="polite">
+        <div class="progress-spinner-row">
+          <span id="progress-spinner" class="progress-spinner"></span>
+          <p id="progress-label">Waiting...</p>
+        </div>
         <progress id="progress-bar" max="100" value="0"></progress>
-        <p id="progress-label">Waiting...</p>
       </section>
 
-      <p id="status-text" class="status-text"></p>
+      <p id="status-text" class="status-text" role="status" aria-live="polite"></p>
       <button id="manual-fit-cta" class="secondary manual-fit-cta hidden" type="button">Manual Fit</button>
       <section id="manual-controls" class="manual-controls hidden" aria-label="Manual fit controls">
-        <div class="fit-control">
-          <label for="manual-zoom">Zoom</label>
-          <input id="manual-zoom" type="range" min="0.5" max="2.2" value="1" step="0.01" />
+        <div class="gesture-hint-row">
+          <span id="zoom-badge" class="zoom-badge">100%</span>
+          <p class="manual-hint">Scroll to zoom · drag to move · pinch &amp; rotate on touch</p>
         </div>
-        <div class="fit-control">
-          <label for="manual-rotation">Rotation</label>
-          <input id="manual-rotation" type="range" min="-30" max="30" value="0" step="1" />
-        </div>
-        <p class="manual-hint">Drag the photo until the face fits inside the oval, then continue.</p>
+        <details class="slider-fallback">
+          <summary>Fine-tune sliders</summary>
+          <div class="fit-control">
+            <label for="manual-zoom">Zoom</label>
+            <input id="manual-zoom" type="range" min="0.5" max="3.0" value="1" step="0.01" />
+          </div>
+          <div class="fit-control">
+            <label for="manual-rotation">Rotation</label>
+            <input id="manual-rotation" type="range" min="-180" max="180" value="0" step="1" />
+          </div>
+        </details>
       </section>
 
       <section id="error-state" class="error hidden" aria-live="assertive">
         <p id="error-message"></p>
         <button id="error-retry-cta" class="secondary error-retry hidden" type="button">Try again</button>
+        <button id="error-new-photo-cta" class="secondary hidden" type="button">Try another photo</button>
       </section>
 
       <section id="template-screen" class="template-screen hidden" aria-label="Choose a meme template">
@@ -298,15 +325,30 @@
 
       <section id="face-swap-loader" class="face-swap-loader hidden" aria-live="polite" aria-label="Face swap loading">
         <div class="face-swap-loader-card">
-          <div class="face-swap-loader-skeleton" aria-hidden="true"></div>
+          <div class="face-swap-loader-scene" aria-hidden="true">
+            <div class="loader-pan">🍳</div>
+            <div class="loader-sparks">
+              <span class="loader-spark">✨</span>
+              <span class="loader-spark">✨</span>
+              <span class="loader-spark">✨</span>
+            </div>
+            <div class="loader-face">😎</div>
+            <div class="loader-steam">
+              <span class="steam-puff">~</span>
+              <span class="steam-puff">~</span>
+              <span class="steam-puff">~</span>
+            </div>
+          </div>
+          <p id="face-swap-loader-optimizing" class="face-swap-loader-optimizing hidden">Optimizing...</p>
           <p class="face-swap-loader-copy">Cooking your meme...</p>
-          <p id="face-swap-loader-time" class="face-swap-loader-time">Estimated wait time: ~3 seconds</p>
-          <p id="face-swap-loader-delay" class="face-swap-loader-delay hidden">Taking longer than usual...</p>
+          <p id="face-swap-loader-time" class="face-swap-loader-time">Estimated wait time: ~15–30 seconds</p>
+          <p id="face-swap-loader-delay" class="face-swap-loader-delay hidden">Still working — almost there...</p>
           <button id="face-swap-loader-cancel" class="secondary" type="button">Cancel</button>
         </div>
       </section>
     </main>
 
+    <script type="module" src="./hero/hero.js"></script>
     <script type="module" src="./app.js"></script>
   </body>
 </html>

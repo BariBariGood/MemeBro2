@@ -1,0 +1,41 @@
+@tailwind utilities;
+
+/* Island-scoped styles.
+   IMPORTANT: scope with :where(#scroll-morph-hero-root) so the ID contributes
+   ZERO specificity. A bare #id prefix (1,0,0) outranks Tailwind utility classes
+   (0,1,0) and would override every mb-*/gap-*/px-* spacing utility. */
+
+:where(#scroll-morph-hero-root),
+:where(#scroll-morph-hero-root) * {
+  box-sizing: border-box;
+}
+
+/* Zero default heading/paragraph margins without outranking utilities. */
+:where(#scroll-morph-hero-root) :where(h1, h2, h3, p) {
+  margin: 0;
+}
+
+/* Fill the #title-screen fixed container */
+:where(#scroll-morph-hero-root) {
+  position: absolute;
+  inset: 0;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Brand gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #ff4ec7 0%, #b8f73a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle grid overlay */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 66px 66px;
+}

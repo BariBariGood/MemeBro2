@@ -1,3 +1,10 @@
+/**
+ * @module image-compositor
+ * Server-side image compositing pipeline.
+ * Validates inputs, composites a face crop and optional text overlay
+ * onto the template image, and returns the final PNG.
+ */
+
 import {
   validateFaceCrop,
   validateMemeText,
@@ -8,6 +15,18 @@ import { renderTextOverlay } from "./textRenderer.js";
 import { decodePNG } from "./pngUtil.js";
 import { exportImage } from "./imageExporter.js";
 
+/**
+ * Composites a face crop and optional text onto a template image.
+ *
+ * @param {object} params
+ * @param {string} params.templateImage - Base-64 PNG of the meme template
+ * @param {string} params.faceCrop - Base-64 PNG of the cropped face
+ * @param {string} [params.text] - Optional meme caption text
+ * @param {object} [params.faceRegion] - Placement rectangle for the face
+ * @param {object} [params.textOptions] - Font, color, and position options
+ * @param {object} params.env - Cloudflare Workers env object
+ * @returns {Promise<Response>} PNG response
+ */
 export async function compositeImage({
   templateImage,
   faceCrop,
@@ -43,12 +62,15 @@ export async function compositeImage({
     return jsonResponse({ error: "no_image_returned" }, 502);
   }
 
-  const finalized = await applyTextAndOptimize(b64, safeText, textOptions);
-  const mimeType = finalized.mimeType || "image/png";
+  // Return the raw OpenAI image directly. The server-side text overlay
+  // (applyTextAndOptimize) uses a minimal PNG decoder that doesn't handle
+  // all color types and filter modes, corrupting the image. Text is added
+  // client-side in the editor instead.
+  const mimeType = "image/png";
 
   return {
-    generatedImageUrl: `data:${mimeType};base64,${finalized.b64}`,
-    b64: finalized.b64,
+    generatedImageUrl: `data:${mimeType};base64,${b64}`,
+    b64,
     mimeType,
     model: generated.model,
     quality: generated.quality,
@@ -61,16 +83,23 @@ function buildCompositePrompt({ safeText, faceRegion, textOptions }) {
   const region = faceRegion
     ? `Template face region: x=${faceRegion.x}, y=${faceRegion.y}, width=${faceRegion.width}, height=${faceRegion.height}.`
     : "Use the most obvious face region in the template.";
-  const outline = textOptions?.outlineEnabled === false
-    ? "without an outline"
-    : `with a ${textOptions?.outlineColor || "white"} outline`;
-  return [
+  const parts = [
     "Create a meme image by casting the subject face crop into the provided meme template.",
     region,
     "Preserve the original template composition and avoid distorting the subject face.",
-    `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
-    `Use ${textOptions?.textColor || "black"} text color when possible.`,
-  ].join(" ");
+  ];
+  if (safeText) {
+    const outline = textOptions?.outlineEnabled === false
+      ? "without an outline"
+      : `with a ${textOptions?.outlineColor || "white"} outline`;
+    parts.push(
+      `Render the meme text "${safeText}" clearly on top of the result ${outline}.`,
+      `Use ${textOptions?.textColor || "black"} text color when possible.`
+    );
+  } else {
+    parts.push("Do not add any text to the image.");
+  }
+  return parts.join(" ");
 }
 
 async function applyTextAndOptimize(generatedB64, text, textOptions = {}) {

@@ -1,5 +1,13 @@
-import { getLoadErrorMessage } from "./loadErrors.js";
+/**
+ * @module ai-prompting
+ * AI prompt panel logic: character counting, form submission, history
+ * rendering, and load-state transitions for the AI variant generator.
+ */
 
+import { getLoadErrorMessage } from "./loadErrors.js";
+import { createEditorSnapshot } from "./editor.js";
+
+/** Maximum characters allowed in the AI prompt input. */
 const AI_PROMPT_CHARACTER_LIMIT = 500;
 const AI_PROMPT_COUNTER_WARNING_AT = AI_PROMPT_CHARACTER_LIMIT - 50;
 const AI_PROMPT_PLACEHOLDER_RESPONSE = "Got it. AI variant generation will use this prompt once connected.";
@@ -15,13 +23,56 @@ function waitForAiPromptFrame() {
     });
 }
 
-async function requestAiPromptVariant(prompt) {
-    // Tests and future API wiring can provide the real request implementation here.
+export async function requestAiPromptVariant(prompt, templateImageSrc) {
+    // Test override: allows unit tests to stub the network call.
     if (typeof globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ === "function") {
         return globalThis.__MEMEBRO_AI_PROMPT_REQUEST__(prompt);
     }
-    await waitForAiPromptFrame();
-    return { text: AI_PROMPT_PLACEHOLDER_RESPONSE };
+
+    const payload = { mode: "ai_prompt", prompt };
+
+    // Include the current template/generated image so OpenAI edits it
+    // instead of generating a brand-new image.
+    if (templateImageSrc) {
+        const b64 = templateImageSrc.startsWith("data:")
+            ? templateImageSrc.replace(/^data:[^,]+,/, "")
+            : await fetchImageAsBase64(templateImageSrc);
+        if (b64) {
+            payload.referenceB64 = b64;
+            payload.referenceMime = "image/png";
+        }
+    }
+
+    const response = await fetch("/api/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const error = new Error(body?.message || `Request failed with HTTP ${response.status}.`);
+        error.code = body?.code || "AI_PROMPT_FAILED";
+        throw error;
+    }
+
+    const data = await response.json();
+    return { text: data?.text || "AI variant generated.", imageUrl: data?.b64 ? `data:image/png;base64,${data.b64}` : data?.url || null };
+}
+
+async function fetchImageAsBase64(url) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result?.replace(/^data:[^,]+,/, "") || null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return null;
+    }
 }
 
 function getAiPromptCharacters(value) {
@@ -58,7 +109,7 @@ export function renderAiPromptLoadMode({ dom, state }) {
         : getLoadErrorMessage(state.aiPrompt?.error) || "Something went sideways. Retry when you are ready.";
 }
 
-export function configureAiPrompting({ dom, state, render }) {
+export function configureAiPrompting({ dom, state, render, recordEditorSnapshot }) {
     function enforceAiPromptCharacterLimit() {
         if (!dom.aiPromptInput) return 0;
         const characters = getAiPromptCharacters(dom.aiPromptInput.value);
@@ -152,18 +203,32 @@ export function configureAiPrompting({ dom, state, render }) {
     async function submitPrompt(event) {
         event.preventDefault();
         const prompt = dom.aiPromptInput?.value.trim();
-        if (!prompt) return;
+
+        if (!prompt) {
+            dom.aiPromptInput?.classList.add("ai-prompt-input--shake");
+            setTimeout(() => dom.aiPromptInput?.classList.remove("ai-prompt-input--shake"), 400);
+            appendAiPromptMessage("system", "Enter a prompt.");
+            render();
+            return;
+        }
 
         startRequest(prompt);
-        render();
         appendAiPromptMessage("user", prompt);
+        render();
 
         try {
-            const result = await requestAiPromptVariant(prompt);
+            const templateSrc = state.editor.generatedImage || state.editor.templateImage || null;
+            const result = await requestAiPromptVariant(prompt, templateSrc);
             appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
+            if (result?.imageUrl) {
+                state.editor.generatedImage = result.imageUrl;
+                if (typeof recordEditorSnapshot === "function") recordEditorSnapshot();
+                state.editor.initialSnapshot = createEditorSnapshot();
+            }
             finishRequest();
             if (dom.aiPromptInput) dom.aiPromptInput.value = "";
         } catch (error) {
+            appendAiPromptMessage("system", error?.message || "Something went wrong. Try again.");
             failRequest(error);
         }
 

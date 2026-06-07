@@ -1,7 +1,15 @@
-import { PROJECT_AUTOSAVE_STORAGE_KEY } from "./constants.js";
+/**
+ * @module projectActions
+ * Project-level actions: autosave, export (PNG/clipboard), import,
+ * share-link generation, and save-status indicator management.
+ */
+
+import { PROJECT_AUTOSAVE_STORAGE_KEY, MEME_HISTORY_KEY, MAX_MEME_HISTORY } from "./constants.js";
 import { createEditorSnapshot, applyEditorSnapshot } from "./editor.js";
 import { getMemeFontFamily, getMemeTextColor } from "./textOverlay.js";
+import { idbSet, idbGet } from "./storage.js";
 
+/** JSON schema version stamped into exported project files. */
 const PROJECT_VERSION = 1;
 const AUTOSAVE_DELAY_MS = 500;
 const DEFAULT_EXPORT_MIME = "image/png";
@@ -15,6 +23,20 @@ export function getMemeFilename(extension = "png") {
 }
 
 function getCanvasSize(dom) {
+    const image = dom.studioTemplateImage;
+    const naturalWidth = image?.naturalWidth || 0;
+    const naturalHeight = image?.naturalHeight || 0;
+    if (naturalWidth > 0 && naturalHeight > 0) {
+        return { width: naturalWidth, height: naturalHeight };
+    }
+    const rect = dom.studioTemplateArt?.getBoundingClientRect?.();
+    return {
+        width: Math.max(1, Math.round(rect?.width || 1080)),
+        height: Math.max(1, Math.round(rect?.height || 1080)),
+    };
+}
+
+function getDisplaySize(dom) {
     const rect = dom.studioTemplateArt?.getBoundingClientRect?.();
     const image = dom.studioTemplateImage;
     return {
@@ -94,8 +116,8 @@ function wrapCanvasText(ctx, text, maxWidth) {
     return lines;
 }
 
-function drawTextLayer(ctx, layer, canvasWidth, canvasHeight) {
-    const fontPx = Math.max(8, Number(layer.fontPx) || 22);
+function drawTextLayer(ctx, layer, canvasWidth, canvasHeight, scale = 1) {
+    const fontPx = Math.max(8, (Number(layer.fontPx) || 22) * scale);
     const fontStyle = layer.italic ? "italic " : "";
     const fontWeight = layer.bold ? "700 " : "400 ";
     const fontFamily = getMemeFontFamily(layer.fontKey);
@@ -139,15 +161,62 @@ export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME,
     }
 
     const { width, height } = getCanvasSize(dom);
+    const display = getDisplaySize(dom);
+    const scale = Math.max(width / display.width, height / display.height) || 1;
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, width, height);
+
+    const isJpeg = type === "image/jpeg";
+    if (isJpeg) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+    }
+
     const image = await loadImage(state.editor.generatedImage || state.editor.templateImage || dom.studioTemplateImage?.currentSrc || dom.studioTemplateImage?.src);
 
     ctx.drawImage(image, 0, 0, width, height);
-    getTextLayers(state).forEach((layer) => drawTextLayer(ctx, layer, width, height));
+    getTextLayers(state).forEach((layer) => drawTextLayer(ctx, layer, width, height, scale));
     return canvasToBlob(canvas, type, quality);
+}
+
+// ── Meme history ─────────────────────────────
+
+async function createThumbnail(blob, maxDim = 200) {
+    const url = URL.createObjectURL(blob);
+    try {
+        const img = await loadImage(url);
+        const scale = Math.min(maxDim / img.width, maxDim / img.height, 1);
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        c.getContext("2d").drawImage(img, 0, 0, w, h);
+        return c.toDataURL("image/jpeg", 0.7);
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+export async function saveMemeToHistory(blob, templateId) {
+    try {
+        const thumb = await createThumbnail(blob);
+        const entry = { id: crypto.randomUUID(), thumb, templateId: templateId || null, ts: Date.now() };
+        const history = await getMemeHistory();
+        history.unshift(entry);
+        if (history.length > MAX_MEME_HISTORY) history.length = MAX_MEME_HISTORY;
+        await idbSet(MEME_HISTORY_KEY, JSON.stringify(history));
+    } catch { /* ignore — history is best-effort */ }
+}
+
+export async function getMemeHistory() {
+    try {
+        const raw = await idbGet(MEME_HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
 }
 
 function downloadBlob(blob, filename) {
@@ -245,18 +314,29 @@ export function configureProjectActions({
     let autosaveTimer = null;
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
-    const storage = globalThis.localStorage;
+    let saveStatusFadeTimer = null;
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
         state.saveStatusMessage = message;
+        clearTimeout(saveStatusFadeTimer);
+        if (status === "saved") {
+            saveStatusFadeTimer = setTimeout(() => {
+                state.saveStatus = "idle";
+                state.saveStatusMessage = "";
+                if (dom.saveStatusEl) {
+                    dom.saveStatusEl.textContent = "";
+                    dom.saveStatusEl.className = "save-status-indicator idle";
+                }
+            }, 2000);
+        }
     }
 
     function serializeProject() {
         return JSON.stringify(createProjectPayload({ state }));
     }
 
-    function saveProjectNow() {
+    async function saveProjectNow() {
         if (state.view !== "studio" || !state.selectedTemplateId || !autosaveDirty) return;
         setSaveStatus("saving", "Saving...");
         try {
@@ -266,7 +346,7 @@ export function configureProjectActions({
                 setSaveStatus("saved", "Saved");
                 return;
             }
-            storage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+            await idbSet(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
             lastAutosaveSerialized = serialized;
             autosaveDirty = false;
             setSaveStatus("saved", "Saved");
@@ -278,15 +358,16 @@ export function configureProjectActions({
     function scheduleAutoSave() {
         if (state.view !== "studio" || !state.selectedTemplateId) return;
         autosaveDirty = true;
+        clearTimeout(saveStatusFadeTimer);
         state.saveStatus = "saving";
         state.saveStatusMessage = "Saving...";
         clearTimeout(autosaveTimer);
         autosaveTimer = setTimeout(saveProjectNow, AUTOSAVE_DELAY_MS);
     }
 
-    function restoreAutoSave() {
+    async function restoreAutoSave() {
         try {
-            const raw = storage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
+            const raw = await idbGet(PROJECT_AUTOSAVE_STORAGE_KEY);
             if (!raw) return false;
             const payload = parseProject(raw);
             if (!payload.selectedTemplateId) return false;
@@ -305,11 +386,13 @@ export function configureProjectActions({
     async function downloadMeme() {
         const blob = await exportCanvasBlob({ dom, state });
         downloadBlob(blob, getMemeFilename("png"));
+        saveMemeToHistory(blob, state.selectedTemplateId).catch(() => {});
     }
 
     async function shareMeme() {
         const blob = await exportCanvasBlob({ dom, state });
         const file = new File([blob], getMemeFilename("png"), { type: blob.type || DEFAULT_EXPORT_MIME });
+        saveMemeToHistory(blob, state.selectedTemplateId).catch(() => {});
 
         if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
             await navigator.share({ title: "MemeBro meme", text: "Made with MemeBro", files: [file] });
