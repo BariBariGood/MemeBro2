@@ -89,6 +89,32 @@ export function fitMemeTextToCanvas({ dom }) {
     return clamped;
 }
 
+function getRotatedTextCenterBounds({ dom }) {
+    const art = dom.studioTemplateArt;
+    const preview = dom.memeTextPreview;
+    const artRect = art?.getBoundingClientRect();
+    if (!artRect?.width || !artRect?.height || !preview) {
+        return { minX: 0, maxX: 100, minY: 0, maxY: 100 };
+    }
+
+    const textWidth = preview.offsetWidth || preview.getBoundingClientRect().width || 0;
+    const textHeight = preview.offsetHeight || preview.getBoundingClientRect().height || 0;
+    const radians = ((Number(state.editor.overlayRotation) || 0) * Math.PI) / 180;
+    const cos = Math.abs(Math.cos(radians));
+    const sin = Math.abs(Math.sin(radians));
+    const rotatedWidth = textWidth * cos + textHeight * sin;
+    const rotatedHeight = textWidth * sin + textHeight * cos;
+    const halfXPct = Math.min(50, (rotatedWidth / 2 / artRect.width) * 100);
+    const halfYPct = Math.min(50, (rotatedHeight / 2 / artRect.height) * 100);
+
+    return {
+        minX: halfXPct,
+        maxX: 100 - halfXPct,
+        minY: halfYPct,
+        maxY: 100 - halfYPct,
+    };
+}
+
 // ── Handle positions ─────────────────────────
 
 export function positionTextHandles({ dom, clamp }) {
@@ -97,8 +123,9 @@ export function positionTextHandles({ dom, clamp }) {
     const textRect = dom.memeTextPreview?.getBoundingClientRect();
     if (!artRect?.width || !textRect?.width) return;
 
-    const centerX        = (clamp(state.editor.overlayX, 5, 95) / 100) * artRect.width;
-    const centerY        = (clamp(state.editor.overlayY, 5, 95) / 100) * artRect.height;
+    const bounds         = getRotatedTextCenterBounds({ dom });
+    const centerX        = (clamp(state.editor.overlayX, bounds.minX, bounds.maxX) / 100) * artRect.width;
+    const centerY        = (clamp(state.editor.overlayY, bounds.minY, bounds.maxY) / 100) * artRect.height;
     const unrotatedWidth  = dom.memeTextPreview.offsetWidth  || textRect.width;
     const unrotatedHeight = dom.memeTextPreview.offsetHeight || textRect.height;
     const radians = ((Number(state.editor.overlayRotation) || 0) * Math.PI) / 180;
@@ -151,8 +178,6 @@ export function syncMemeTextAppearance({ dom, clamp }) {
     if (!preview) return 1;
     const textColor = getMemeTextColor(state.editor.overlayTextColor);
 
-    preview.style.left          = `${clamp(state.editor.overlayX, 5, 95)}%`;
-    preview.style.top           = `${clamp(state.editor.overlayY, 5, 95)}%`;
     preview.style.width         = `${clamp(state.editor.overlayWidthPct, 18, 90)}%`;
     preview.style.setProperty("--meme-text-rotate", `${state.editor.overlayRotation}deg`);
     preview.style.transform     = `translate(-50%, -50%) rotate(${state.editor.overlayRotation}deg)`;
@@ -164,6 +189,9 @@ export function syncMemeTextAppearance({ dom, clamp }) {
     preview.style.caretColor    = textColor;
 
     const scale = fitMemeTextToCanvas({ dom });
+    const bounds = getRotatedTextCenterBounds({ dom });
+    preview.style.left          = `${clamp(state.editor.overlayX, bounds.minX, bounds.maxX)}%`;
+    preview.style.top           = `${clamp(state.editor.overlayY, bounds.minY, bounds.maxY)}%`;
     applyMemeOutline(preview);
     positionTextHandles({ dom, clamp });
     return scale;
@@ -356,11 +384,9 @@ export function moveTextDrag(event, { dom, clamp, render }) {
     if (!artRect.width || !artRect.height) return;
     const dxPct = (event.clientX - state.textPointerStartX) / artRect.width  * 100;
     const dyPct = (event.clientY - state.textPointerStartY) / artRect.height * 100;
-    const halfW = (state.editor.overlayWidthPct || 48) / 2;
-    const minX  = Math.max(5, halfW);
-    const maxX  = Math.min(95, 100 - halfW);
-    state.editor.overlayX = clamp(state.textStartX + dxPct, minX, maxX);
-    state.editor.overlayY = clamp(state.textStartY + dyPct, 5, 95);
+    const bounds = getRotatedTextCenterBounds({ dom });
+    state.editor.overlayX = clamp(state.textStartX + dxPct, bounds.minX, bounds.maxX);
+    state.editor.overlayY = clamp(state.textStartY + dyPct, bounds.minY, bounds.maxY);
     if (Math.abs(dxPct) > 0.1 || Math.abs(dyPct) > 0.1) state.textDidDrag = true;
     render();
 }

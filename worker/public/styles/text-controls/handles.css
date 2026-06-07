@@ -31,8 +31,11 @@
 }
 
 .meme-text-preview.is-placeholder {
-  opacity: 0.48;
   border: 2px dashed var(--white-28);
+}
+
+.studio-template-art:not(.text-selected):not(.editing-text) .meme-text-preview {
+  border-color: transparent;
 }
 
 .meme-text-hint {
