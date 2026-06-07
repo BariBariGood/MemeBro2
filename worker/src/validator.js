@@ -251,10 +251,6 @@ export function sanitizeMemeText(text) {
 export function validateMemeText(text) {
   const sanitized = sanitizeMemeText(text);
 
-  if (!sanitized) {
-    throw validationError("Meme text cannot be empty");
-  }
-
   if (sanitized.length > MAX_MEME_TEXT_LENGTH) {
     throw validationError(
       `Meme text must be ${MAX_MEME_TEXT_LENGTH} characters or fewer`

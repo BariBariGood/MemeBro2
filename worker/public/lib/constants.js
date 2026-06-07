@@ -1,3 +1,10 @@
+/**
+ * @module constants
+ * Shared constants for the MemeBro frontend: application states, file-type
+ * allow-lists, detection tunables, font/color maps, and editor defaults.
+ */
+
+/** Application state machine values used across modules. */
 export const STATES = {
     IDLE: "idle",
     LOADING_IMAGE: "loading-image",
@@ -40,7 +47,11 @@ export const DEFAULT_MEME_TEXT_COLOR = "black";
 export const DEFAULT_MEME_OUTLINE_ENABLED = false;
 export const DEFAULT_MEME_OUTLINE_COLOR = "#ffffff";
 export const RECENTS_STORAGE_KEY = "meme-template-recents";
+export const MEME_HISTORY_KEY = "memebro-meme-history";
+export const MAX_MEME_HISTORY = 20;
 export const ROTATE_STEP = 90;
+export const MAX_MEME_TEXT_ITEMS = 10;
+export const MEME_TEXT_CHAR_WARN = 200;
 export const FACE_CROP_DEFAULT_TYPE = "image/jpeg";
 export const FACE_CROP_QUALITY = 0.92;
 

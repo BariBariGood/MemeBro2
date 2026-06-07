@@ -1,8 +1,12 @@
-// ─────────────────────────────────────────────
-// Template catalog, rendering, and navigation.
-// ─────────────────────────────────────────────
+/**
+ * @module templates
+ * Template catalog, rendering, and navigation.
+ * Handles fetching the meme template list, rendering template cards into
+ * the sidebar, tracking recently-used templates, and tab/search filtering.
+ */
 
 import { RECENTS_STORAGE_KEY } from "./constants.js";
+import { getMemeHistory } from "./projectActions.js";
 import { state } from "./state.js";
 
 // ── Image source helpers ─────────────────────
@@ -146,7 +150,11 @@ export async function loadTemplateCatalog({ loadTemplates }) {
 
 // ── DOM rendering ────────────────────────────
 
-export function renderTemplates({ dom, clamp, openStudioForTemplate }) {
+export async function renderTemplates({ dom, clamp, openStudioForTemplate }) {
+    if (state.activeTemplateTab === "recents") {
+        await renderMemeHistory({ dom, openStudioForTemplate });
+        return;
+    }
     const templates = getVisibleTemplates();
     dom.templateGrid.innerHTML = "";
     dom.templateEmpty.classList.toggle("hidden", templates.length > 0);
@@ -217,6 +225,69 @@ export function renderTemplates({ dom, clamp, openStudioForTemplate }) {
     });
 }
 
+async function renderMemeHistory({ dom, openStudioForTemplate }) {
+    const history = await getMemeHistory();
+    dom.templateGrid.innerHTML = "";
+
+    if (history.length === 0) {
+        dom.templateEmpty.classList.remove("hidden");
+        dom.templateEmpty.textContent = "No memes yet. Create and download one to see it here!";
+        return;
+    }
+    dom.templateEmpty.classList.add("hidden");
+
+    history.forEach((entry) => {
+        const card = document.createElement("button");
+        card.type = "button";
+        card.className = "template-card history-card";
+
+        const art = document.createElement("span");
+        art.className = "template-art";
+        art.style.aspectRatio = "1 / 1";
+
+        const img = document.createElement("img");
+        img.className = "template-art-image is-loaded";
+        img.alt = "Meme created " + new Date(entry.ts).toLocaleDateString();
+        img.src = entry.thumb;
+        img.loading = "lazy";
+        img.decoding = "async";
+        img.addEventListener("load", () => art.classList.add("image-ready"));
+
+        const label = document.createElement("span");
+        label.className = "template-name";
+        label.textContent = formatTimeAgo(entry.ts);
+
+        art.appendChild(img);
+        card.append(art, label);
+
+        if (entry.templateId && state.templateCatalog.find((t) => t.id === entry.templateId)) {
+            card.addEventListener("click", () => openStudioForTemplate(entry.templateId));
+        } else if (entry.thumb) {
+            card.addEventListener("click", () => {
+                state.selectedTemplateId = entry.templateId || null;
+                state.view = "studio";
+                state.editor.templateImage = entry.thumb;
+                state.editor.generatedImage = "";
+                state.editor.initialSnapshot = null;
+            });
+        }
+
+        dom.templateGrid.appendChild(card);
+    });
+}
+
+function formatTimeAgo(ts) {
+    const diff = Date.now() - ts;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "Just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString();
+}
+
 export function renderStudioTemplate(template, { dom, state: _state }) {
     if (!template) return;
     const { width, height } = getTemplateImageDimensions(template);
@@ -244,20 +315,29 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
     dom.studioTemplateImage.alt = template.name;
     updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
 
-    (template.faceRegions || []).slice(0, 4).forEach((region) => {
-        const marker = document.createElement("span");
-        marker.className    = "studio-template-region";
-        marker.style.left   = `${(region.x / width)  * 100}%`;
-        marker.style.top    = `${(region.y / height) * 100}%`;
-        marker.style.width  = `${Math.max(10, (region.width  / width)  * 100)}%`;
-        marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
-        dom.studioTemplateRegions.appendChild(marker);
-    });
+    if (!_state.editor.generatedImage) {
+        (template.faceRegions || []).slice(0, 4).forEach((region) => {
+            const marker = document.createElement("span");
+            marker.className    = "studio-template-region";
+            marker.style.left   = `${(region.x / width)  * 100}%`;
+            marker.style.top    = `${(region.y / height) * 100}%`;
+            marker.style.width  = `${Math.max(10, (region.width  / width)  * 100)}%`;
+            marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
+            dom.studioTemplateRegions.appendChild(marker);
+        });
+    }
 }
 
 // ── Navigation ───────────────────────────────
 
-export function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
+export async function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
+    const hadEdits = state.selectedTemplateId
+        && state.selectedTemplateId !== templateId
+        && state.editor.historyStack.length > 1;
+    if (hadEdits) {
+        const ok = window.confirm("Switching templates will reset your edits. Continue?");
+        if (!ok) return;
+    }
     state.selectedTemplateId   = templateId;
     recordUsage(templateId);
     state.status               = S.IDLE;
@@ -267,7 +347,7 @@ export function openStudioForTemplate(templateId, { recordTemplateUsage: recordU
     state.showResetConfirmation = false;
     state.showBackConfirmation  = false;
     initializeEditorState();
-    if (!restoreEditorSession()) persistEditorHistory();
+    if (!(await restoreEditorSession())) persistEditorHistory();
     render();
 }
 

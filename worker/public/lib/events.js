@@ -1,9 +1,19 @@
-// ─────────────────────────────────────────────
-// All DOM event listener registrations.
-// ─────────────────────────────────────────────
+/**
+ * @module events
+ * All DOM event listener registrations.
+ * Binds click, pointer, keyboard, and change handlers to the cached
+ * DOM nodes so UI interactions flow through the shared state/render loop.
+ */
 
 import { configureAiPrompting } from "./ai-prompting.js";
+import { ALLOWED_TYPES, MAX_MEME_TEXT_ITEMS } from "./constants.js";
 
+/**
+ * Registers every event listener the MemeBro app needs.
+ *
+ * @param {object} ctx - Dependency bag containing `dom`, `state`, render
+ *   helpers, face/template modules, and editor actions
+ */
 export function registerEvents(ctx) {
     const {
         dom, state, STATES, clamp,
@@ -34,17 +44,25 @@ export function registerEvents(ctx) {
         // Misc
         getSelectedFaces, selectSingleFace, getRenderedSize,
         hasUnsavedStudioEdits, normalizeBox, setStatus, setError,
-        applyManualTransform,
+        applyManualTransform, showToast,
     } = ctx;
 
     const loadErrorCodes = new Set(["FEATURE_DISABLED", "QUEUE_FULL", "RATE_LIMITED"]);
     // AI prompting owns its own listeners; events.js only coordinates cross-feature interactions.
-    const aiPrompting = configureAiPrompting({ dom, state, render });
+    const aiPrompting = configureAiPrompting({ dom, state, render, recordEditorSnapshot });
 
     async function submitFaceSwapWithErrorHandling() {
         try {
             state.error = null;
             state.lastRetryableAction = "face_swap";
+            // Clear any stale loading flags from a previous swap so this
+            // attempt can proceed cleanly even if the last one errored mid-flight.
+            state.isSubmittingFaceSwap = false;
+            state.isOptimizingImage = false;
+            if (state.faceSwapAbortController) {
+                state.faceSwapAbortController.abort();
+                state.faceSwapAbortController = null;
+            }
             if (state.status === STATES.ERROR) state.status = STATES.READY;
             await submitSelectedFace();
             state.lastRetryableAction = null;
@@ -53,8 +71,15 @@ export function registerEvents(ctx) {
                 state.lastRetryableAction = null;
                 return;
             }
+            // Show error inline without destroying user's work — keep status as READY
+            // so the uploaded image, face selection, and template choice remain visible.
             if (!loadErrorCodes.has(error?.code)) state.lastRetryableAction = null;
-            setError(error.code || "UPLOAD_FAILED", error.message || "Upload failed.");
+            state.error = {
+                code: error.code || "UPLOAD_FAILED",
+                message: error.message || "Face swap failed. Please try again.",
+            };
+            state.status = STATES.READY;
+            render();
         }
     }
 
@@ -74,6 +99,14 @@ export function registerEvents(ctx) {
     dom.cameraInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!ALLOWED_TYPES.has(file.type)) {
+            const msg = "Please upload an image file (JPEG, PNG, or WebP)";
+            state.error = { code: "INVALID_FILE_TYPE", message: msg };
+            event.target.value = "";
+            if (showToast) showToast(msg);
+            render();
+            return;
+        }
         if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
         state.previewUrl = URL.createObjectURL(file);
         render();
@@ -83,6 +116,14 @@ export function registerEvents(ctx) {
     dom.libraryInput.addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
+        if (!ALLOWED_TYPES.has(file.type)) {
+            const msg = "Please upload an image file (JPEG, PNG, or WebP)";
+            state.error = { code: "INVALID_FILE_TYPE", message: msg };
+            event.target.value = "";
+            if (showToast) showToast(msg);
+            render();
+            return;
+        }
         if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
         state.previewUrl = URL.createObjectURL(file);
         render();
@@ -117,7 +158,10 @@ export function registerEvents(ctx) {
     });
 
     // ── Navigation ───────────────────────────────
-    dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
+    dom.titleStartCta?.addEventListener("click", async () => {
+        try { localStorage.setItem("memebro-onboarding-complete", "1"); } catch (_) { /* quota / private */ }
+        await showTemplateSelection();
+    });
     dom.backBtn.addEventListener("click", goBackToUploadChoices);
 
     // ── Upload configuration ─────────────────────
@@ -135,6 +179,7 @@ export function registerEvents(ctx) {
         state.manualScale = Number(dom.manualZoom.value || 1);
         applyManualTransform();
         renderOverlay();
+        syncGestureHud();
     });
 
     dom.manualRotation.addEventListener("input", () => {
@@ -157,6 +202,58 @@ export function registerEvents(ctx) {
         state.dragPointerId = null;
         dom.previewImage.classList.remove("dragging");
     });
+
+    // ── Scroll-to-zoom ────────────────────────────
+    dom.overlayShell.addEventListener("wheel", (e) => {
+        if (!state.manualMode) return;
+        e.preventDefault();
+        const delta = e.deltaY * -0.005;
+        state.manualScale = clamp(state.manualScale + delta, 0.5, 3.0);
+        dom.manualZoom.value = String(state.manualScale);
+        applyManualTransform();
+        renderOverlay();
+        syncGestureHud();
+    }, { passive: false });
+
+    // ── Multi-touch pinch/rotate ──────────────────
+    dom.overlayShell.addEventListener("touchstart", (e) => {
+        if (!state.manualMode || e.touches.length < 2) return;
+        e.preventDefault();
+        const [a, b] = [e.touches[0], e.touches[1]];
+        state.gesture = {
+            startDist: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY),
+            startAngle: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI),
+            startScale: state.manualScale,
+            startRotation: state.manualRotation,
+        };
+    }, { passive: false });
+
+    dom.overlayShell.addEventListener("touchmove", (e) => {
+        if (!state.manualMode || e.touches.length < 2 || !state.gesture) return;
+        e.preventDefault();
+        const [a, b] = [e.touches[0], e.touches[1]];
+        const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        const angle = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX) * (180 / Math.PI);
+        const scaleFactor = dist / state.gesture.startDist;
+        state.manualScale = clamp(state.gesture.startScale * scaleFactor, 0.5, 3.0);
+        state.manualRotation = clamp(
+            state.gesture.startRotation + (angle - state.gesture.startAngle),
+            -180, 180
+        );
+        dom.manualZoom.value = String(state.manualScale);
+        dom.manualRotation.value = String(Math.round(state.manualRotation));
+        applyManualTransform();
+        renderOverlay();
+        syncGestureHud();
+    }, { passive: false });
+
+    dom.overlayShell.addEventListener("touchend", (e) => {
+        if (e.touches.length < 2) state.gesture = null;
+    });
+
+    function syncGestureHud() {
+        if (dom.zoomBadge) dom.zoomBadge.textContent = `${Math.round(state.manualScale * 100)}%`;
+    }
 
     // ── Template search / tabs ───────────────────
     dom.templateSearch.addEventListener("input", (event) => {
@@ -248,6 +345,8 @@ export function registerEvents(ctx) {
     // ── Text duplicate ───────────────────────────
     dom.textDuplicateCta.addEventListener("click", () => {
         if (!state.editor.overlayVisible) return;
+        const totalItems = state.editor.frozenTextItems.length + 1;
+        if (totalItems >= MAX_MEME_TEXT_ITEMS) return;
         const text = (state.editor.overlayText || "").trim();
         if (!text) return;
 
@@ -364,6 +463,18 @@ export function registerEvents(ctx) {
         }
     });
 
+    // ── Quick color swatches ─────────────────────
+    dom.colorSwatches?.forEach((swatch) => {
+        swatch.addEventListener("click", () => {
+            const key = swatch.dataset.colorKey;
+            if (!key) return;
+            const MEME_TEXT_COLORS = { black: "#000000", white: "#ffffff", red: "#d62828", blue: "#2563eb", yellow: "#ffd60a" };
+            const hex = MEME_TEXT_COLORS[key];
+            if (!hex) return;
+            updateEditorTextSetting("overlayTextColor", hex);
+        });
+    });
+
     // ── Outline color ────────────────────────────
     let outlineColorFocusStart      = state.editor.overlayOutlineColor;
     let outlineColorCommittedInFocus = false;
@@ -460,6 +571,12 @@ export function registerEvents(ctx) {
         if (state.lastRetryableAction !== "face_swap") return;
         await submitFaceSwapWithErrorHandling();
     });
+    dom.errorNewPhotoCta?.addEventListener("click", () => {
+        state.error = null;
+        state.lastRetryableAction = null;
+        render();
+        dom.libraryInput.click();
+    });
 
     // ── Studio template image fallback ───────────
     dom.studioTemplateImage.addEventListener("load", () => {
@@ -486,11 +603,84 @@ export function registerEvents(ctx) {
         }
     });
 
+    // ── Debounced text-input snapshot + autosave ─
+    let _textInputDebounceTimer = null;
+    dom.memeTextPreview.addEventListener("input", () => {
+        clearTimeout(_textInputDebounceTimer);
+        _textInputDebounceTimer = setTimeout(() => {
+            _textInputDebounceTimer = null;
+            recordEditorSnapshot();
+            render();
+        }, 1500);
+    });
+    dom.memeTextPreview.addEventListener("blur", () => {
+        // Flush any pending debounced snapshot immediately on blur
+        if (_textInputDebounceTimer) {
+            clearTimeout(_textInputDebounceTimer);
+            _textInputDebounceTimer = null;
+            recordEditorSnapshot();
+        }
+    });
+
     // ── Global keyboard ──────────────────────────
     document.addEventListener("keydown", (event) => {
-        if (event.key !== "Backspace") return;
+        const inInput = event.target?.closest?.("input, textarea, select, [contenteditable='true']");
+
+        // Escape — dismiss open panels / modals / selections
+        if (event.key === "Escape") {
+            if (state.showResetConfirmation) {
+                state.showResetConfirmation = false; render(); return;
+            }
+            if (state.showBackConfirmation) {
+                state.showBackConfirmation = false; render(); return;
+            }
+            if (state.uploadModalOpen) {
+                state.uploadModalOpen = false; render(); return;
+            }
+            if (state.projectMenuOpen) {
+                state.projectMenuOpen = false; render(); return;
+            }
+            if (state.showTextMore) {
+                state.showTextMore = false; render(); return;
+            }
+            if (state.isEditingMemeText) {
+                finishInlineTextEdit(); return;
+            }
+            if (state.isTextSelected) {
+                state.isTextSelected = false; render(); return;
+            }
+            if (state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen) {
+                if (state.aiPrompt) state.aiPrompt.panelState = "closed";
+                state.isAiPromptPanelOpen = false;
+                render(); return;
+            }
+        }
+
+        // Ctrl+Z / Ctrl+Y — undo / redo (case-insensitive for CapsLock)
+        if ((event.ctrlKey || event.metaKey) && !inInput) {
+            if (event.key.toLowerCase() === "z" && !event.shiftKey) {
+                // Flush debounced text snapshot before undoing
+                if (_textInputDebounceTimer) {
+                    clearTimeout(_textInputDebounceTimer);
+                    _textInputDebounceTimer = null;
+                    recordEditorSnapshot();
+                }
+                if (state.isEditingMemeText) finishInlineTextEdit();
+                event.preventDefault();
+                undoEditorSnapshot();
+                return;
+            }
+            if (event.key.toLowerCase() === "z" && event.shiftKey || event.key.toLowerCase() === "y") {
+                event.preventDefault();
+                redoEditorSnapshot();
+                return;
+            }
+        }
+
+        // Backspace / Delete — delete selected text
+        if (event.key !== "Backspace" && event.key !== "Delete") return;
         if (!state.editor.overlayVisible || !state.isTextSelected || state.isEditingMemeText) return;
-        if (event.target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+        if (inInput) return;
         event.preventDefault();
         deleteMemeText();
     });

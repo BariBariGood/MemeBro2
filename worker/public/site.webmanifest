@@ -1,0 +1,21 @@
+{
+    "name": "MemeBro",
+    "short_name": "MemeBro",
+    "description": "Create memes with AI face swap and text overlays",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#6c3ce0",
+    "icons": [
+        {
+            "src": "/favicon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/favicon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}
