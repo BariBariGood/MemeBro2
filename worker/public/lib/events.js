@@ -126,8 +126,8 @@ export function registerEvents(ctx) {
         dom.saveCta.disabled = true;
         try {
             await saveCurrentEditorMeme();
-        } catch {
-            // Keep save non-blocking for the editor if browser storage fails.
+        } catch (error) {
+            setError(error?.code || "SAVE_RECENT_FAILED", error?.message || "Could not save this meme.");
         } finally {
             dom.saveCta.disabled = false;
         }

@@ -163,6 +163,11 @@ function openRecentsDB() {
     };
   });
 
+  dbPromise = dbPromise.catch((error) => {
+    dbPromise = null;
+    throw error;
+  });
+
   return dbPromise;
 }
 
@@ -479,6 +484,13 @@ export async function saveRecentMeme(options = {}) {
     || options.editorSnapshot?.generatedImage
     || options.editorSnapshot?.templateImage
     || "";
+
+  if (currentImage === "") {
+    const error = new Error("A current image is required to save this meme.");
+    error.code = "MISSING_CURRENT_IMAGE";
+    throw error;
+  }
+
   const thumbnail = options.thumbnail || await createRecentMemeThumbnail(currentImage, options.thumbnailOptions);
   const snapshot = createRecentMemeSnapshot({
     ...options,

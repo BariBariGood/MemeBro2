@@ -213,4 +213,74 @@ describe("recent meme storage", () => {
     expect(indexedDB.dump("snapshots").has("recent-1")).toBe(false);
     expect(indexedDB.dump("thumbnails").has("recent-1")).toBe(false);
   });
+
+  test("rejects empty current image saves before writing metadata", async () => {
+    const { saveRecentMeme } = await loadRecentsModule();
+
+    await expect(saveRecentMeme({
+      id: "empty-image",
+      currentImage: "",
+      editorSnapshot: {},
+      thumbnail: {
+        blob: new Blob(["thumb"], { type: "image/webp" }),
+        width: 256,
+        height: 256,
+        type: "image/webp",
+      },
+    })).rejects.toMatchObject({
+      code: "MISSING_CURRENT_IMAGE",
+      message: "A current image is required to save this meme.",
+    });
+    expect(localStorage.getItem("recent-memes")).toBeNull();
+  });
+
+  test("retries opening IndexedDB after a transient open failure", async () => {
+    const successfulIndexedDB = createFakeIndexedDB();
+    const transientError = new Error("temporary idb failure");
+    let openCount = 0;
+    indexedDB = {
+      open: vi.fn((...args) => {
+        openCount += 1;
+        if (openCount === 1) {
+          const request = createRequest();
+          setTimeout(() => {
+            request.error = transientError;
+            request.onerror?.();
+          }, 0);
+          return request;
+        }
+        return successfulIndexedDB.open(...args);
+      }),
+      dump: successfulIndexedDB.dump,
+    };
+    Object.defineProperty(globalThis, "indexedDB", {
+      configurable: true,
+      value: indexedDB,
+    });
+
+    const { saveRecentMeme, getRecentMeme } = await loadRecentsModule();
+    const thumbnail = {
+      blob: new Blob(["thumb"], { type: "image/webp" }),
+      width: 256,
+      height: 256,
+      type: "image/webp",
+    };
+
+    await expect(saveRecentMeme({
+      id: "first-attempt",
+      currentImage: "/first.png",
+      editorSnapshot: { generatedImage: "/first.png" },
+      thumbnail,
+    })).rejects.toThrow("temporary idb failure");
+
+    await saveRecentMeme({
+      id: "second-attempt",
+      currentImage: "/second.png",
+      editorSnapshot: { generatedImage: "/second.png" },
+      thumbnail,
+    });
+
+    expect(indexedDB.open).toHaveBeenCalledTimes(2);
+    expect((await getRecentMeme("second-attempt")).snapshot.currentImage).toBe("/second.png");
+  });
 });

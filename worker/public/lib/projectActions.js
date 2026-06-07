@@ -337,9 +337,6 @@ export function configureProjectActions({
         saveProjectNow();
     }
 
-    dom.saveCta?.addEventListener("click", () => {
-        downloadMeme().catch(() => setSaveStatus("failed", "Failed"));
-    });
     dom.shareCta?.addEventListener("click", () => {
         shareMeme().catch(() => setSaveStatus("failed", "Failed"));
     });

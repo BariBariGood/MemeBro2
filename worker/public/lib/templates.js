@@ -8,6 +8,7 @@ import { recentMemeStorage } from "../js/recents.js";
 
 let recentThumbnailUrls = [];
 let templateRenderSequence = 0;
+let lastRenderedTemplateTab = state.activeTemplateTab;
 
 function clearRecentThumbnailUrls() {
     recentThumbnailUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -291,7 +292,12 @@ export async function loadTemplateCatalog({ loadTemplates }) {
 
 export async function renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme }) {
     const sequence = ++templateRenderSequence;
-    clearRecentThumbnailUrls();
+    const previousTemplateTab = lastRenderedTemplateTab;
+    lastRenderedTemplateTab = state.activeTemplateTab;
+    if (previousTemplateTab === "recents" && state.activeTemplateTab !== "recents") {
+        clearRecentThumbnailUrls();
+    }
+
     if (state.activeTemplateTab === "recents") {
         await renderRecentMemes({
             dom,

@@ -393,7 +393,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     const template = catalog.templates[0];
 
     state.templateCatalog = catalog.templates;
-    await saveRecentMeme({
+    const savedRecent = await saveRecentMeme({
       id: "recent-editor-state",
       savedAt: 2000,
       currentImage: "/generated/recent.png",
@@ -447,6 +447,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.editor.overlayRotation).toBe(90);
     expect(state.editor.historyStack).toHaveLength(2);
     expect(state.editor.futureStack).toHaveLength(1);
+    expect(state.editor.historyStack).not.toBe(savedRecent.snapshot.editHistory.historyStack);
   });
 
   test("custom: save button stores the current editor state as a recent meme", async () => {
@@ -503,6 +504,36 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
       visible: true,
     });
     expect(recent.thumbnail.blob.type).toBe("image/webp");
+  });
+
+  test("custom: save button surfaces a visible error when no current image exists", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom } = __testHooks;
+
+    state.view = "studio";
+    state.selectedTemplateId = null;
+    state.editor.templateImage = "";
+    state.editor.generatedImage = "";
+    Object.defineProperty(dom.studioTemplateImage, "currentSrc", {
+      configurable: true,
+      value: "",
+    });
+    Object.defineProperty(dom.studioTemplateImage, "src", {
+      configurable: true,
+      value: "",
+    });
+
+    dom.saveCta.click();
+
+    await vi.waitFor(() => {
+      expect(state.error).toMatchObject({
+        code: "MISSING_CURRENT_IMAGE",
+        message: "A current image is required to save this meme.",
+      });
+    });
+    expect(dom.errorState.classList.contains("hidden")).toBe(false);
+    expect(dom.errorMessage.textContent).toContain("current image is required");
   });
 
   test("custom: template face regions stay inside the actual meme image bounds", () => {
@@ -1046,27 +1077,26 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.errorRetryCta.classList.contains("hidden")).toBe(true);
   });
 
-  test("custom: project actions download the edited meme with a timestamped PNG filename", async () => {
-    let clickedDownload = "";
+  test("custom: save button is owned by recents and does not also download a PNG", async () => {
+    mockRecentThumbnailExport();
     globalThis.__MEMEBRO_EXPORT_BLOB__ = vi.fn(async () => new Blob(["png"], { type: "image/png" }));
     vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:memebro-download");
     vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function click() {
-      clickedDownload = this.download;
-    });
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
     const { __testHooks } = await loadApp();
     await settleApp();
     const { state, dom, render } = __testHooks;
 
     seedStudioEditorState(state);
+    state.editor.generatedImage = "/generated/save-only-recents.png";
     render();
     dom.saveCta.click();
 
     await vi.waitFor(() => {
-      expect(globalThis.__MEMEBRO_EXPORT_BLOB__).toHaveBeenCalledWith(expect.objectContaining({ type: "image/png" }));
-      expect(clickedDownload).toMatch(/^memebro-\d{8}T\d{6}Z\.png$/);
+      expect(JSON.parse(localStorage.getItem("recent-memes"))).toHaveLength(1);
     });
+    expect(globalThis.__MEMEBRO_EXPORT_BLOB__).not.toHaveBeenCalled();
   });
 
   test("custom: studio actions use Face Swap label and keep project utilities in a menu", async () => {

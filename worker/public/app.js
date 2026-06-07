@@ -114,10 +114,10 @@ async function openStudioForRecentMeme(recentMemeId) {
   state.showBackConfirmation = false;
   state.isAiPromptPanelOpen = false;
   state.editor.historyStack = Array.isArray(snapshot.editHistory?.historyStack)
-    ? snapshot.editHistory.historyStack
+    ? [...snapshot.editHistory.historyStack]
     : [];
   state.editor.futureStack = Array.isArray(snapshot.editHistory?.futureStack)
-    ? snapshot.editHistory.futureStack
+    ? [...snapshot.editHistory.futureStack]
     : [];
   state.editor.initialSnapshot = state.editor.historyStack[0] || restoredEditorSnapshot;
   Editor.applyEditorSnapshot(restoredEditorSnapshot, { getTemplateMainImage });
