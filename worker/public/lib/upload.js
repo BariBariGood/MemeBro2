@@ -415,3 +415,47 @@ export function moveManualDrag(event) {
   applyManualTransform();
   renderOverlay();
 }
+
+export async function routeAiImageToFaceSwap(b64String) {
+  const state = getDep("state");
+  const render = getDep("render");
+  const STATES = getDep("STATES"); 
+
+  const dataUri = b64String.startsWith("data:") 
+    ? b64String 
+    : `data:image/png;base64,${b64String}`;
+
+  const dynamicTemplateId = `ai-template-${Date.now()}`;
+  const aiTemplate = {
+    id: dynamicTemplateId,
+    name: "AI Generated",
+    images: { main: dataUri, width: 1024, height: 1024 },
+    faceRegions: [] 
+  };
+
+  state.templateCatalog.push(aiTemplate);
+  state.selectedTemplateId = dynamicTemplateId;
+
+  // Wipe the UI State (Close menus and modals)
+  state.status = STATES ? STATES.IDLE : "idle";
+  state.view = "studio";
+  state.uploadModalOpen = false;
+  state.projectMenuOpen = false;
+  state.showResetConfirmation = false;
+  state.showBackConfirmation = false;
+  state.isEditingMemeText = false;
+  state.isTextSelected = false;
+  state.showTextMore = false;
+  
+  // Wipe the Editor & History State
+  if (!state.editor) state.editor = {};
+  state.editor.templateImage = dataUri;
+  state.editor.generatedImage = "";
+  state.editor.frozenTextItems = []; 
+  state.editor.overlayVisible = false; 
+  state.editor.historyStack = []; 
+  state.editor.futureStack = []; 
+  state.editor.initialSnapshot = null;
+
+  render();
+}
