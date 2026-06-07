@@ -148,11 +148,14 @@
 
     .reset-confirmation { pointer-events: auto; }
 
-    /* ── AI prompt panel ── */
+    /* ── AI prompt panel: anchored to the right of the viewport ── */
     .ai-prompt-panel {
-        position: relative;
+        position: fixed;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
         margin: 0;
-        width: min(360px, calc(100vw - 36px));
+        width: min(360px, calc(100vw - 32px));
         max-height: calc(100dvh - 112px);
         min-height: min(560px, calc(100dvh - 112px));
         pointer-events: auto;

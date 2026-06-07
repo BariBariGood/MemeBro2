@@ -1,3 +1,10 @@
+/**
+ * @module state
+ * Singleton mutable state object for the MemeBro frontend.
+ * Every UI module reads and writes fields on this object; the render
+ * loop re-reads it each frame to keep the DOM in sync.
+ */
+
 import {
     STATES,
     DEFAULT_MEME_TEXT,
@@ -8,6 +15,7 @@ import {
     DEFAULT_MEME_OUTLINE_COLOR,
 } from "./constants.js";
 
+/** @type {object} Global mutable application state. */
 export const state = {
     status: STATES.IDLE,
     faces: [],
@@ -25,6 +33,7 @@ export const state = {
     manualRotation: 0,
     manualOffsetX: 0,
     manualOffsetY: 0,
+    gesture: null,
     dragPointerId: null,
     dragStartX: 0,
     dragStartY: 0,
@@ -52,6 +61,7 @@ export const state = {
     view: "home",
     isEditingMemeText: false,
     isSubmittingFaceSwap: false,
+    isOptimizingImage: false,
     showSlowFaceSwapMessage: false,
     faceSwapAbortController: null,
     faceSwapSlowTimer: null,

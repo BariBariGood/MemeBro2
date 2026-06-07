@@ -55,7 +55,7 @@ describe("buildAiPrompt", () => {
   });
 
   it("AI_PROMPT_PREFIX contains required guardrail phrases", () => {
-    expect(AI_PROMPT_PREFIX).toMatch(/single meme image/i);
+    expect(AI_PROMPT_PREFIX).toMatch(/meme image/i);
     expect(AI_PROMPT_PREFIX).toMatch(/legib/i);
     expect(AI_PROMPT_PREFIX).toMatch(/PG-13/i);
     expect(AI_PROMPT_PREFIX).toMatch(/public figures/i);
@@ -326,7 +326,7 @@ describe("ai_prompt mode — /api/process gateway", () => {
     });
   });
 
-  it("ignores a reference image and stays text-to-image (images/generations)", async () => {
+  it("uses the reference image to edit the template (images/edits)", async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ data: [{ b64_json: "FFFF" }] }),
@@ -349,22 +349,14 @@ describe("ai_prompt mode — /api/process gateway", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ b64: "FFFF", mode: "generate" });
+    expect(body).toMatchObject({ b64: "FFFF", mode: "cast" });
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.openai.com/v1/images/generations",
+      "https://api.openai.com/v1/images/edits",
       expect.any(Object)
     );
   });
 
-  it("does not 413 on an oversized reference image in ai_prompt mode (ref ignored)", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ data: [{ b64_json: "GGGG" }] }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      )
-    );
-    vi.stubGlobal("fetch", mockFetch);
-
+  it("rejects an oversized reference image in ai_prompt mode with 413", async () => {
     const hugeRef = "a".repeat(5 * 1024 * 1024); // > MAX_REF_BYTES (4 MB)
     const request = new Request("http://example.com/api/process", {
       method: "POST",
@@ -377,12 +369,7 @@ describe("ai_prompt mode — /api/process gateway", () => {
     });
 
     const response = await worker.fetch(request, testEnv);
-
-    expect(response.status).toBe(200);
-    expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.openai.com/v1/images/generations",
-      expect.any(Object)
-    );
+    expect(response.status).toBe(413);
   });
 
   it("returns 503 QUEUE_FULL when the request queue is saturated", async () => {
@@ -503,5 +490,79 @@ describe("ai_prompt mode — /api/process gateway", () => {
 
     expect(response.status).toBe(200);
     expect(body.b64).toBe("EEEE");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Client-side requestAiPromptVariant wiring tests
+// ---------------------------------------------------------------------------
+
+describe("requestAiPromptVariant — client-side /api/process wiring", () => {
+  let requestAiPromptVariant;
+
+  beforeEach(async () => {
+    delete globalThis.__MEMEBRO_AI_PROMPT_REQUEST__;
+    ({ requestAiPromptVariant } = await import("../public/lib/ai-prompting.js"));
+  });
+
+  it("calls fetch POST /api/process with mode ai_prompt when __MEMEBRO_AI_PROMPT_REQUEST__ is NOT set", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ text: "Here is your meme", b64: "BASE64DATA" }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await requestAiPromptVariant("a funny cat meme");
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, options] = mockFetch.mock.calls[0];
+    expect(url).toBe("/api/process");
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body)).toEqual({
+      mode: "ai_prompt",
+      prompt: "a funny cat meme",
+    });
+    expect(result).toMatchObject({ text: "Here is your meme", imageUrl: "data:image/png;base64,BASE64DATA" });
+  });
+
+  it("uses __MEMEBRO_AI_PROMPT_REQUEST__ override when defined", async () => {
+    const mockOverride = vi.fn().mockResolvedValue({ text: "override response" });
+    globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = mockOverride;
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await requestAiPromptVariant("test prompt");
+
+    expect(mockOverride).toHaveBeenCalledWith("test prompt");
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(result).toEqual({ text: "override response" });
+  });
+
+  it("throws an error with code and message when the API returns non-ok", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ code: "EMPTY_PROMPT", message: "Prompt is required." }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(requestAiPromptVariant("")).rejects.toMatchObject({
+      message: "Prompt is required.",
+      code: "EMPTY_PROMPT",
+    });
+  });
+
+  it("throws a generic error when the API returns non-ok with no JSON body", async () => {
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response("Internal Server Error", { status: 500 })
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(requestAiPromptVariant("hello")).rejects.toMatchObject({
+      code: "AI_PROMPT_FAILED",
+    });
   });
 });

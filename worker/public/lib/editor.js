@@ -1,6 +1,9 @@
-// ─────────────────────────────────────────────
-// Editor history, snapshot, and session logic.
-// ─────────────────────────────────────────────
+/**
+ * @module editor
+ * Editor history, snapshot, and session logic.
+ * Manages undo/redo stacks, project autosave via IndexedDB, and
+ * snapshot serialization for the meme editor state.
+ */
 
 import {
     DEFAULT_MEME_TEXT,
@@ -12,6 +15,7 @@ import {
     DEFAULT_MEME_OUTLINE_COLOR,
 } from "./constants.js";
 import { state } from "./state.js";
+import { idbSet, idbGet, idbRemoveSync, idbSetSync } from "./storage.js";
 
 // ── Helpers ──────────────────────────────────
 
@@ -21,6 +25,12 @@ function cloneSnapshot(snapshot) {
 
 // ── Snapshot shape ───────────────────────────
 
+/**
+ * Creates a serializable snapshot of the current editor state.
+ *
+ * @param {object} [overrides={}] - Optional field overrides
+ * @returns {object} Snapshot object suitable for JSON serialization
+ */
 export function createEditorSnapshot(overrides = {}) {
     return {
         selectedTemplateId: overrides.selectedTemplateId ?? state.selectedTemplateId ?? null,
@@ -45,6 +55,13 @@ export function createEditorSnapshot(overrides = {}) {
     };
 }
 
+/**
+ * Applies a previously-saved snapshot back onto `state.editor`.
+ *
+ * @param {object} snapshot - Snapshot created by {@link createEditorSnapshot}
+ * @param {object} deps
+ * @param {() => string} deps.getTemplateMainImage - Fallback image resolver
+ */
 export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
     if (!snapshot) return;
     state.editor.templateImage      = snapshot.templateImage || getTemplateMainImage();
@@ -68,6 +85,13 @@ export function applyEditorSnapshot(snapshot, { getTemplateMainImage }) {
     state.editor.overlayAutoScale   = 1;
 }
 
+/**
+ * Shallow equality check between two editor snapshots.
+ *
+ * @param {object} left
+ * @param {object} right
+ * @returns {boolean}
+ */
 export function editorSnapshotsEqual(left, right) {
     return Boolean(left && right)
         && left.selectedTemplateId  === right.selectedTemplateId
@@ -95,7 +119,7 @@ export function editorSnapshotsEqual(left, right) {
 
 export function persistEditorHistory() {
     try {
-        localStorage.setItem(EDITOR_HISTORY_STORAGE_KEY, JSON.stringify({
+        idbSetSync(EDITOR_HISTORY_STORAGE_KEY, JSON.stringify({
         selectedTemplateId: state.selectedTemplateId,
         initialSnapshot:    state.editor.initialSnapshot,
         historyStack:       state.editor.historyStack,
@@ -109,7 +133,7 @@ export function persistEditorHistory() {
 
     export function clearEditorHistoryPersistence() {
     try {
-        localStorage.removeItem(EDITOR_HISTORY_STORAGE_KEY);
+        idbRemoveSync(EDITOR_HISTORY_STORAGE_KEY);
     } catch {
         // Ignore storage errors to preserve core editing behavior.
     }
@@ -172,9 +196,9 @@ export function recordEditorSnapshot(deps) {
     persistEditorHistory();
 }
 
-export function restoreEditorSession({ getTemplateMainImage }) {
+export async function restoreEditorSession({ getTemplateMainImage }) {
     try {
-        const raw = localStorage.getItem(EDITOR_HISTORY_STORAGE_KEY);
+        const raw = await idbGet(EDITOR_HISTORY_STORAGE_KEY);
         if (!raw) return false;
         const parsed = JSON.parse(raw);
         if (parsed?.selectedTemplateId !== state.selectedTemplateId) return false;
