@@ -134,8 +134,11 @@ function drawTextLayer(ctx, layer, canvasWidth, canvasHeight) {
 }
 
 export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME, quality = 0.92 }) {
-    if (typeof globalThis.__MEMEBRO_EXPORT_BLOB__ === "function") {
-        return globalThis.__MEMEBRO_EXPORT_BLOB__({ dom, state, type, quality });
+    const exportBlobOverride = globalThis.__MEMEBRO_EXPORT_BLOB__
+        || globalThis.window?.__MEMEBRO_EXPORT_BLOB__
+        || globalThis.self?.__MEMEBRO_EXPORT_BLOB__;
+    if (typeof exportBlobOverride === "function") {
+        return exportBlobOverride({ dom, state, type, quality });
     }
 
     const { width, height } = getCanvasSize(dom);
@@ -143,6 +146,9 @@ export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME,
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        throw new Error("Canvas is not available for meme export.");
+    }
     const image = await loadImage(state.editor.generatedImage || state.editor.templateImage || dom.studioTemplateImage?.currentSrc || dom.studioTemplateImage?.src);
 
     ctx.drawImage(image, 0, 0, width, height);
@@ -257,6 +263,7 @@ export function configureProjectActions({
     }
 
     function saveProjectNow() {
+        autosaveTimer = null;
         if (state.view !== "studio" || !state.selectedTemplateId || !autosaveDirty) return;
         setSaveStatus("saving", "Saving...");
         try {
@@ -280,7 +287,7 @@ export function configureProjectActions({
         autosaveDirty = true;
         state.saveStatus = "saving";
         state.saveStatusMessage = "Saving...";
-        clearTimeout(autosaveTimer);
+        if (autosaveTimer) return;
         autosaveTimer = setTimeout(saveProjectNow, AUTOSAVE_DELAY_MS);
     }
 
