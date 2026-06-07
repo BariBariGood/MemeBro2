@@ -434,8 +434,8 @@ export function ScrollMorphHero({ onLaunchWithMeme, onBrowseTemplates }) {
             transition={{ duration: reducedMotion ? 0 : 1 }}
             className="font-display tracking-tight leading-[0.95] text-[clamp(2.5rem,9vw,5rem)] text-white"
           >
-            meme it{' '}
-            <span className="gradient-text">before the moment dies.</span>
+            MEME IT{' '}
+            <span className="gradient-text">BEFORE THE MOMENT DIES</span>
           </motion.h1>
 
           <motion.p

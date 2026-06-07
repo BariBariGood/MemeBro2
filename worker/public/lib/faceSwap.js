@@ -17,13 +17,14 @@ export function startFaceSwapLoadingState({ render }) {
     state.faceSwapSlowTimer = setTimeout(() => {
         state.showSlowFaceSwapMessage = true;
         render();
-    }, 5000);
+    }, 45000);
     render();
 }
 
 export function stopFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap    = false;
     state.showSlowFaceSwapMessage = false;
+    state.isOptimizingImage       = false;
     state.faceSwapAbortController = null;
     if (state.faceSwapSlowTimer) clearTimeout(state.faceSwapSlowTimer);
     state.faceSwapSlowTimer = null;

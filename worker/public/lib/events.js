@@ -55,6 +55,14 @@ export function registerEvents(ctx) {
         try {
             state.error = null;
             state.lastRetryableAction = "face_swap";
+            // Clear any stale loading flags from a previous swap so this
+            // attempt can proceed cleanly even if the last one errored mid-flight.
+            state.isSubmittingFaceSwap = false;
+            state.isOptimizingImage = false;
+            if (state.faceSwapAbortController) {
+                state.faceSwapAbortController.abort();
+                state.faceSwapAbortController = null;
+            }
             if (state.status === STATES.ERROR) state.status = STATES.READY;
             await submitSelectedFace();
             state.lastRetryableAction = null;
@@ -70,6 +78,7 @@ export function registerEvents(ctx) {
                 code: error.code || "UPLOAD_FAILED",
                 message: error.message || "Face swap failed. Please try again.",
             };
+            state.status = STATES.READY;
             render();
         }
     }

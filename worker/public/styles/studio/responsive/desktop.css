@@ -148,7 +148,7 @@
 
     .reset-confirmation { pointer-events: auto; }
 
-    /* ── AI prompt panel ── */
+    /* ── AI prompt panel: anchored to the right of the viewport ── */
     .ai-prompt-panel {
         position: fixed;
         right: 16px;

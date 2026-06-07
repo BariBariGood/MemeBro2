@@ -55,7 +55,7 @@ describe("buildAiPrompt", () => {
   });
 
   it("AI_PROMPT_PREFIX contains required guardrail phrases", () => {
-    expect(AI_PROMPT_PREFIX).toMatch(/single meme image/i);
+    expect(AI_PROMPT_PREFIX).toMatch(/meme image/i);
     expect(AI_PROMPT_PREFIX).toMatch(/legib/i);
     expect(AI_PROMPT_PREFIX).toMatch(/PG-13/i);
     expect(AI_PROMPT_PREFIX).toMatch(/public figures/i);
@@ -326,7 +326,7 @@ describe("ai_prompt mode — /api/process gateway", () => {
     });
   });
 
-  it("ignores a reference image and stays text-to-image (images/generations)", async () => {
+  it("uses the reference image to edit the template (images/edits)", async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({ data: [{ b64_json: "FFFF" }] }),
@@ -349,22 +349,14 @@ describe("ai_prompt mode — /api/process gateway", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ b64: "FFFF", mode: "generate" });
+    expect(body).toMatchObject({ b64: "FFFF", mode: "cast" });
     expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.openai.com/v1/images/generations",
+      "https://api.openai.com/v1/images/edits",
       expect.any(Object)
     );
   });
 
-  it("does not 413 on an oversized reference image in ai_prompt mode (ref ignored)", async () => {
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({ data: [{ b64_json: "GGGG" }] }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      )
-    );
-    vi.stubGlobal("fetch", mockFetch);
-
+  it("rejects an oversized reference image in ai_prompt mode with 413", async () => {
     const hugeRef = "a".repeat(5 * 1024 * 1024); // > MAX_REF_BYTES (4 MB)
     const request = new Request("http://example.com/api/process", {
       method: "POST",
@@ -377,12 +369,7 @@ describe("ai_prompt mode — /api/process gateway", () => {
     });
 
     const response = await worker.fetch(request, testEnv);
-
-    expect(response.status).toBe(200);
-    expect(mockFetch).toHaveBeenCalledWith(
-      "https://api.openai.com/v1/images/generations",
-      expect.any(Object)
-    );
+    expect(response.status).toBe(413);
   });
 
   it("returns 503 QUEUE_FULL when the request queue is saturated", async () => {

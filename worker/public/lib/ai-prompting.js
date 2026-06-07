@@ -23,16 +23,30 @@ function waitForAiPromptFrame() {
     });
 }
 
-export async function requestAiPromptVariant(prompt) {
+export async function requestAiPromptVariant(prompt, templateImageSrc) {
     // Test override: allows unit tests to stub the network call.
     if (typeof globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ === "function") {
         return globalThis.__MEMEBRO_AI_PROMPT_REQUEST__(prompt);
     }
 
+    const payload = { mode: "ai_prompt", prompt };
+
+    // Include the current template/generated image so OpenAI edits it
+    // instead of generating a brand-new image.
+    if (templateImageSrc) {
+        const b64 = templateImageSrc.startsWith("data:")
+            ? templateImageSrc.replace(/^data:[^,]+,/, "")
+            : await fetchImageAsBase64(templateImageSrc);
+        if (b64) {
+            payload.referenceB64 = b64;
+            payload.referenceMime = "image/png";
+        }
+    }
+
     const response = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "ai_prompt", prompt }),
+        body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -44,6 +58,21 @@ export async function requestAiPromptVariant(prompt) {
 
     const data = await response.json();
     return { text: data?.text || "AI variant generated.", imageUrl: data?.b64 ? `data:image/png;base64,${data.b64}` : data?.url || null };
+}
+
+async function fetchImageAsBase64(url) {
+    try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result?.replace(/^data:[^,]+,/, "") || null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch {
+        return null;
+    }
 }
 
 function getAiPromptCharacters(value) {
@@ -188,7 +217,8 @@ export function configureAiPrompting({ dom, state, render, recordEditorSnapshot 
         render();
 
         try {
-            const result = await requestAiPromptVariant(prompt);
+            const templateSrc = state.editor.generatedImage || state.editor.templateImage || null;
+            const result = await requestAiPromptVariant(prompt, templateSrc);
             appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
             if (result?.imageUrl) {
                 state.editor.generatedImage = result.imageUrl;

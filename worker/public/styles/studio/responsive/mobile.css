@@ -53,9 +53,32 @@
     }
 
     .share-action {
-        min-height: 28px;
-        padding: 0 12px;
-        font-size: 0.72rem;
+        width: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        color: rgba(246, 247, 251, 0.82);
+    }
+
+    .share-action > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+
+    .share-action:not(:disabled):hover,
+    .share-action:not(:disabled):active {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        transform: none;
     }
 
     .project-menu-cta {

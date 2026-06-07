@@ -431,7 +431,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(0);
 
-    vi.advanceTimersByTime(5001);
+    vi.advanceTimersByTime(45001);
     expect(dom.faceSwapLoaderDelay.classList.contains("hidden")).toBe(false);
 
     resolveRequest({ ok: true, json: async () => ({ generatedImageUrl: "/generated/slow.png" }) });
