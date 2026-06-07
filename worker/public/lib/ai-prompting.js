@@ -5,6 +5,7 @@
  */
 
 import { getLoadErrorMessage } from "./loadErrors.js";
+import { createEditorSnapshot } from "./editor.js";
 
 /** Maximum characters allowed in the AI prompt input. */
 const AI_PROMPT_CHARACTER_LIMIT = 500;
@@ -192,6 +193,7 @@ export function configureAiPrompting({ dom, state, render, recordEditorSnapshot 
             if (result?.imageUrl) {
                 state.editor.generatedImage = result.imageUrl;
                 if (typeof recordEditorSnapshot === "function") recordEditorSnapshot();
+                state.editor.initialSnapshot = createEditorSnapshot();
             }
             finishRequest();
             if (dom.aiPromptInput) dom.aiPromptInput.value = "";

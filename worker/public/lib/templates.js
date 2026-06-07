@@ -152,7 +152,7 @@ export async function loadTemplateCatalog({ loadTemplates }) {
 
 export async function renderTemplates({ dom, clamp, openStudioForTemplate }) {
     if (state.activeTemplateTab === "recents") {
-        await renderMemeHistory({ dom });
+        await renderMemeHistory({ dom, openStudioForTemplate });
         return;
     }
     const templates = getVisibleTemplates();
@@ -225,7 +225,7 @@ export async function renderTemplates({ dom, clamp, openStudioForTemplate }) {
     });
 }
 
-async function renderMemeHistory({ dom }) {
+async function renderMemeHistory({ dom, openStudioForTemplate }) {
     const history = await getMemeHistory();
     dom.templateGrid.innerHTML = "";
 
@@ -237,7 +237,8 @@ async function renderMemeHistory({ dom }) {
     dom.templateEmpty.classList.add("hidden");
 
     history.forEach((entry) => {
-        const card = document.createElement("div");
+        const card = document.createElement("button");
+        card.type = "button";
         card.className = "template-card history-card";
 
         const art = document.createElement("span");
@@ -258,6 +259,19 @@ async function renderMemeHistory({ dom }) {
 
         art.appendChild(img);
         card.append(art, label);
+
+        if (entry.templateId && state.templateCatalog.find((t) => t.id === entry.templateId)) {
+            card.addEventListener("click", () => openStudioForTemplate(entry.templateId));
+        } else if (entry.thumb) {
+            card.addEventListener("click", () => {
+                state.selectedTemplateId = entry.templateId || null;
+                state.view = "studio";
+                state.editor.templateImage = entry.thumb;
+                state.editor.generatedImage = "";
+                state.editor.initialSnapshot = null;
+            });
+        }
+
         dom.templateGrid.appendChild(card);
     });
 }

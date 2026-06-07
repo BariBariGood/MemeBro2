@@ -8,6 +8,7 @@
 import { state } from "./state.js";
 import { compressForUpload } from "./compressImage.js";
 import { DEFAULT_MEME_TEXT } from "./constants.js";
+import { createEditorSnapshot } from "./editor.js";
 
 export function startFaceSwapLoadingState({ render }) {
     state.isSubmittingFaceSwap   = true;
@@ -130,6 +131,7 @@ export async function submitSelectedFace({
     _state.view = "studio";
     _state.showResetConfirmation  = false;
     recordEditorSnapshot();
+    _state.editor.initialSnapshot = createEditorSnapshot();
     render();
     return payload;
 }
