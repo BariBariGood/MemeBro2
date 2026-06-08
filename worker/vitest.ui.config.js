@@ -13,6 +13,8 @@ export default defineConfig({
 			"test/tests.test.js",
 			"test/frontendAssets.test.js",
 			"test/app.inline-edit-loader.test.js",
+			"test/recents.test.js",
+			"test/save.test.js",
 		],
 	},
 });

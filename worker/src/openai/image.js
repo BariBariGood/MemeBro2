@@ -118,19 +118,18 @@ export async function buildImageResponseFromBody(body, env, options = {}) {
     ? body.size
     : "1024x1024";
 
-  const model = env.OPENAI_IMAGE_MODEL || "gpt-image-1";
+  const model = env.OPENAI_IMAGE_MODEL || "gpt-image-2";
 
-  // ai_prompt is strictly text-to-image: ignore any reference/template images
-  // so behavior is deterministic and the safety prefix is never buried behind
-  // the image-edit hint in callEditsEndpoint.
-  const hasRef = !isAiPromptMode && Boolean(body?.referenceB64);
+  // When the client sends a reference image with ai_prompt mode, use it so
+  // OpenAI edits the existing template instead of generating from scratch.
+  const hasRef = Boolean(body?.referenceB64);
   const mode = ALLOWED_MODES.includes(body?.mode)
     ? body.mode
     : hasRef
       ? "cast"
       : "generate";
 
-  if (!isAiPromptMode && body?.referenceB64 && String(body.referenceB64).length > MAX_REF_BYTES) {
+  if (body?.referenceB64 && String(body.referenceB64).length > MAX_REF_BYTES) {
     return imageError(throwErrors, {
       status: 413,
       gatewayCode: ErrorCodes.PAYLOAD_TOO_LARGE,
@@ -139,7 +138,7 @@ export async function buildImageResponseFromBody(body, env, options = {}) {
     });
   }
 
-  if (!isAiPromptMode && body?.templateRefB64 && String(body.templateRefB64).length > MAX_REF_BYTES) {
+  if (body?.templateRefB64 && String(body.templateRefB64).length > MAX_REF_BYTES) {
     return imageError(throwErrors, {
       status: 413,
       gatewayCode: ErrorCodes.PAYLOAD_TOO_LARGE,

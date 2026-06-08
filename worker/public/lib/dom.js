@@ -1,5 +1,12 @@
+/**
+ * @module dom
+ * Cached references to every DOM element the MemeBro app interacts with.
+ * Populated once at module load so selectors run only on boot.
+ */
+
 const memeOutlineRemoveCompat = document.getElementById("meme-outline-remove-cta");
 
+/** @type {object} Map of named DOM element references. */
 export const dom = {
   uploadPage: document.querySelector(".upload-page"),
   titleScreen: document.getElementById("title-screen"),
@@ -48,8 +55,11 @@ export const dom = {
   memeOutlineColorInput: document.getElementById("meme-outline-color-input"),
   outlineColorGroup: document.querySelector(".toolbar-color-group--outline"),
   memeOutlineRemoveCta: memeOutlineRemoveCompat,
+  colorSwatches: document.querySelectorAll(".color-swatch"),
+  memeTextCharWarn: document.getElementById("meme-text-char-warn"),
   undoCta: document.getElementById("undo-cta"),
   redoCta: document.getElementById("redo-cta"),
+  saveStatusEl: document.getElementById("save-status"),
   resetCta: document.getElementById("reset-cta"),
   resetConfirmation: document.getElementById("reset-confirmation"),
   resetConfirmationBackdrop: document.getElementById("reset-confirmation-backdrop"),
@@ -99,6 +109,7 @@ export const dom = {
   errorState: document.getElementById("error-state"),
   errorMessage: document.getElementById("error-message"),
   errorRetryCta: document.getElementById("error-retry-cta"),
+  errorNewPhotoCta: document.getElementById("error-new-photo-cta"),
   templateScreen: document.getElementById("template-screen"),
   templateSearch: document.getElementById("template-search"),
   templateTabs: document.getElementById("template-tabs"),
@@ -110,7 +121,9 @@ export const dom = {
   manualControls: document.getElementById("manual-controls"),
   manualZoom: document.getElementById("manual-zoom"),
   manualRotation: document.getElementById("manual-rotation"),
+  zoomBadge: document.getElementById("zoom-badge"),
   faceSwapLoader: document.getElementById("face-swap-loader"),
+  faceSwapLoaderOptimizing: document.getElementById("face-swap-loader-optimizing"),
   faceSwapLoaderDelay: document.getElementById("face-swap-loader-delay"),
   faceSwapLoaderCancel: document.getElementById("face-swap-loader-cancel"),
 };

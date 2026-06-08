@@ -23,6 +23,6 @@
 
 .pink-action {
   background: var(--color-pink);
-  color: var(--color-white);
+  color: var(--color-ink);
   box-shadow: 0 0 24px rgba(240, 68, 189, 0.25);
 }
