@@ -537,7 +537,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
 
     expect(state.view).toBe("ai_prompt");
     expect(state.aiPrompt.panelState).toBe("open");
-    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptScreen.classList.contains("hidden")).toBe(false);
     expect(dom.aiPromptInput.tagName).toBe("TEXTAREA");
     expect(dom.aiPromptInput.getAttribute("placeholder")).toBe("What kind of meme would you like?");
     expect(dom.aiPromptInput.getAttribute("aria-label")).toBe("Prompt AI for meme changes");
