@@ -39,7 +39,12 @@ export function registerEvents(ctx) {
 
     const loadErrorCodes = new Set(["FEATURE_DISABLED", "QUEUE_FULL", "RATE_LIMITED"]);
     // AI prompting owns its own listeners; events.js only coordinates cross-feature interactions.
-    const aiPrompting = configureAiPrompting({ dom, state, render });
+    const aiPrompting = configureAiPrompting({
+        dom,
+        state,
+        render,
+        routeAiImageToFaceSwap: ctx.routeAiImageToFaceSwap,
+    });
 
     async function submitFaceSwapWithErrorHandling() {
         try {
@@ -125,6 +130,8 @@ export function registerEvents(ctx) {
         dom, state, render, renderOverlay,
         getSelectedFaces, selectSingleFace, setStatus, detectFaces,
         getRenderedSize, hasUnsavedStudioEdits, renderTemplates,
+        initializeEditorState: ctx.initializeEditorState,
+        persistEditorHistory: ctx.persistEditorHistory,
         clamp, normalizeBox, STATES,
     });
 

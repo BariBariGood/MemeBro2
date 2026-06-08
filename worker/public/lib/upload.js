@@ -10,10 +10,30 @@ const uploadDeps = {
   getRenderedSize: null,
   hasUnsavedStudioEdits: null,
   renderTemplates: null,
+  initializeEditorState: null,
+  persistEditorHistory: null,
   clamp: null,
   normalizeBox: null,
   STATES: null,
 };
+
+function createDefaultFaceRegion(width = 1024, height = 1024) {
+  const regionSize = Math.round(Math.min(width, height) * 0.35);
+  return {
+    x: Math.round((width - regionSize) / 2),
+    y: Math.round((height - regionSize) / 2),
+    width: regionSize,
+    height: regionSize,
+  };
+}
+
+function normalizeAiImageSource(imageSource) {
+  if (!imageSource || typeof imageSource !== "string") return "";
+  if (imageSource.startsWith("data:") || imageSource.startsWith("/") || imageSource.startsWith("http")) {
+    return imageSource;
+  }
+  return `data:image/png;base64,${imageSource}`;
+}
 
 function getDep(key) {
   const value = uploadDeps[key];
@@ -416,28 +436,40 @@ export function moveManualDrag(event) {
   renderOverlay();
 }
 
-export async function routeAiImageToFaceSwap(b64String) {
+export async function routeAiImageToFaceSwap(imageSource) {
   const state = getDep("state");
   const render = getDep("render");
-  const STATES = getDep("STATES"); 
+  const STATES = getDep("STATES");
+  const dataUri = normalizeAiImageSource(imageSource);
+  if (!dataUri) return;
 
-  const dataUri = b64String.startsWith("data:") 
-    ? b64String 
-    : `data:image/png;base64,${b64String}`;
-
+  const width = 1024;
+  const height = 1024;
   const dynamicTemplateId = `ai-template-${Date.now()}`;
   const aiTemplate = {
     id: dynamicTemplateId,
     name: "AI Generated",
-    images: { main: dataUri, width: 1024, height: 1024 },
-    faceRegions: [] 
+    templateImage: dataUri,
+    images: { main: dataUri, width, height },
+    faceRegions: [createDefaultFaceRegion(width, height)],
   };
 
+  if (!Array.isArray(state.templateCatalog)) state.templateCatalog = [];
   state.templateCatalog.push(aiTemplate);
   state.selectedTemplateId = dynamicTemplateId;
 
-  // Wipe the UI State (Close menus and modals)
-  state.status = STATES ? STATES.IDLE : "idle";
+  state.error = null;
+  state.faces = [];
+  state.selectedFaceId = null;
+  state.selectedFaceIds = [];
+  state.imageBitmap = null;
+  state.previewUrl = "";
+  state.file = null;
+  state.manualMode = false;
+  state.isAiPromptPanelOpen = false;
+  if (state.aiPrompt) state.aiPrompt.panelState = "closed";
+
+  state.status = STATES.IDLE;
   state.view = "studio";
   state.uploadModalOpen = false;
   state.projectMenuOpen = false;
@@ -446,16 +478,22 @@ export async function routeAiImageToFaceSwap(b64String) {
   state.isEditingMemeText = false;
   state.isTextSelected = false;
   state.showTextMore = false;
-  
-  // Wipe the Editor & History State
-  if (!state.editor) state.editor = {};
-  state.editor.templateImage = dataUri;
-  state.editor.generatedImage = "";
-  state.editor.frozenTextItems = []; 
-  state.editor.overlayVisible = false; 
-  state.editor.historyStack = []; 
-  state.editor.futureStack = []; 
-  state.editor.initialSnapshot = null;
+
+  if (typeof uploadDeps.initializeEditorState === "function") {
+    uploadDeps.initializeEditorState();
+  } else if (state.editor) {
+    state.editor.templateImage = dataUri;
+    state.editor.generatedImage = "";
+    state.editor.frozenTextItems = [];
+    state.editor.overlayVisible = false;
+    state.editor.historyStack = [];
+    state.editor.futureStack = [];
+    state.editor.initialSnapshot = null;
+  }
+
+  if (typeof uploadDeps.persistEditorHistory === "function") {
+    uploadDeps.persistEditorHistory();
+  }
 
   render();
 }

@@ -1,4 +1,5 @@
 import { getLoadErrorMessage } from "./loadErrors.js";
+import { extractGeneratedImageUrl } from "./templates.js";
 
 const AI_PROMPT_CHARACTER_LIMIT = 500;
 const AI_PROMPT_COUNTER_WARNING_AT = AI_PROMPT_CHARACTER_LIMIT - 50;
@@ -58,7 +59,7 @@ export function renderAiPromptLoadMode({ dom, state }) {
         : getLoadErrorMessage(state.aiPrompt?.error) || "Something went sideways. Retry when you are ready.";
 }
 
-export function configureAiPrompting({ dom, state, render }) {
+export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwap }) {
     function enforceAiPromptCharacterLimit() {
         if (!dom.aiPromptInput) return 0;
         const characters = getAiPromptCharacters(dom.aiPromptInput.value);
@@ -160,9 +161,18 @@ export function configureAiPrompting({ dom, state, render }) {
 
         try {
             const result = await requestAiPromptVariant(prompt);
-            appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
-            finishRequest();
-            if (dom.aiPromptInput) dom.aiPromptInput.value = "";
+            const generatedImage = extractGeneratedImageUrl(result);
+
+            if (generatedImage && typeof routeAiImageToFaceSwap === "function") {
+                closePanelSilently();
+                await routeAiImageToFaceSwap(generatedImage);
+                finishRequest();
+                if (dom.aiPromptInput) dom.aiPromptInput.value = "";
+            } else {
+                appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
+                finishRequest();
+                if (dom.aiPromptInput) dom.aiPromptInput.value = "";
+            }
         } catch (error) {
             failRequest(error);
         }

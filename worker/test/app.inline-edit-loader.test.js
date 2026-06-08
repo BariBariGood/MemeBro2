@@ -681,6 +681,39 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     });
   });
 
+  test("custom: AI prompt image response routes into studio face-swap template", async () => {
+    const generatedB64 = "YWJjZGVmZ2hpams=";
+    globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = vi.fn(async () => ({
+      b64: generatedB64,
+      mimeType: "image/png",
+    }));
+
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+
+    seedStudioEditorState(state);
+    render();
+
+    dom.aiPromptCta.click();
+    dom.aiPromptInput.value = "make a cat meme";
+    dom.aiPromptForm.requestSubmit();
+
+    await vi.waitFor(() => {
+      expect(state.aiPrompt.requestState).toBe("idle");
+      expect(state.view).toBe("studio");
+      expect(state.selectedTemplateId).toMatch(/^ai-template-/);
+      expect(state.isAiPromptPanelOpen).toBe(false);
+      expect(state.aiPrompt.panelState).toBe("closed");
+    });
+
+    const aiTemplate = state.templateCatalog.find((entry) => entry.id === state.selectedTemplateId);
+    expect(aiTemplate?.faceRegions).toHaveLength(1);
+    expect(aiTemplate?.faceRegions?.[0]?.width).toBeGreaterThan(0);
+    expect(state.editor.templateImage).toBe(`data:image/png;base64,${generatedB64}`);
+    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(true);
+  });
+
   test.each([
     ["FEATURE_DISABLED", "temporarily unavailable"],
     ["QUEUE_FULL", "heavy load"],
