@@ -5,7 +5,7 @@
  */
 
 import { getLoadErrorMessage } from "./loadErrors.js";
-import { createEditorSnapshot } from "./editor.js";
+import { extractGeneratedImageUrl } from "./templates.js";
 
 /** Maximum characters allowed in the AI prompt input. */
 const AI_PROMPT_CHARACTER_LIMIT = 500;
@@ -109,7 +109,7 @@ export function renderAiPromptLoadMode({ dom, state }) {
         : getLoadErrorMessage(state.aiPrompt?.error) || "Something went sideways. Retry when you are ready.";
 }
 
-export function configureAiPrompting({ dom, state, render, recordEditorSnapshot }) {
+export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwap }) {
     function enforceAiPromptCharacterLimit() {
         if (!dom.aiPromptInput) return 0;
         const characters = getAiPromptCharacters(dom.aiPromptInput.value);
@@ -161,16 +161,12 @@ export function configureAiPrompting({ dom, state, render, recordEditorSnapshot 
     }
 
     function openPanel() {
+        state.view = "ai_prompt";
         setPanelOpen(true);
         render();
         syncKeyboardOffset();
         syncInputState();
         dom.aiPromptInput?.focus();
-    }
-
-    function closePanel() {
-        setPanelOpen(false);
-        render();
     }
 
     function closePanelSilently() {
@@ -217,16 +213,19 @@ export function configureAiPrompting({ dom, state, render, recordEditorSnapshot 
         render();
 
         try {
-            const templateSrc = state.editor.generatedImage || state.editor.templateImage || null;
-            const result = await requestAiPromptVariant(prompt, templateSrc);
-            appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
-            if (result?.imageUrl) {
-                state.editor.generatedImage = result.imageUrl;
-                if (typeof recordEditorSnapshot === "function") recordEditorSnapshot();
-                state.editor.initialSnapshot = createEditorSnapshot();
+            const result = await requestAiPromptVariant(prompt);
+            const generatedImage = extractGeneratedImageUrl(result);
+
+            if (generatedImage && typeof routeAiImageToFaceSwap === "function") {
+                closePanelSilently();
+                await routeAiImageToFaceSwap(generatedImage);
+                finishRequest();
+                if (dom.aiPromptInput) dom.aiPromptInput.value = "";
+            } else {
+                appendAiPromptMessage("assistant", result?.text || AI_PROMPT_PLACEHOLDER_RESPONSE);
+                finishRequest();
+                if (dom.aiPromptInput) dom.aiPromptInput.value = "";
             }
-            finishRequest();
-            if (dom.aiPromptInput) dom.aiPromptInput.value = "";
         } catch (error) {
             appendAiPromptMessage("system", error?.message || "Something went wrong. Try again.");
             failRequest(error);
@@ -256,7 +255,6 @@ export function configureAiPrompting({ dom, state, render, recordEditorSnapshot 
     window.visualViewport?.addEventListener("scroll", syncKeyboardOffset);
 
     dom.aiPromptCta?.addEventListener("click", openPanel);
-    dom.aiPromptCloseCta?.addEventListener("click", closePanel);
     dom.aiPromptInput?.addEventListener("focus", syncKeyboardOffset);
     dom.aiPromptInput?.addEventListener("blur", syncKeyboardOffset);
     dom.aiPromptInput?.addEventListener("input", syncInputState);
@@ -265,9 +263,6 @@ export function configureAiPrompting({ dom, state, render, recordEditorSnapshot 
     dom.aiPromptRetryCta?.addEventListener("click", retryPrompt);
 
     return {
-        closePanel,
         closePanelSilently,
-        syncInputState,
-        syncKeyboardOffset,
     };
 }
