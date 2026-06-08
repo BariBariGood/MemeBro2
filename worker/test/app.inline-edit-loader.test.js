@@ -589,6 +589,36 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(state.editor.overlayAutoScale).toBeLessThan(1);
   });
 
+  test("custom: rotated text drags to template edges using its rotated bounds", async () => {
+    const { __testHooks } = await loadApp();
+    await settleApp();
+    const { state, dom, render } = __testHooks;
+    const { moveTextDrag } = await import("../public/lib/textOverlay.js");
+
+    seedStudioEditorState(state);
+    state.editor.overlayText = "ROTATED";
+    state.editor.overlayX = 50;
+    state.editor.overlayY = 50;
+    state.editor.overlayWidthPct = 48;
+    state.editor.overlayRotation = 90;
+    state.textDragPointerId = 1;
+    state.textPointerStartX = 150;
+    state.textPointerStartY = 100;
+    state.textStartX = 50;
+    state.textStartY = 50;
+    dom.studioTemplateArt.getBoundingClientRect = () => ({ width: 300, height: 200 });
+    Object.defineProperty(dom.memeTextPreview, "offsetWidth", { configurable: true, value: 144 });
+    Object.defineProperty(dom.memeTextPreview, "offsetHeight", { configurable: true, value: 40 });
+    render();
+
+    moveTextDrag(
+      { pointerId: 1, clientX: -300, clientY: 100, preventDefault: vi.fn() },
+      { dom, clamp: (value, min, max) => Math.min(Math.max(value, min), max), render }
+    );
+
+    expect(state.editor.overlayX).toBeCloseTo(6.67, 1);
+  });
+
   test("custom: studio template uses full image source without cover-cropping", async () => {
     const { __testHooks } = await loadApp();
     await settleApp();
