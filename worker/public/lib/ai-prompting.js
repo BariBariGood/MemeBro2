@@ -111,6 +111,7 @@ export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwa
     }
 
     function openPanel() {
+        state.view = "ai_prompt";
         setPanelOpen(true);
         render();
         syncKeyboardOffset();
@@ -120,6 +121,7 @@ export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwa
 
     function closePanel() {
         setPanelOpen(false);
+        state.view = "templates";
         render();
     }
 
@@ -201,7 +203,6 @@ export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwa
     window.visualViewport?.addEventListener("scroll", syncKeyboardOffset);
 
     dom.aiPromptCta?.addEventListener("click", openPanel);
-    dom.aiPromptCloseCta?.addEventListener("click", closePanel);
     dom.aiPromptInput?.addEventListener("focus", syncKeyboardOffset);
     dom.aiPromptInput?.addEventListener("blur", syncKeyboardOffset);
     dom.aiPromptInput?.addEventListener("input", syncInputState);

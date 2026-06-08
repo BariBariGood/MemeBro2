@@ -123,7 +123,17 @@ export function registerEvents(ctx) {
 
     // ── Navigation ───────────────────────────────
     dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
-    dom.backBtn.addEventListener("click", goBackToUploadChoices);
+    dom.backBtn.addEventListener("click", () => {
+        if (state.view === "ai_prompt") {
+            state.view = "templates";
+            state.isAiPromptPanelOpen = false;
+            if (state.aiPrompt) state.aiPrompt.panelState = "closed";
+            render();
+            renderTemplates();
+            return;
+        }
+        goBackToUploadChoices();
+    });
 
     // ── Upload configuration ─────────────────────
     configureUpload({
