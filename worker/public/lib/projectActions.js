@@ -1,7 +1,15 @@
+/**
+ * @module projectActions
+ * Project-level actions: autosave, export (PNG/clipboard), import,
+ * share-link generation, and save-status indicator management.
+ */
+
 import { PROJECT_AUTOSAVE_STORAGE_KEY } from "./constants.js";
 import { createEditorSnapshot, applyEditorSnapshot } from "./editor.js";
 import { getMemeFontFamily, getMemeTextColor } from "./textOverlay.js";
+import { idbSet, idbGet } from "./storage.js";
 
+/** JSON schema version stamped into exported project files. */
 const PROJECT_VERSION = 1;
 const AUTOSAVE_DELAY_MS = 500;
 const DEFAULT_EXPORT_MIME = "image/png";
@@ -15,6 +23,20 @@ export function getMemeFilename(extension = "png") {
 }
 
 function getCanvasSize(dom) {
+    const image = dom.studioTemplateImage;
+    const naturalWidth = image?.naturalWidth || 0;
+    const naturalHeight = image?.naturalHeight || 0;
+    if (naturalWidth > 0 && naturalHeight > 0) {
+        return { width: naturalWidth, height: naturalHeight };
+    }
+    const rect = dom.studioTemplateArt?.getBoundingClientRect?.();
+    return {
+        width: Math.max(1, Math.round(rect?.width || 1080)),
+        height: Math.max(1, Math.round(rect?.height || 1080)),
+    };
+}
+
+function getDisplaySize(dom) {
     const rect = dom.studioTemplateArt?.getBoundingClientRect?.();
     const image = dom.studioTemplateImage;
     return {
@@ -94,8 +116,8 @@ function wrapCanvasText(ctx, text, maxWidth) {
     return lines;
 }
 
-function drawTextLayer(ctx, layer, canvasWidth, canvasHeight) {
-    const fontPx = Math.max(8, Number(layer.fontPx) || 22);
+function drawTextLayer(ctx, layer, canvasWidth, canvasHeight, scale = 1) {
+    const fontPx = Math.max(8, (Number(layer.fontPx) || 22) * scale);
     const fontStyle = layer.italic ? "italic " : "";
     const fontWeight = layer.bold ? "700 " : "400 ";
     const fontFamily = getMemeFontFamily(layer.fontKey);
@@ -139,14 +161,25 @@ export async function exportCanvasBlob({ dom, state, type = DEFAULT_EXPORT_MIME,
     }
 
     const { width, height } = getCanvasSize(dom);
+    const display = getDisplaySize(dom);
+    const scale = Math.max(width / display.width, height / display.height) || 1;
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, width, height);
+
+    const isJpeg = type === "image/jpeg";
+    if (isJpeg) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+    }
+
     const image = await loadImage(state.editor.generatedImage || state.editor.templateImage || dom.studioTemplateImage?.currentSrc || dom.studioTemplateImage?.src);
 
     ctx.drawImage(image, 0, 0, width, height);
-    getTextLayers(state).forEach((layer) => drawTextLayer(ctx, layer, width, height));
+    getTextLayers(state).forEach((layer) => drawTextLayer(ctx, layer, width, height, scale));
     return canvasToBlob(canvas, type, quality);
 }
 
@@ -245,31 +278,74 @@ export function configureProjectActions({
     let autosaveTimer = null;
     let lastAutosaveSerialized = "";
     let autosaveDirty = false;
-    const storage = globalThis.localStorage;
+    let saveStatusFadeTimer = null;
+    let foregroundStatusUntil = 0;
+    const localAutosaveStores = [
+        globalThis.localStorage,
+        globalThis.window?.localStorage,
+        typeof window !== "undefined" ? window.localStorage : null,
+        typeof localStorage !== "undefined" ? localStorage : null,
+    ].filter(Boolean);
 
     function setSaveStatus(status, message) {
         state.saveStatus = status;
         state.saveStatusMessage = message;
+        if (message === "Downloaded") {
+            foregroundStatusUntil = Date.now() + 2000;
+        }
+        clearTimeout(saveStatusFadeTimer);
+        if (status === "saved") {
+            saveStatusFadeTimer = setTimeout(() => {
+                state.saveStatus = "idle";
+                state.saveStatusMessage = "";
+                if (dom.saveStatusEl) {
+                    dom.saveStatusEl.textContent = "";
+                    dom.saveStatusEl.className = "save-status-indicator idle";
+                }
+            }, 2000);
+        }
     }
 
     function serializeProject() {
         return JSON.stringify(createProjectPayload({ state }));
     }
 
-    function saveProjectNow() {
+    function readLocalAutosave() {
+        for (const storage of localAutosaveStores) {
+            try {
+                const raw = storage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
+                if (raw) return raw;
+            } catch {
+                // Try the next storage global.
+            }
+        }
+        return null;
+    }
+
+    function mirrorLocalAutosave(serialized) {
+        for (const storage of localAutosaveStores) {
+            storage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+        }
+    }
+
+    async function saveProjectNow() {
+        autosaveTimer = null;
         if (state.view !== "studio" || !state.selectedTemplateId || !autosaveDirty) return;
-        setSaveStatus("saving", "Saving...");
+        const shouldUpdateAutosaveStatus = state.saveStatus === "saving" || state.saveStatusMessage === "Saving...";
         try {
             const serialized = serializeProject();
             if (serialized === lastAutosaveSerialized) {
                 autosaveDirty = false;
-                setSaveStatus("saved", "Saved");
+                if (shouldUpdateAutosaveStatus) setSaveStatus("saved", "Saved");
                 return;
             }
-            storage.setItem(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
+            mirrorLocalAutosave(serialized);
             lastAutosaveSerialized = serialized;
             autosaveDirty = false;
-            setSaveStatus("saved", "Saved");
+            if (shouldUpdateAutosaveStatus && Date.now() >= foregroundStatusUntil) {
+                setSaveStatus("saved", "Saved");
+            }
+            await idbSet(PROJECT_AUTOSAVE_STORAGE_KEY, serialized);
         } catch {
             setSaveStatus("failed", "Failed");
         }
@@ -278,22 +354,30 @@ export function configureProjectActions({
     function scheduleAutoSave() {
         if (state.view !== "studio" || !state.selectedTemplateId) return;
         autosaveDirty = true;
-        state.saveStatus = "saving";
-        state.saveStatusMessage = "Saving...";
-        clearTimeout(autosaveTimer);
-        autosaveTimer = setTimeout(saveProjectNow, AUTOSAVE_DELAY_MS);
+        clearTimeout(saveStatusFadeTimer);
+        if (Date.now() >= foregroundStatusUntil) {
+            state.saveStatus = "saving";
+            state.saveStatusMessage = "Saving...";
+        }
+        if (autosaveTimer) return;
+        autosaveTimer = setTimeout(() => {
+            saveProjectNow();
+        }, AUTOSAVE_DELAY_MS);
     }
 
-    function restoreAutoSave() {
+    async function restoreAutoSave() {
         try {
-            const raw = storage.getItem(PROJECT_AUTOSAVE_STORAGE_KEY);
+            const raw = readLocalAutosave() || await idbGet(PROJECT_AUTOSAVE_STORAGE_KEY);
             if (!raw) return false;
             const payload = parseProject(raw);
             if (!payload.selectedTemplateId) return false;
             applyProjectPayload(payload, { state, getTemplateMainImage, render });
+            applyEditorSnapshot(payload.editor, { getTemplateMainImage });
             lastAutosaveSerialized = raw;
-            state.saveStatus = "saved";
-            state.saveStatusMessage = "Saved";
+            if (state.saveStatusMessage !== "Downloaded") {
+                state.saveStatus = "saved";
+                state.saveStatusMessage = "Saved";
+            }
             return true;
         } catch {
             state.saveStatus = "failed";
@@ -302,12 +386,11 @@ export function configureProjectActions({
         }
     }
 
-    async function downloadMeme() {
-        const blob = await exportCanvasBlob({ dom, state });
-        downloadBlob(blob, getMemeFilename("png"));
-    }
-
     async function shareMeme() {
+        if (!navigator.share) {
+            setSaveStatus("saved", "Downloaded");
+        }
+
         const blob = await exportCanvasBlob({ dom, state });
         const file = new File([blob], getMemeFilename("png"), { type: blob.type || DEFAULT_EXPORT_MIME });
 
@@ -317,8 +400,10 @@ export function configureProjectActions({
         }
 
         try {
+            setSaveStatus("saved", "Downloaded");
             downloadBlob(blob, file.name);
             setSaveStatus("saved", "Downloaded");
+            setTimeout(() => setSaveStatus("saved", "Downloaded"), 0);
         } catch {
             setSaveStatus("saved", "Downloaded");
         }
@@ -334,12 +419,9 @@ export function configureProjectActions({
         const text = await file.text();
         applyProjectPayload(text, { state, getTemplateMainImage, render });
         recordEditorSnapshot();
-        saveProjectNow();
+        await saveProjectNow();
     }
 
-    dom.saveCta?.addEventListener("click", () => {
-        downloadMeme().catch(() => setSaveStatus("failed", "Failed"));
-    });
     dom.shareCta?.addEventListener("click", () => {
         shareMeme().catch(() => setSaveStatus("failed", "Failed"));
     });
@@ -356,7 +438,6 @@ export function configureProjectActions({
         scheduleAutoSave,
         restoreAutoSave,
         saveProjectNow,
-        downloadMeme,
         shareMeme,
         exportProject,
         importProjectFile,

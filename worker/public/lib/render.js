@@ -1,9 +1,13 @@
-// ─────────────────────────────────────────────
-// Main render function and overlay renderer.
-// ─────────────────────────────────────────────
+/**
+ * @module render
+ * Main render function and overlay renderer.
+ * Reads the global `state` object each call and imperatively updates
+ * the DOM to match: visibility of screens, error banners, template
+ * art, sidebar positioning, and the text-overlay preview.
+ */
 
-import { STATES } from "./constants.js";
-import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES } from "./loadErrors.js";
+import { STATES, MEME_TEXT_CHAR_WARN } from "./constants.js";
+import { getLoadErrorMessage, RETRYABLE_LOAD_ERROR_CODES, NEW_PHOTO_ERROR_CODES } from "./loadErrors.js";
 
 function positionStudioSidebar({ dom, showingStudio }) {
     const sidebar = dom.studioSidebar;
@@ -79,10 +83,14 @@ export function renderOverlay({
         button.style.top    = `${hitTop}px`;
         button.style.width  = `${hitWidth}px`;
         button.style.height = `${hitHeight}px`;
-        button.style.setProperty("--face-ring-left",   `${boxRendered.x - hitLeft}px`);
-        button.style.setProperty("--face-ring-top",    `${boxRendered.y - hitTop}px`);
-        button.style.setProperty("--face-ring-width",  `${boxRendered.width}px`);
-        button.style.setProperty("--face-ring-height", `${boxRendered.height}px`);
+        const ovalWidth = boxRendered.width;
+        const ovalHeight = Math.max(boxRendered.height, boxRendered.width * 1.3);
+        const ovalLeft = boxRendered.x - hitLeft - (ovalWidth - boxRendered.width) / 2;
+        const ovalTop = boxRendered.y - hitTop - (ovalHeight - boxRendered.height) / 2;
+        button.style.setProperty("--face-ring-left",   `${ovalLeft}px`);
+        button.style.setProperty("--face-ring-top",    `${ovalTop}px`);
+        button.style.setProperty("--face-ring-width",  `${ovalWidth}px`);
+        button.style.setProperty("--face-ring-height", `${ovalHeight}px`);
         button.disabled = !canSelectDetectedFaces;
         button.setAttribute("aria-pressed", String(isSelected));
         button.setAttribute("aria-label", `Select face ${index + 1} of ${state.faces.length}`);
@@ -90,6 +98,13 @@ export function renderOverlay({
         const ring = document.createElement("span");
         ring.className = "face-box-ring";
         button.appendChild(ring);
+
+        if (state.faces.length > 1) {
+            const label = document.createElement("span");
+            label.className = "face-box-label";
+            label.textContent = String(index + 1);
+            button.appendChild(label);
+        }
 
         button.addEventListener("click", () => {
         if (![STATES.FACES_FOUND, STATES.READY].includes(state.status)) return;
@@ -166,7 +181,20 @@ export function render(ctx) {
 
     // ── Studio ──
     dom.selectedTemplateLabel.textContent = selectedTemplate ? `Template: ${selectedTemplate.name}` : "";
-    if (showingStudio && selectedTemplate) renderStudioTemplate(selectedTemplate);
+    if (showingStudio && selectedTemplate) {
+        renderStudioTemplate(selectedTemplate);
+    } else if (showingStudio && !selectedTemplate && state.editor.templateImage) {
+        // "Drop a meme" flow — no template selected, render the dropped image directly.
+        const src = state.editor.generatedImage || state.editor.templateImage;
+        if (dom.studioTemplateImage.src !== src) {
+            dom.studioTemplateImage.src = src;
+            dom.studioTemplateImage.alt = "Dropped meme";
+        }
+        dom.studioTemplateArt.style.width  = "";
+        dom.studioTemplateArt.style.height = "";
+        dom.studioTemplateInitials.textContent = "";
+        dom.studioTemplateRegions.innerHTML = "";
+    }
     positionStudioSidebar({ dom, showingStudio });
 
     // ── Meme text ──
@@ -175,6 +203,8 @@ export function render(ctx) {
     dom.studioTemplateArt.classList.toggle("text-selected", state.isTextSelected);
     dom.memeTextPreview.setAttribute("contenteditable", state.isEditingMemeText ? "true" : "false");
     dom.memeTextPreview.classList.toggle("hidden", !state.editor.overlayVisible);
+    const isPlaceholder = (state.editor.overlayText || "").trim().toUpperCase() === "TAP TO EDIT TEXT";
+    dom.memeTextPreview.classList.toggle("is-placeholder", isPlaceholder && !state.isEditingMemeText);
     dom.memeTextHint?.classList.toggle("hidden",
         showingStudio && (state.editor.overlayVisible || state.editor.frozenTextItems.length > 0)
     );
@@ -213,6 +243,8 @@ export function render(ctx) {
 
     // ── Toolbar values ──
     dom.textLockCta.textContent      = state.isTextLocked ? "🔒" : "🔓";
+    dom.textLockCta.setAttribute("aria-label", state.isTextLocked ? "Unlock text position" : "Lock text position");
+    dom.textLockCta.setAttribute("aria-pressed", String(state.isTextLocked));
     dom.memeFontSelect.value         = state.editor.overlayFontKey;
     dom.memeFontSizeInput.value      = String(Math.round(state.editor.overlayFontPx || 22));
     dom.memeTextColorInput.value     = getMemeTextColor(state.editor.overlayTextColor);
@@ -221,9 +253,29 @@ export function render(ctx) {
     dom.textStyleBoldCta.classList.toggle("active",      state.editor.overlayBold);
     dom.textStyleItalicCta.classList.toggle("active",    state.editor.overlayItalic);
     dom.textStyleUnderlineCta.classList.toggle("active", state.editor.overlayUnderline);
+    dom.textStyleBoldCta.setAttribute("aria-pressed",      String(state.editor.overlayBold));
+    dom.textStyleItalicCta.setAttribute("aria-pressed",    String(state.editor.overlayItalic));
+    dom.textStyleUnderlineCta.setAttribute("aria-pressed", String(state.editor.overlayUnderline));
+
+    // ── Color swatches active state ──
+    const currentColor = getMemeTextColor(state.editor.overlayTextColor);
+    dom.colorSwatches?.forEach((swatch) => {
+        const COLORS = { black: "#000000", white: "#ffffff", red: "#d62828", blue: "#2563eb", yellow: "#ffd60a" };
+        const swatchHex = COLORS[swatch.dataset.colorKey];
+        swatch.classList.toggle("active", swatchHex === currentColor);
+    });
+
+    // ── Character limit warning ──
+    const charLen = (state.editor.overlayText || "").length;
+    if (dom.memeTextCharWarn) {
+        const showWarn = showingStudio && state.editor.overlayVisible && charLen >= MEME_TEXT_CHAR_WARN;
+        dom.memeTextCharWarn.classList.toggle("hidden", !showWarn);
+        if (showWarn) dom.memeTextCharWarn.textContent = `${charLen} / ${MEME_TEXT_CHAR_WARN} characters`;
+    }
 
     // ── Face swap loader ──
     dom.faceSwapLoader.classList.toggle("hidden",      !state.isSubmittingFaceSwap);
+    dom.faceSwapLoaderOptimizing.classList.toggle("hidden", !state.isOptimizingImage);
     dom.faceSwapLoaderDelay.classList.toggle("hidden", !state.showSlowFaceSwapMessage);
 
     // ── AI prompt load mode ──
@@ -234,6 +286,15 @@ export function render(ctx) {
     dom.undoCta.disabled  = state.editor.historyStack.length <= 1;
     dom.redoCta.disabled  = state.editor.futureStack.length === 0;
     dom.resetCta.disabled = !selectedTemplate;
+
+    // ── Save status indicator ──
+    if (dom.saveStatusEl) {
+        const status = state.saveStatus || "idle";
+        const isActive = showingStudio && status !== "idle";
+        const label = status === "saving" ? "Saving..." : status === "saved" ? "Saved" : status === "failed" ? "Failed" : "";
+        dom.saveStatusEl.textContent = label;
+        dom.saveStatusEl.className = "save-status-indicator " + status + (isActive ? " visible" : "");
+    }
 
     // ── Progress ──
     dom.progressWrap.classList.toggle("hidden",
@@ -247,10 +308,14 @@ export function render(ctx) {
     const errorMessage = getLoadErrorMessage(state.error);
     dom.errorState.classList.toggle("hidden", !state.error && state.status !== STATES.ERROR);
     dom.errorMessage.textContent = errorMessage;
-    dom.errorRetryCta?.classList.toggle("hidden", !RETRYABLE_LOAD_ERROR_CODES.has(errorCode));
+    const showRetry = Boolean(state.error) && (RETRYABLE_LOAD_ERROR_CODES.has(errorCode) || state.lastRetryableAction === "face_swap");
+    dom.errorRetryCta?.classList.toggle("hidden", !showRetry);
+    dom.errorNewPhotoCta?.classList.toggle("hidden", !NEW_PHOTO_ERROR_CODES.has(errorCode));
 
     // ── Preview image ──
-    if (state.previewUrl) dom.previewImage.src = state.previewUrl;
+    if (state.previewUrl && dom.previewImage.src !== state.previewUrl) {
+        dom.previewImage.src = state.previewUrl;
+    }
 
     // ── Status text ──
     if (state.status === STATES.FACES_FOUND) {
@@ -266,6 +331,10 @@ export function render(ctx) {
         else if (selectableFaceLimit > 1 && selectedFaceCount === 0)               dom.statusText.textContent = "Select a face to continue.";
         else if (selectableFaceLimit > 1 && selectedFaceCount > 1)                 dom.statusText.textContent = `${selectedFaceCount} faces selected and ready.`;
         else if (selectableFaceLimit > 1)                                          dom.statusText.textContent = `${selectedFaceCount || 1} face selected. Select another face or continue.`;
+        else if (state.faces.length > 1 && selectedFaceCount === 1) {
+            const selectedIdx = state.faces.findIndex((f) => state.selectedFaceIds.includes(f.id));
+            dom.statusText.textContent = `Face ${selectedIdx + 1} of ${state.faces.length} selected`;
+        }
         else                                                                       dom.statusText.textContent = "Face selected and ready.";
     } else {
         dom.statusText.textContent = "";

@@ -18,6 +18,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+// Verifies required Worker bindings are present before upstream calls run.
 describe("validateEnv", () => {
   it("passes when all required keys are present", () => {
     const env = { OPENAI_API_KEY: "sk-test123" };
@@ -39,6 +40,7 @@ describe("validateEnv", () => {
   });
 });
 
+// Confirms each supported meme mode maps to the correct upstream service.
 describe("routeRequest", () => {
   it("routes face_swap to the face-swap endpoint", () => {
     const env = {
@@ -69,6 +71,7 @@ describe("routeRequest", () => {
   });
 });
 
+// Exercises deadline handling for individual fetch attempts.
 describe("fetchWithTimeout", () => {
   it("returns response when fetch completes in time", async () => {
     const mockResponse = new Response(JSON.stringify({ ok: true }), {
@@ -127,6 +130,7 @@ describe("fetchWithTimeout", () => {
   });
 });
 
+// Covers retry behavior for transient upstream rate limits.
 describe("fetchWithRetry", () => {
   it("returns immediately on 200 with no retries", async () => {
     const mockFetch = vi
@@ -175,6 +179,7 @@ describe("fetchWithRetry", () => {
   );
 });
 
+// Tests the public gateway helper across routing, parsing, errors, and secrets.
 describe("callAPI", () => {
   const env = {
     OPENAI_API_KEY: "sk-test123",
@@ -301,6 +306,7 @@ describe("callAPI", () => {
   });
 });
 
+// Ensures sensitive tokens are removed before errors reach clients or logs.
 describe("redactSecrets", () => {
   it("redacts OpenAI-style keys and env secret values", () => {
     const message = "failed with sk-secret123 and custom-secret";

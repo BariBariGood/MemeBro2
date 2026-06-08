@@ -1,9 +1,22 @@
-// ─────────────────────────────────────────────
-// Template catalog, rendering, and navigation.
-// ─────────────────────────────────────────────
+/**
+ * @module templates
+ * Template catalog, rendering, and navigation.
+ * Handles fetching the meme template list, rendering template cards into
+ * the sidebar, tracking recently-used templates, and tab/search filtering.
+ */
 
 import { RECENTS_STORAGE_KEY } from "./constants.js";
 import { state } from "./state.js";
+import { recentMemeStorage } from "../js/recents.js";
+
+let recentThumbnailUrls = [];
+let templateRenderSequence = 0;
+let lastRenderedTemplateTab = state.activeTemplateTab;
+
+function clearRecentThumbnailUrls() {
+    recentThumbnailUrls.forEach((url) => URL.revokeObjectURL(url));
+    recentThumbnailUrls = [];
+}
 
 // ── Image source helpers ─────────────────────
 
@@ -134,6 +147,140 @@ export function getVisibleTemplates() {
 
 // ── Catalog loading ──────────────────────────
 
+export function syncTemplateTabs({ dom }) {
+    [...dom.templateTabs.querySelectorAll("[data-tab]")].forEach((button) => {
+        const active = button.dataset.tab === state.activeTemplateTab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", String(active));
+    });
+}
+
+function getRecentMemeTitle(metadata) {
+    const text = String(metadata?.textContent || "").trim();
+    if (text) return text;
+    const mode = String(metadata?.mode || "text").replace(/_/g, " ");
+    return `${mode} meme`;
+}
+
+function getRecentMemeAlt(metadata) {
+    return `Recent meme saved ${new Date(metadata.savedAt).toLocaleString()}`;
+}
+
+function matchesRecentMemeQuery(metadata, query) {
+    if (!query) return true;
+    const fields = [
+        metadata.id,
+        metadata.mode,
+        metadata.textContent,
+        new Date(metadata.savedAt).toLocaleString(),
+    ];
+    return fields.some((field) => String(field || "").toLowerCase().includes(query));
+}
+
+function renderRecentsEmptyState({ dom, renderTemplates }) {
+    dom.templateEmpty.classList.remove("hidden");
+    dom.templateEmpty.innerHTML = "";
+
+    const title = document.createElement("span");
+    title.className = "template-empty-title";
+    title.textContent = "No Recent Memes Yet.";
+
+    const copy = document.createElement("span");
+    copy.className = "template-empty-copy";
+    copy.textContent = "Create your first meme from the Trending Tab";
+
+    const cta = document.createElement("button");
+    cta.type = "button";
+    cta.className = "template-empty-cta";
+    cta.textContent = "Trending";
+    cta.addEventListener("click", () => {
+        state.activeTemplateTab = "trending";
+        syncTemplateTabs({ dom });
+        renderTemplates();
+    });
+
+    dom.templateEmpty.append(title, copy, cta);
+}
+
+function renderNoMatchingRecents({ dom }) {
+    dom.templateEmpty.classList.remove("hidden");
+    dom.templateEmpty.textContent = "No matching recent memes.";
+}
+
+async function createRecentMemeCard(metadata, index, { openStudioForRecentMeme }) {
+    const thumbnail = await recentMemeStorage.getThumbnail(metadata.id);
+    const card = document.createElement("button");
+    card.type = "button";
+    card.className = "template-card recent-meme-card";
+    card.dataset.recentMemeId = metadata.id;
+    card.style.setProperty("--template-hue", String((index * 37) % 360));
+
+    const art = document.createElement("span");
+    art.className = "template-art";
+    art.style.aspectRatio = `${thumbnail?.width || metadata.thumbnail?.width || 1} / ${thumbnail?.height || metadata.thumbnail?.height || 1}`;
+
+    const previewImage = document.createElement("img");
+    previewImage.className = "template-art-image";
+    previewImage.alt = getRecentMemeAlt(metadata);
+    previewImage.loading = "eager";
+    previewImage.decoding = "async";
+    previewImage.width = thumbnail?.width || metadata.thumbnail?.width || 256;
+    previewImage.height = thumbnail?.height || metadata.thumbnail?.height || 256;
+    previewImage.addEventListener("load", () => {
+        art.classList.add("image-ready");
+        previewImage.classList.add("is-loaded");
+    });
+    previewImage.addEventListener("error", () => {
+        art.classList.add("image-error");
+    });
+
+    if (thumbnail?.blob) {
+        const objectUrl = URL.createObjectURL(thumbnail.blob);
+        recentThumbnailUrls.push(objectUrl);
+        previewImage.src = objectUrl;
+    } else {
+        previewImage.src = "/assets/memes/placeholder-preview.svg";
+    }
+
+    const initials = document.createElement("span");
+    initials.className = "template-initials";
+    initials.textContent = "R";
+
+    const name = document.createElement("span");
+    name.className = "template-name";
+    name.textContent = getRecentMemeTitle(metadata);
+
+    art.append(previewImage, initials);
+    card.append(art, name);
+    card.addEventListener("click", () => openStudioForRecentMeme(metadata.id));
+    return card;
+}
+
+async function renderRecentMemes({ dom, openStudioForRecentMeme, renderTemplates, sequence }) {
+    const query = state.templateSearchQuery.trim().toLowerCase();
+    const metadata = recentMemeStorage.list();
+    const recents = metadata.filter((item) => matchesRecentMemeQuery(item, query));
+    dom.templateGrid.innerHTML = "";
+
+    if (metadata.length === 0) {
+        renderRecentsEmptyState({ dom, renderTemplates });
+        return;
+    }
+
+    if (recents.length === 0) {
+        renderNoMatchingRecents({ dom });
+        return;
+    }
+
+    dom.templateEmpty.classList.add("hidden");
+    const cards = await Promise.all(
+        recents.map((item, index) => createRecentMemeCard(item, index, { openStudioForRecentMeme }))
+    );
+    if (sequence !== templateRenderSequence || state.activeTemplateTab !== "recents") return;
+    dom.templateGrid.innerHTML = "";
+    cards.forEach((card) => dom.templateGrid.appendChild(card));
+}
+
 export async function loadTemplateCatalog({ loadTemplates }) {
     if (state.templateCatalog.length) return;
     try {
@@ -146,7 +293,24 @@ export async function loadTemplateCatalog({ loadTemplates }) {
 
 // ── DOM rendering ────────────────────────────
 
-export function renderTemplates({ dom, clamp, openStudioForTemplate }) {
+export async function renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme }) {
+    const sequence = ++templateRenderSequence;
+    const previousTemplateTab = lastRenderedTemplateTab;
+    lastRenderedTemplateTab = state.activeTemplateTab;
+    if (previousTemplateTab === "recents" && state.activeTemplateTab !== "recents") {
+        clearRecentThumbnailUrls();
+    }
+
+    if (state.activeTemplateTab === "recents") {
+        await renderRecentMemes({
+            dom,
+            openStudioForRecentMeme,
+            renderTemplates: () => renderTemplates({ dom, clamp, openStudioForTemplate, openStudioForRecentMeme }),
+            sequence,
+        });
+        return;
+    }
+
     const templates = getVisibleTemplates();
     dom.templateGrid.innerHTML = "";
     dom.templateEmpty.classList.toggle("hidden", templates.length > 0);
@@ -244,20 +408,29 @@ export function renderStudioTemplate(template, { dom, state: _state }) {
     dom.studioTemplateImage.alt = template.name;
     updateImageWithFallback(dom.studioTemplateImage, studioImageSources);
 
-    (template.faceRegions || []).slice(0, 4).forEach((region) => {
-        const marker = document.createElement("span");
-        marker.className    = "studio-template-region";
-        marker.style.left   = `${(region.x / width)  * 100}%`;
-        marker.style.top    = `${(region.y / height) * 100}%`;
-        marker.style.width  = `${Math.max(10, (region.width  / width)  * 100)}%`;
-        marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
-        dom.studioTemplateRegions.appendChild(marker);
-    });
+    if (!_state.editor.generatedImage) {
+        (template.faceRegions || []).slice(0, 4).forEach((region) => {
+            const marker = document.createElement("span");
+            marker.className    = "studio-template-region";
+            marker.style.left   = `${(region.x / width)  * 100}%`;
+            marker.style.top    = `${(region.y / height) * 100}%`;
+            marker.style.width  = `${Math.max(10, (region.width  / width)  * 100)}%`;
+            marker.style.height = `${Math.max(10, (region.height / height) * 100)}%`;
+            dom.studioTemplateRegions.appendChild(marker);
+        });
+    }
 }
 
 // ── Navigation ───────────────────────────────
 
-export function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
+export async function openStudioForTemplate(templateId, { recordTemplateUsage: recordUsage, initializeEditorState, restoreEditorSession, persistEditorHistory, render, STATES: S }) {
+    const hadEdits = state.selectedTemplateId
+        && state.selectedTemplateId !== templateId
+        && state.editor.historyStack.length > 1;
+    if (hadEdits) {
+        const ok = window.confirm("Switching templates will reset your edits. Continue?");
+        if (!ok) return;
+    }
     state.selectedTemplateId   = templateId;
     recordUsage(templateId);
     state.status               = S.IDLE;
@@ -267,7 +440,7 @@ export function openStudioForTemplate(templateId, { recordTemplateUsage: recordU
     state.showResetConfirmation = false;
     state.showBackConfirmation  = false;
     initializeEditorState();
-    if (!restoreEditorSession()) persistEditorHistory();
+    if (!(await restoreEditorSession())) persistEditorHistory();
     render();
 }
 
@@ -277,11 +450,7 @@ export async function showTemplateSelection({ loadTemplates: _loadTemplates, dom
     state.activeTemplateTab    = "trending";
     state.templateSearchQuery  = "";
     dom.templateSearch.value   = "";
-    [...dom.templateTabs.querySelectorAll("[data-tab]")].forEach((button) => {
-        const active = button.dataset.tab === state.activeTemplateTab;
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-selected", String(active));
-    });
+    syncTemplateTabs({ dom });
     render();
     _renderTemplates();
 }

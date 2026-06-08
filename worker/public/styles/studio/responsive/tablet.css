@@ -26,6 +26,12 @@
         color: var(--color-lime);
     }
 
+    .share-action {
+        min-height: 32px;
+        padding: 0 14px;
+        font-size: 0.78rem;
+    }
+
     .topbar-action,
     .project-menu-cta {
         color: rgba(246, 247, 251, 0.78);
@@ -36,6 +42,7 @@
     }
 
     .save-action .topbar-action-icon,
+    .share-action .topbar-action-icon,
     .topbar-action .topbar-action-icon {
         width: 20px;
         height: 20px;

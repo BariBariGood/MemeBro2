@@ -168,5 +168,6 @@ dist
 .wrangler/
 
 # Generated browser assets
+worker/public/hero/
 
 .DS_Store

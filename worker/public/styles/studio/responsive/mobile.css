@@ -52,11 +52,41 @@
         gap: 12px;
     }
 
+    .share-action {
+        width: 30px;
+        min-width: 30px;
+        min-height: 30px;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        color: rgba(246, 247, 251, 0.82);
+    }
+
+    .share-action > span {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+    }
+
+    .share-action:not(:disabled):hover,
+    .share-action:not(:disabled):active {
+        background: transparent;
+        border-color: transparent;
+        box-shadow: none;
+        transform: none;
+    }
+
     .project-menu-cta {
         color: rgba(246, 247, 251, 0.72);
     }
 
     .save-action .topbar-action-icon,
+    .share-action .topbar-action-icon,
     .topbar-action .topbar-action-icon {
         width: 20px;
         height: 20px;
@@ -126,10 +156,10 @@
         transform: translateX(-50%);
         z-index: 13;
         margin: 0;
-        padding: 7px 10px;
-        font-size: 0.62rem;
-        letter-spacing: 0.14em;
-        pointer-events: auto;
+        padding: 0;
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        pointer-events: none;
     }
 
     .title-center-copy h1 {

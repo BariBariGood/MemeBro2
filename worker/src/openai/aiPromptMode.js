@@ -27,12 +27,13 @@ export const MAX_AI_PROMPT_LENGTH = 800;
  * Keeps the outbound prompt concise so it does not eat into the user's idea.
  */
 export const AI_PROMPT_PREFIX =
-  "Generate a single meme image. " +
+  "Edit the attached meme image according to the instruction below. " +
+  "Preserve the original template layout, characters, and composition. " +
   "Render any caption text clearly and legibly. " +
   "Do not depict real public figures or copyrighted characters by name; " +
   "describe their visual appearance instead. " +
   "Keep content PG-13: no violence, slurs, or explicit material. " +
-  "Meme concept: ";
+  "Edit instruction: ";
 
 /**
  * Prepends the safety/format prefix to a raw user prompt.

@@ -1,3 +1,10 @@
+/**
+ * @module upload
+ * Upload, camera capture, and manual-fit flow.
+ * Handles file selection, drag-and-drop, live camera preview,
+ * camera snap/review, and the manual face-positioning mode.
+ */
+
 const uploadDeps = {
   dom: null,
   state: null,
@@ -80,10 +87,12 @@ export function clearFaceFitState() {
   state.manualRotation = 0;
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
+  state.gesture = null;
   state.dragPointerId = null;
   state.showResetConfirmation = false;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
   dom.previewImage.style.transform = "";
 }
 
@@ -208,7 +217,7 @@ export function alignManualViewToFace(face) {
     circle.width / (face.boxNatural.width * 1.18),
     circle.height / (face.boxNatural.height * 1.18)
   );
-  const manualScale = clamp(targetScale / base, 0.5, 2.2);
+  const manualScale = clamp(targetScale / base, 0.5, 3.0);
   const finalScale = base * manualScale;
   const displayedW = natural.width * finalScale;
   const displayedH = natural.height * finalScale;
@@ -225,6 +234,7 @@ export function alignManualViewToFace(face) {
   state.manualOffsetY = circleCenterY - faceCenterY * finalScale - baseTop;
   dom.manualZoom.value = String(manualScale);
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = `${Math.round(manualScale * 100)}%`;
 }
 
 export function enterManualMode(faceToAlign = null) {
@@ -237,8 +247,10 @@ export function enterManualMode(faceToAlign = null) {
   state.manualRotation = 0;
   state.manualOffsetX = 0;
   state.manualOffsetY = 0;
+  state.gesture = null;
   dom.manualZoom.value = "1";
   dom.manualRotation.value = "0";
+  if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
   requestAnimationFrame(() => {
     alignManualViewToFace(faceToAlign);
     applyManualTransform();
@@ -276,6 +288,9 @@ export async function startCameraCapture() {
     });
     state.cameraStream = stream;
     dom.cameraVideo.srcObject = stream;
+    // Explicitly start playback and wait for the first frame to avoid
+    // drawImage capturing an uninitialised buffer (causes garbled pixels).
+    try { await dom.cameraVideo.play(); } catch { /* autoplay fallback */ }
     render();
   } catch {
     dom.cameraInput.click();
@@ -289,14 +304,34 @@ export async function snapCameraPhoto() {
   const video = dom.cameraVideo;
   if (!video.videoWidth || !video.videoHeight) return;
 
+  // Ensure the video has at least one decoded frame available before capture.
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+    await new Promise((resolve) => {
+      video.addEventListener("canplay", resolve, { once: true });
+      setTimeout(resolve, 500);
+    });
+    if (!video.videoWidth || !video.videoHeight) return;
+  }
+
+  // Cap dimensions to avoid GPU memory issues on mobile devices.
+  const MAX_CAPTURE_EDGE = 2048;
+  let captureWidth = video.videoWidth;
+  let captureHeight = video.videoHeight;
+  if (captureWidth > MAX_CAPTURE_EDGE || captureHeight > MAX_CAPTURE_EDGE) {
+    const scale = MAX_CAPTURE_EDGE / Math.max(captureWidth, captureHeight);
+    captureWidth = Math.round(captureWidth * scale);
+    captureHeight = Math.round(captureHeight * scale);
+  }
+
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = captureWidth;
+  canvas.height = captureHeight;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  if (!ctx) return;
+  ctx.drawImage(video, 0, 0, captureWidth, captureHeight);
 
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-  if (!blob) return;
+  if (!blob || blob.size < 1000) return;
   const file = new File([blob], `camera-${Date.now()}.jpg`, { type: "image/jpeg" });
 
   clearCameraStream();
@@ -310,6 +345,7 @@ export async function snapCameraPhoto() {
 export async function useReviewedPhoto() {
   const state = getDep("state");
   const render = getDep("render");
+  const dom = getDep("dom");
   const detectFaces = getDep("detectFaces");
   if (!state.cameraReviewFile) return;
   const file = state.cameraReviewFile;
@@ -317,6 +353,14 @@ export async function useReviewedPhoto() {
   if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
   state.previewUrl = URL.createObjectURL(file);
   clearCameraReview();
+
+  // Pre-decode the image to guarantee the browser has pixel data ready before
+  // the overlay-shell becomes visible. This prevents corrupted/garbled frames
+  // caused by the browser attempting to render an img whose decode hasn't
+  // completed (particularly on mobile/GPU-composited surfaces).
+  dom.previewImage.src = state.previewUrl;
+  try { await dom.previewImage.decode(); } catch { /* non-fatal */ }
+
   render();
   await detectFaces(file);
 }
@@ -389,6 +433,7 @@ export function goBackToUploadChoices() {
     state.selectedFaceId = null;
     state.selectedFaceIds = [];
     state.error = null;
+    state.lastRetryableAction = null;
     state.imageBitmap = null;
     state.previewUrl = "";
     state.file = null;
@@ -400,12 +445,15 @@ export function goBackToUploadChoices() {
     state.manualRotation = 0;
     state.manualOffsetX = 0;
     state.manualOffsetY = 0;
+    state.gesture = null;
     state.dragPointerId = null;
     dom.cameraInput.value = "";
     dom.libraryInput.value = "";
     dom.manualZoom.value = "1";
     dom.manualRotation.value = "0";
+    if (dom.zoomBadge) dom.zoomBadge.textContent = "100%";
     dom.previewImage.style.transform = "";
+    dom.previewImage.removeAttribute("src");
     state.view = "studio";
     render();
   }
