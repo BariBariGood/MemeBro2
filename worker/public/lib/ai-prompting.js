@@ -119,12 +119,6 @@ export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwa
         dom.aiPromptInput?.focus();
     }
 
-    function closePanel() {
-        setPanelOpen(false);
-        state.view = "templates";
-        render();
-    }
-
     function closePanelSilently() {
         // Used by callers that are already about to render their own state change.
         setPanelOpen(false);
@@ -211,9 +205,6 @@ export function configureAiPrompting({ dom, state, render, routeAiImageToFaceSwa
     dom.aiPromptRetryCta?.addEventListener("click", retryPrompt);
 
     return {
-        closePanel,
         closePanelSilently,
-        syncInputState,
-        syncKeyboardOffset,
     };
 }

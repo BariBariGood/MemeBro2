@@ -14,7 +14,7 @@ export function registerEvents(ctx) {
         startManualFitFromSelection, startManualDrag, moveManualDrag,
         configureUpload, detectFaces,
         // Template
-        showTemplateSelection, renderTemplates, openStudioForTemplate,
+        showTemplateSelection, renderTemplates,
         // Text overlay
         createOrSelectTextAtPointer, selectTextObject, beginInlineTextEdit,
         finishInlineTextEdit, deleteMemeText, freezeCurrentTextItem,
@@ -28,7 +28,7 @@ export function registerEvents(ctx) {
         confirmBackAndResetStudio, recordEditorSnapshot,
         // Face swap
         submitSelectedFace,
-        startFaceSwapLoadingState, stopFaceSwapLoadingState,
+        stopFaceSwapLoadingState,
         // Render
         render, renderOverlay,
         // Misc
