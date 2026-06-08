@@ -724,7 +724,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(aiTemplate?.faceRegions).toHaveLength(1);
     expect(aiTemplate?.faceRegions?.[0]?.width).toBeGreaterThan(0);
     expect(state.editor.templateImage).toBe(`data:image/png;base64,${generatedB64}`);
-    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(true);
+    expect(dom.aiPromptScreen.classList.contains("hidden")).toBe(true);
   });
 
   test.each([
