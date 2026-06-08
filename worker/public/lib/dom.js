@@ -62,8 +62,6 @@ export const dom = {
   openUploadModalCta: document.getElementById("open-upload-modal-cta"),
   aiPromptCta: document.getElementById("ai-prompt-cta"),
   aiPromptScreen: document.getElementById("ai-prompt-screen"),
-  aiPromptPanel: document.getElementById("ai-prompt-screen"),
-  aiPromptCloseCta: document.getElementById("ai-prompt-close-cta"),
   aiPromptForm: document.getElementById("ai-prompt-form"),
   aiPromptInput: document.getElementById("ai-prompt-input"),
   aiPromptWordCount: document.getElementById("ai-prompt-word-count"),

@@ -193,7 +193,6 @@ export function configureAiPrompting({ dom, state, render }) {
     window.visualViewport?.addEventListener("scroll", syncKeyboardOffset);
 
     dom.aiPromptCta?.addEventListener("click", openPanel);
-    dom.aiPromptCloseCta?.addEventListener("click", closePanel);
     dom.aiPromptInput?.addEventListener("focus", syncKeyboardOffset);
     dom.aiPromptInput?.addEventListener("blur", syncKeyboardOffset);
     dom.aiPromptInput?.addEventListener("input", syncInputState);

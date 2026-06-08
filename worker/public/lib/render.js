@@ -146,7 +146,6 @@ export function render(ctx) {
     dom.studioScreen.classList.toggle("hidden", !showingStudio);
     dom.aiPromptScreen?.classList.toggle("hidden", !showingAiPrompt);
     dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
-    dom.aiPromptPanel?.classList.toggle("hidden", !showingAiPrompt || !aiPromptPanelOpen);
     dom.vibeContainer?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
     dom.backConfirmation.classList.toggle("hidden",  !showingStudio || !state.showBackConfirmation);

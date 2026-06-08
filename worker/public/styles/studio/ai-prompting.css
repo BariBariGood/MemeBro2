@@ -174,22 +174,3 @@
     padding-inline: 16px;
     border-radius: 22px;
 }
-
-.ai-prompt-form--standalone textarea {
-    min-height: 4.5rem;
-    max-height: 14rem;
-    border-radius: 26px;
-    padding: 22px 24px;
-    font-size: 1.12rem;
-}
-
-.ai-prompt-form--standalone .ai-prompt-submit-cta {
-    width: 4.5rem;
-    min-width: 4.5rem;
-    height: 4.5rem;
-    min-height: 4.5rem;
-    padding: 0;
-    border-radius: 50%;
-    font-size: 2rem;
-    line-height: 1;
-}
