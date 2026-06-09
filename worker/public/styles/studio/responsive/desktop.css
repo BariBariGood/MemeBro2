@@ -127,6 +127,11 @@
         box-shadow: var(--shadow-md), 0 0 24px var(--color-pink-glow);
     }
 
+    .studio-action.studio-share-action .vibe-icon {
+        background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+        box-shadow: var(--shadow-md), 0 0 22px rgba(99, 102, 241, 0.45);
+    }
+
     .studio-action .vibe-label {
         display: block;
         max-width: 110px;

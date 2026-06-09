@@ -377,6 +377,16 @@
   display: none;
 }
 
+.edit-with-ai-cta {
+  background: var(--color-pink);
+  color: var(--color-ink);
+  box-shadow: 0 0 18px rgba(240, 68, 189, 0.28);
+}
+
+.edit-with-ai-cta:not(:disabled):hover {
+  box-shadow: 0 0 26px rgba(240, 68, 189, 0.42), 0 12px 28px var(--black-28);
+}
+
 .template-bottom-actions .studio-action--upload {
   width: auto;
 }

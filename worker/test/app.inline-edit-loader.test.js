@@ -129,14 +129,14 @@ function createFakeIndexedDB() {
   };
 }
 
-function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
+function seedStudioEditorState(state, templateId = catalog.templates[0].id, options = {}) {
   const template = catalog.templates.find((entry) => entry.id === templateId) || catalog.templates[0];
 
   state.templateCatalog = catalog.templates;
   state.view = "studio";
   state.selectedTemplateId = template.id;
   state.editor.templateImage = template.templateImage || template.images.main || template.images.preview || "/assets/memes/placeholder.svg";
-  state.editor.generatedImage = "";
+  state.editor.generatedImage = options.swapImage === false ? "" : (options.swapImage || "/generated/test-swap.png");
   state.editor.overlayText = "Tap to edit text";
   state.editor.overlayVisible = true;
   state.editor.overlayFontKey = "impact";
@@ -148,7 +148,7 @@ function seedStudioEditorState(state, templateId = catalog.templates[0].id) {
   state.editor.initialSnapshot = {
     selectedTemplateId: template.id,
     templateImage: state.editor.templateImage,
-    generatedImage: "",
+    generatedImage: state.editor.generatedImage,
     overlayText: "Tap to edit text",
     overlayVisible: true,
     overlayFontKey: "impact",
@@ -624,7 +624,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    seedStudioEditorState(state, "expanding-brain");
+    seedStudioEditorState(state, "expanding-brain", { swapImage: false });
     render();
 
     const template = catalog.templates.find((entry) => entry.id === "expanding-brain");
@@ -862,24 +862,22 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
-    expect(dom.aiPromptCta.closest("#studio-screen")).toBeNull();
-    expect(dom.aiPromptCta.closest("#template-screen")).not.toBeNull();
+    expect(dom.aiPromptCta.closest("#studio-editor-tools")).not.toBeNull();
+    expect(dom.studioEditorTools.classList.contains("hidden")).toBe(false);
 
     dom.aiPromptCta.click();
 
-    expect(state.view).toBe("ai_prompt");
+    expect(state.view).toBe("studio");
     expect(state.aiPrompt.panelState).toBe("open");
-    expect(dom.aiPromptScreen.classList.contains("hidden")).toBe(false);
+    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(false);
     expect(dom.aiPromptInput.tagName).toBe("TEXTAREA");
-    expect(dom.aiPromptInput.getAttribute("placeholder")).toBe("What kind of meme would you like?");
+    expect(dom.aiPromptInput.getAttribute("placeholder")).toBe("Ask for a variant…");
     expect(dom.aiPromptInput.getAttribute("aria-label")).toBe("Prompt AI for meme changes");
     expect(document.querySelector('label[for="ai-prompt-input"]')).not.toBeNull();
-    expect(vibePanelCss).not.toMatch(/\.ai-prompt-panel/);
-    expect(aiPromptingCss).not.toMatch(/\.ai-prompt-panel/);
-    expect(dom.aiPromptForm.querySelector(".ai-prompt-submit-cta").textContent).toBe("→");
+    expect(aiPromptingCss).toMatch(/\.ai-prompt-panel textarea[\s\S]*font-size:\s*1rem/);
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*border-radius:\s*22px/);
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*resize:\s*none/);
     expect(aiPromptingCss).toMatch(/\.ai-prompt-form textarea[\s\S]*overflow-y:\s*auto/);
@@ -887,12 +885,11 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     expect(dom.aiPromptWordCount.textContent).toBe("0 / 500");
     expect(dom.aiPromptWordCount.classList.contains("hidden")).toBe(true);
 
-    dom.backBtn.click();
+    dom.aiPromptCloseCta.click();
 
-    expect(state.view).toBe("templates");
+    expect(state.view).toBe("studio");
     expect(state.aiPrompt.panelState).toBe("closed");
-    expect(dom.templateScreen.classList.contains("hidden")).toBe(false);
-    expect(dom.aiPromptScreen.classList.contains("hidden")).toBe(true);
+    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(true);
   });
 
   test("custom: text more button opens Copy/Paste/Link menu", async () => {
@@ -918,7 +915,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
     Object.defineProperty(dom.aiPromptInput, "scrollHeight", {
@@ -938,7 +935,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
     const characters = "a".repeat(505);
@@ -958,7 +955,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
     dom.aiPromptCta.click();
@@ -991,7 +988,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
     dom.aiPromptCta.click();
@@ -1010,7 +1007,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
     dom.aiPromptCta.click();
@@ -1029,7 +1026,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     });
   });
 
-  test("custom: AI prompt image response routes into studio face-swap template", async () => {
+  test("custom: AI prompt image response updates the current studio meme", async () => {
     const generatedB64 = "YWJjZGVmZ2hpams=";
     globalThis.__MEMEBRO_AI_PROMPT_REQUEST__ = vi.fn(async () => ({
       b64: generatedB64,
@@ -1041,25 +1038,21 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     const { state, dom, render } = __testHooks;
 
     seedStudioEditorState(state);
+    const originalTemplateId = state.selectedTemplateId;
     render();
 
     dom.aiPromptCta.click();
-    dom.aiPromptInput.value = "make a cat meme";
+    dom.aiPromptInput.value = "make it more dramatic";
     dom.aiPromptForm.requestSubmit();
 
     await vi.waitFor(() => {
       expect(state.aiPrompt.requestState).toBe("idle");
       expect(state.view).toBe("studio");
-      expect(state.selectedTemplateId).toMatch(/^ai-template-/);
-      expect(state.isAiPromptPanelOpen).toBe(false);
-      expect(state.aiPrompt.panelState).toBe("closed");
+      expect(state.selectedTemplateId).toBe(originalTemplateId);
+      expect(state.editor.generatedImage).toBe(`data:image/png;base64,${generatedB64}`);
     });
 
-    const aiTemplate = state.templateCatalog.find((entry) => entry.id === state.selectedTemplateId);
-    expect(aiTemplate?.faceRegions).toHaveLength(1);
-    expect(aiTemplate?.faceRegions?.[0]?.width).toBeGreaterThan(0);
-    expect(state.editor.templateImage).toBe(`data:image/png;base64,${generatedB64}`);
-    expect(dom.aiPromptScreen.classList.contains("hidden")).toBe(true);
+    expect(dom.aiPromptPanel.classList.contains("hidden")).toBe(false);
   });
 
   test.each([
@@ -1082,7 +1075,7 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     await settleApp();
     const { state, dom, render } = __testHooks;
 
-    state.view = "templates";
+    seedStudioEditorState(state);
     render();
 
     dom.aiPromptCta.click();
@@ -1184,6 +1177,8 @@ describe("US-03 scenario 7.4: inline text editing + face-swap loader", () => {
     render();
 
     expect(dom.openUploadModalCta.textContent).toContain("Face Swap");
+    expect(dom.shareCta.textContent).toContain("Share");
+    expect(dom.shareCta.closest(".studio-actions")).not.toBeNull();
     expect(dom.projectMenu.classList.contains("hidden")).toBe(true);
 
     dom.projectMenuCta.click();

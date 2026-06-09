@@ -136,8 +136,8 @@ export function render(ctx) {
     const showingHome           = state.view === "home";
     const showingTemplates      = state.view === "templates";
     const showingStudio         = state.view === "studio";
-    const showingAiPrompt       = state.view === "ai_prompt";
     const aiPromptPanelOpen     = state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen;
+    const hasSwapResult         = Boolean(state.editor.generatedImage);
     const selectedTemplate      = getSelectedTemplate();
     const selectedFaceCount     = getSelectedFaces().length;
     const selectableFaceLimit   = getSelectableFaceLimit();
@@ -151,7 +151,6 @@ export function render(ctx) {
     dom.topbar?.classList.toggle("hidden", showingHome);
     dom.backBtn?.classList.toggle("hidden", showingHome);
     dom.saveCta?.classList.toggle("hidden", !showingStudio);
-    dom.shareCta?.classList.toggle("hidden", !showingStudio);
     dom.projectMenuCta?.classList.toggle("hidden", !showingStudio);
     dom.projectMenu?.classList.toggle("hidden", !showingStudio || !state.projectMenuOpen);
     dom.projectMenuCta?.setAttribute("aria-expanded", String(showingStudio && state.projectMenuOpen));
@@ -159,8 +158,9 @@ export function render(ctx) {
     dom.reviewShell.classList.toggle("hidden", !reviewingCameraPhoto);
     dom.templateScreen.classList.toggle("hidden", !showingTemplates);
     dom.studioScreen.classList.toggle("hidden", !showingStudio);
-    dom.aiPromptScreen?.classList.toggle("hidden", !showingAiPrompt);
+    dom.studioEditorTools?.classList.toggle("hidden", !showingStudio || !hasSwapResult);
     dom.uploadModal.classList.toggle("hidden", !state.uploadModalOpen);
+    dom.aiPromptPanel?.classList.toggle("hidden", !showingStudio || !aiPromptPanelOpen);
     dom.vibeContainer?.classList.toggle("hidden", showingStudio && aiPromptPanelOpen);
     dom.resetConfirmation.classList.toggle("hidden", !showingStudio || !state.showResetConfirmation);
     dom.backConfirmation.classList.toggle("hidden",  !showingStudio || !state.showBackConfirmation);
@@ -219,7 +219,7 @@ export function render(ctx) {
         handle.disabled = transformDisabled;
     });
 
-    dom.textToolbar.classList.toggle("hidden", !showingStudio);
+    dom.textToolbar.classList.toggle("hidden", !showingStudio || !hasSwapResult);
     dom.textLocalControls.classList.toggle("hidden",
         !showingStudio || !state.editor.overlayVisible || !state.isTextSelected
     );

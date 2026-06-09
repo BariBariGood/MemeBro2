@@ -54,7 +54,7 @@ export function registerEvents(ctx) {
         dom,
         state,
         render,
-        routeAiImageToFaceSwap: ctx.routeAiImageToFaceSwap,
+        recordEditorSnapshot: ctx.recordEditorSnapshot,
     });
 
     async function submitFaceSwapWithErrorHandling() {
@@ -166,12 +166,8 @@ export function registerEvents(ctx) {
     // ── Navigation ───────────────────────────────
     dom.titleStartCta?.addEventListener("click", async () => { await showTemplateSelection(); });
     dom.backBtn.addEventListener("click", () => {
-        if (state.view === "ai_prompt") {
-            state.view = "templates";
-            state.isAiPromptPanelOpen = false;
-            if (state.aiPrompt) state.aiPrompt.panelState = "closed";
-            render();
-            renderTemplates();
+        if (state.aiPrompt?.panelState === "open" || state.isAiPromptPanelOpen) {
+            aiPrompting.closePanel();
             return;
         }
         goBackToUploadChoices();

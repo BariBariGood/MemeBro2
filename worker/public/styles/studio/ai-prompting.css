@@ -1,15 +1,12 @@
-.ai-prompt-screen {
-    min-height: min(680px, calc(100dvh - 104px));
-    display: grid;
-    place-items: center;
-    padding: 48px 24px;
-    align-content: center;
-    gap: 18px;
+.ai-prompt-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-.ai-prompt-screen p,
-.ai-prompt-screen textarea,
-.ai-prompt-screen button {
+.ai-prompt-panel p,
+.ai-prompt-panel textarea,
+.ai-prompt-panel button {
     font-size: 1rem;
 }
 
