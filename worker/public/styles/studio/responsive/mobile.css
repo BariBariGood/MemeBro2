@@ -27,9 +27,9 @@
     .brand { font-size: 0.68rem; }
 
     .save-action {
-        width: 30px;
-        min-width: 30px;
-        min-height: 30px;
+        width: 44px;
+        min-width: 44px;
+        min-height: 44px;
         padding: 0;
         font-size: 0.78rem;
         border: 0;
@@ -40,9 +40,9 @@
     }
 
     .topbar-action {
-        width: 30px;
-        min-width: 30px;
-        min-height: 30px;
+        width: 44px;
+        min-width: 44px;
+        min-height: 44px;
         padding: 0;
         border: 0;
         border-radius: 0;
@@ -252,7 +252,7 @@
     .studio-template-card { width: 100%; gap: 0; }
 
     .studio-template-art {
-        max-width: 100vw;
+        max-width: calc(100vw - 32px);
         max-height: calc(100dvh - 250px - env(safe-area-inset-bottom));
         border-radius: 0;
         border-inline: none;
@@ -264,10 +264,10 @@
     .meme-text-preview {
         max-width: 90%;
         min-width: 96px;
-        min-height: 40px;
-        padding: 2px 4px;
-        font-size: clamp(1rem, 5vw, 1.4rem);
-        line-height: 1.12;
+        min-height: 44px;
+        padding: 4px 6px;
+        font-size: clamp(1.1rem, 5vw, 1.4rem);
+        line-height: 1.15;
     }
 
     /* ── Text toolbar: floating pill ── */
@@ -295,11 +295,11 @@
     .text-toolbar::-webkit-scrollbar { display: none; }
 
     /* ── Toolbar control overrides ── */
-    .toolbar-select    { max-width: 46vw; min-width: 120px; }
-    .toolbar-size-input { width: 56px; }
-    .toolbar-btn       { min-height: 34px; min-width: 34px; padding: 0 6px; }
+    .toolbar-select    { max-width: 46vw; min-width: 120px; min-height: 44px; }
+    .toolbar-size-input { width: 56px; min-height: 44px; }
+    .toolbar-btn       { min-height: 44px; min-width: 44px; padding: 0 6px; }
     .toolbar-color-group { font-size: 0.62rem; }
-    .toolbar-color-input { width: 36px; min-height: 32px; }
+    .toolbar-color-input { width: 44px; min-height: 44px; }
 
     /* ── Local text controls ── */
     .text-local-controls { gap: 2px; padding: 5px; border-radius: 12px; }

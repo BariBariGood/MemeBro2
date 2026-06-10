@@ -187,7 +187,7 @@ progress {
   background: transparent;
   color: rgba(255, 255, 255, 0.86);
   border-radius: 8px;
-  min-height: 36px;
+  min-height: 44px;
   padding: 4px 8px;
   font-weight: 500;
   transition: background 160ms ease, color 160ms ease, transform 120ms ease;
@@ -214,7 +214,7 @@ progress {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 18px;
   border-radius: var(--radius-pill);
   background: linear-gradient(90deg, var(--color-lime) 0%, #8de335 100%);
@@ -263,7 +263,7 @@ progress {
   align-items: center;
   justify-content: center;
   gap: 7px;
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 14px;
   font-size: 0.86rem;
 }
@@ -308,7 +308,7 @@ progress {
   align-items: center;
   justify-content: flex-start;
   gap: 9px;
-  min-height: 38px;
+  min-height: 44px;
   padding: 8px 10px;
   border-radius: 10px;
   background: transparent;
