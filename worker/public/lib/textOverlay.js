@@ -334,10 +334,16 @@ export function beginInlineTextEdit(event, { dom, render }) {
     render();
 }
 
-export function selectTextObject(event, { render }) {
+export function selectTextObject(event, { render, beginInlineTextEdit }) {
     event?.stopPropagation();
     if (!state.editor.overlayVisible) return;
     if (state.textDidDrag) return;
+    if (beginInlineTextEdit &&
+        (state.editor.overlayText || "").trim().toUpperCase() === DEFAULT_MEME_TEXT) {
+        state.showTextMore = false;
+        beginInlineTextEdit(event);
+        return;
+    }
     state.isTextSelected = true;
     state.showTextMore   = false;
     render();
